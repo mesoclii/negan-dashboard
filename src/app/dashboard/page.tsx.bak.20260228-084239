@@ -1,0 +1,218 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type Guild = { id: string; name: string };
+
+type DashboardConfig = {
+  features?: Record<string, boolean>;
+  security?: {
+    preOnboarding?: Record<string, any>;
+    onboarding?: Record<string, any>;
+    verification?: Record<string, any>;
+    lockdown?: Record<string, any>;
+    raid?: Record<string, any>;
+  };
+};
+
+export default function DashboardOverviewPage() {
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [guildId, setGuildId] = useState("");
+  const [cfg, setCfg] = useState<DashboardConfig>({});
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const guildName = useMemo(
+    () => guilds.find((g) => g.id === guildId)?.name || guildId,
+    [guilds, guildId]
+  );
+
+  function withGuild(path: string) {
+    if (!guildId) return path;
+    return `${path}${path.includes("?") ? "&" : "?"}guildId=${encodeURIComponent(guildId)}`;
+  }
+
+  const f = (k: string) => Boolean((cfg.features || {})[k]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/bot/guilds");
+        const j = await r.json();
+        const list: Guild[] = Array.isArray(j?.guilds) ? j.guilds : [];
+        setGuilds(list);
+
+        const q = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("guildId") || "" : "";
+        const s = typeof window !== "undefined" ? localStorage.getItem("activeGuildId") || "" : "";
+        const next = q || s || list[0]?.id || "";
+        setGuildId(next);
+
+        if (next && typeof window !== "undefined") {
+          localStorage.setItem("activeGuildId", next);
+          const u = new URL(window.location.href);
+          u.searchParams.set("guildId", next);
+          window.history.replaceState({}, "", u.toString());
+        }
+      } catch {
+        setMsg("Failed to load guild list.");
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!guildId) {
+      setLoading(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        setLoading(true);
+        setMsg("");
+        const r = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`);
+        const j = await r.json();
+        if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load config");
+        setCfg(j?.config || {});
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load dashboard config.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [guildId]);
+
+  function switchGuild(next: string) {
+    setGuildId(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("activeGuildId", next);
+      const u = new URL(window.location.href);
+      u.searchParams.set("guildId", next);
+      window.history.replaceState({}, "", u.toString());
+    }
+  }
+
+  const cardStyle: React.CSSProperties = {
+    border: "1px solid #7a0000",
+    borderRadius: 12,
+    padding: 16,
+    background: "rgba(120,0,0,0.08)",
+    display: "grid",
+    gap: 8
+  };
+
+  const pill = (on: boolean) => (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "4px 8px",
+        borderRadius: 999,
+        border: "1px solid #7a0000",
+        color: on ? "#b7ffb7" : "#ff9d9d",
+        background: on ? "rgba(0,120,0,0.25)" : "rgba(120,0,0,0.25)",
+        fontSize: 12,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase"
+      }}
+    >
+      {on ? "Enabled" : "Disabled"}
+    </span>
+  );
+
+  return (
+    <div style={{ color: "#ff5252", padding: 22 }}>
+      <h1 style={{ margin: 0, letterSpacing: "0.16em", textTransform: "uppercase", color: "#ff2a2a" }}>
+        Control Overview
+      </h1>
+      <p style={{ marginTop: 8 }}>Guild-scoped dashboard. Saviors can stay baseline, all others can stay blank until configured.</p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, maxWidth: 900, marginBottom: 14 }}>
+        <select
+          value={guildId}
+          onChange={(e) => switchGuild(e.target.value)}
+          style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #7a0000", background: "#0d0d0d", color: "#ffd2d2" }}
+        >
+          {guilds.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name} ({g.id})
+            </option>
+          ))}
+        </select>
+
+        <Link
+          href={withGuild("/dashboard/setup")}
+          style={{
+            textDecoration: "none",
+            textAlign: "center",
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: "1px solid #a70000",
+            background: "#1a0000",
+            color: "#ff6767",
+            fontWeight: 800
+          }}
+        >
+          Setup
+        </Link>
+      </div>
+
+      <p style={{ color: "#ff8a8a" }}>{guildName ? `Active: ${guildName}` : ""} {msg ? `• ${msg}` : ""}</p>
+      {loading ? <p>Loading...</p> : null}
+
+      {!loading && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Security</h3>
+            <div>Pre-Onboarding {pill(Boolean(cfg.security?.preOnboarding))}</div>
+            <div>Verification {pill(f("verificationEnabled"))}</div>
+            <div>Onboarding {pill(f("onboardingEnabled"))}</div>
+            <Link href={withGuild("/dashboard/security")} style={{ color: "#ff9d9d" }}>Open Security</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Access</h3>
+            <div>Tickets {pill(f("ticketsEnabled"))}</div>
+            <div>TTS {pill(f("ttsEnabled"))}</div>
+            <div>Governance {pill(f("governanceEnabled"))}</div>
+            <Link href={withGuild("/dashboard/access")} style={{ color: "#ff9d9d" }}>Open Access</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Economy</h3>
+            <div>Economy {pill(f("economyEnabled"))}</div>
+            <div>Birthdays {pill(f("birthdayEnabled"))}</div>
+            <Link href={withGuild("/dashboard/economy")} style={{ color: "#ff9d9d" }}>Open Economy</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Games</h3>
+            <div>Rare Drop {pill(f("rareDropEnabled"))}</div>
+            <div>Pokemon {pill(f("pokemonEnabled"))}</div>
+            <div>Giveaways {pill(f("giveawaysEnabled"))}</div>
+            <Link href={withGuild("/dashboard/games")} style={{ color: "#ff9d9d" }}>Open Games</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>GTA Ops</h3>
+            <div>Heist {pill(f("heistEnabled"))}</div>
+            <Link href={withGuild("/dashboard/gta-ops")} style={{ color: "#ff9d9d" }}>Open GTA Ops</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>AI Personas</h3>
+            <div>AI Engine {pill(f("aiEnabled"))}</div>
+            <div>Separate from bot persona settings.</div>
+            <Link href={withGuild("/dashboard/ai/persona")} style={{ color: "#ff9d9d" }}>Open AI Personas</Link>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={{ margin: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}>Automation</h3>
+            <div>Custom Commands + Automations</div>
+            <Link href={withGuild("/dashboard/automations")} style={{ color: "#ff9d9d" }}>Open Automations</Link>
+            <Link href={withGuild("/dashboard/custom-commands")} style={{ color: "#ff9d9d" }}>Open Command Studio</Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

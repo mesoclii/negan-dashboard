@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { PossumCard } from "@/components/possum/PossumCard";
+import { possum } from "@/styles/possumTheme";
+
+type VerificationConfig = {
+  autoKickOnDecline: boolean;
+  autoKickOnTimeout: boolean;
+  declineKickReason: string;
+  timeoutKickReason: string;
+  declineReplyTemplate: string;
+};
+
+const DEFAULTS: VerificationConfig = {
+  autoKickOnDecline: true,
+  autoKickOnTimeout: true,
+  declineKickReason: "Declined ID verification",
+  timeoutKickReason: "ID submission timeout",
+  declineReplyTemplate: "You declined ID verification.",
+};
+
+export default function VerificationConfigPage() {
+  const searchParams = useSearchParams();
+  const guildId = String(searchParams?.get("guildId") || "").trim();
+
+  const [cfg, setCfg] = useState<VerificationConfig>(DEFAULTS);
+  const [status, setStatus] = useState("Loading...");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!guildId) return;
+
+    async function load() {
+      try {
+        setStatus("Loading verification config...");
+        const res = await fetch(
+          `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=verification`
+        );
+        const data = await res.json();
+        if (!data?.success) throw new Error(data?.error || "Failed to load verification config");
+        setCfg({ ...DEFAULTS, ...(data.config || {}) });
+        setStatus("");
+      } catch (err: any) {
+        setStatus(String(err?.message || err));
+      }
+    }
+
+    load();
+  }, [guildId]);
+
+  async function save() {
+    if (!guildId) return;
+
+    try {
+      setSaving(true);
+      setStatus("");
+      const res = await fetch("/api/bot/engine-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "verification",
+          config: cfg,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Save failed");
+      }
+
+      setCfg({ ...DEFAULTS, ...(data.config || {}) });
+      setStatus("Saved");
+    } catch (err: any) {
+      setStatus(String(err?.message || err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!guildId) {
+    return <div style={{ color: possum.soft }}>Missing guildId. Open from /guilds first.</div>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div
+        className="possum-red possum-glow"
+        style={{ fontSize: 30, fontWeight: 950, letterSpacing: "0.22em", textTransform: "uppercase" }}
+      >
+        Verification Config
+      </div>
+
+      {status ? <div style={{ color: possum.soft }}>{status}</div> : null}
+
+      <PossumCard title="Behavior Controls" description="Fine-tune decline and timeout behavior.">
+        <div style={{ display: "grid", gap: 12 }}>
+          <label style={{ color: possum.soft }}>
+            <input
+              type="checkbox"
+              checked={!!cfg.autoKickOnDecline}
+              onChange={(e) => setCfg((v) => ({ ...v, autoKickOnDecline: e.target.checked }))}
+            />{" "}
+            Auto-kick on decline
+          </label>
+
+          <label style={{ color: possum.soft }}>
+            <input
+              type="checkbox"
+              checked={!!cfg.autoKickOnTimeout}
+              onChange={(e) => setCfg((v) => ({ ...v, autoKickOnTimeout: e.target.checked }))}
+            />{" "}
+            Auto-kick on timeout
+          </label>
+
+          <div>
+            <div style={{ color: possum.soft, marginBottom: 4 }}>Decline Kick Reason</div>
+            <input
+              value={cfg.declineKickReason}
+              onChange={(e) => setCfg((v) => ({ ...v, declineKickReason: e.target.value }))}
+              style={{ width: "100%", padding: 10, borderRadius: 10, border: `1px solid ${possum.border}`, background: "#0b0b0b", color: "#fff" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ color: possum.soft, marginBottom: 4 }}>Timeout Kick Reason</div>
+            <input
+              value={cfg.timeoutKickReason}
+              onChange={(e) => setCfg((v) => ({ ...v, timeoutKickReason: e.target.value }))}
+              style={{ width: "100%", padding: 10, borderRadius: 10, border: `1px solid ${possum.border}`, background: "#0b0b0b", color: "#fff" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ color: possum.soft, marginBottom: 4 }}>Decline Reply Template</div>
+            <textarea
+              rows={5}
+              value={cfg.declineReplyTemplate}
+              onChange={(e) => setCfg((v) => ({ ...v, declineReplyTemplate: e.target.value }))}
+              style={{ width: "100%", padding: 10, borderRadius: 10, border: `1px solid ${possum.border}`, background: "#0b0b0b", color: "#fff", resize: "vertical" }}
+            />
+          </div>
+        </div>
+      </PossumCard>
+
+      <div>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="possum-btn"
+          style={{ padding: "12px 18px", opacity: saving ? 0.7 : 1 }}
+        >
+          {saving ? "Saving..." : "Save Verification Config"}
+        </button>
+      </div>
+    </div>
+  );
+}

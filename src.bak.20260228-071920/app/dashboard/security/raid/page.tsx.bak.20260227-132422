@@ -1,0 +1,10 @@
+import SecurityLockdownEditor from "@/components/possum/SecurityLockdownEditor";
+
+export default function RaidPage() {
+  return (
+    <SecurityLockdownEditor
+      title="Raid Config"
+      description="Raid posture profile using the same live enforcement model."
+    />
+  );
+}

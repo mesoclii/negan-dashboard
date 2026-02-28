@@ -1,0 +1,99 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type DashConfig = {
+  features?: Record<string, boolean>;
+  giveaways?: { channelId?: string | null; ticketChannelId?: string | null; defaultImageUrl?: string | null };
+};
+
+function getGuildId() {
+  if (typeof window === "undefined") return "";
+  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
+  const fromStore = localStorage.getItem("activeGuildId") || "";
+  return (fromUrl || fromStore).trim();
+}
+
+function withGuild(path: string, guildId: string) {
+  if (!guildId) return path;
+  const glue = path.includes("?") ? "&" : "?";
+  return `${path}${glue}guildId=${encodeURIComponent(guildId)}`;
+}
+
+export default function EconomyPage() {
+  const [guildId, setGuildId] = useState("");
+  const [cfg, setCfg] = useState<DashConfig>({});
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    setGuildId(getGuildId());
+  }, []);
+
+  useEffect(() => {
+    if (!guildId) return;
+    (async () => {
+      const r = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`);
+      const j = await r.json();
+      setCfg(j?.config || {});
+    })();
+  }, [guildId]);
+
+  const f = cfg.features || {};
+  const giveaways = cfg.giveaways || {};
+  const giveawaysConfigured = useMemo(
+    () => Boolean(giveaways.channelId || giveaways.ticketChannelId || giveaways.defaultImageUrl),
+    [giveaways.channelId, giveaways.ticketChannelId, giveaways.defaultImageUrl]
+  );
+
+  async function saveFeature(key: "economyEnabled" | "birthdayEnabled", value: boolean) {
+    if (!guildId) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/bot/dashboard-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guildId, patch: { features: { [key]: value } } })
+      });
+      const data = await res.json();
+      if (!res.ok || data?.success === false) throw new Error(data?.error || "Save failed");
+      setCfg((prev) => ({ ...prev, features: { ...(prev.features || {}), [key]: value } }));
+      setMsg("Saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ color: "#ff5252", padding: 24, maxWidth: 1100 }}>
+      <h1 style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>Economy Command</h1>
+      <p>Guild: {guildId || "Missing guildId (open from /guilds)"}</p>
+
+      <div style={{ border: "1px solid #7a0000", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+        <h3 style={{ marginTop: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Core</h3>
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <input type="checkbox" checked={!!f.economyEnabled} onChange={(e) => saveFeature("economyEnabled", e.target.checked)} disabled={saving} /> economyEnabled
+        </label>
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <input type="checkbox" checked={!!f.birthdayEnabled} onChange={(e) => saveFeature("birthdayEnabled", e.target.checked)} disabled={saving} /> birthdayEnabled
+        </label>
+        {msg ? <p>{msg}</p> : null}
+      </div>
+
+      <div style={{ border: "1px solid #7a0000", borderRadius: 12, padding: 16 }}>
+        <h3 style={{ marginTop: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Giveaways (Under Economy)</h3>
+        <p>Status: {giveawaysConfigured ? "Configured" : "Not configured yet"}</p>
+        <p>Default Channel: {giveaways.channelId || "Not set"}</p>
+        <p>Ticket Claim Channel: {giveaways.ticketChannelId || "Not set"}</p>
+        <p>Default Image: {giveaways.defaultImageUrl ? "Set" : "Not set"}</p>
+        <Link href={withGuild("/dashboard/giveaways", guildId)} style={{ color: "#ffd2d2", textDecoration: "none" }}>
+          Open Giveaways Config
+        </Link>
+      </div>
+    </div>
+  );
+}

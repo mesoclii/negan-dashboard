@@ -1,0 +1,606 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type GuildRole = { id: string; name: string; position?: number };
+type GuildChannel = { id: string; name: string; type?: number | string };
+
+type CustomCommand = {
+  id: string;
+  guildId: string;
+  name: string;
+  description?: string | null;
+  enabled: boolean;
+  hideFromHelp: boolean;
+  staffOnly: boolean;
+  roleRequired?: string | null;
+  cooldownSec: number;
+  costCoins: number;
+  actions: any[];
+};
+
+type ActionMode =
+  | "send_channel"
+  | "reply_current"
+  | "send_dm"
+  | "add_role"
+  | "remove_role"
+  | "react"
+  | "delay"
+  | "create_thread"
+  | "passthrough";
+
+type ActionDraft = {
+  id: string;
+  mode: ActionMode;
+  channelId: string;
+  roleId: string;
+  content: string;
+  ephemeral: boolean;
+  emoji: string;
+  delayMs: string;
+  threadName: string;
+  rawAction?: any; // keep unknown actions with zero loss
+};
+
+type DraftCommand = {
+  id?: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  hideFromHelp: boolean;
+  staffOnly: boolean;
+  roleRequired: string;
+  cooldownSec: string;
+  costCoins: string;
+  actions: ActionDraft[];
+};
+
+const ACTION_CARDS: Array<{ mode: ActionMode; label: string; desc: string }> = [
+  { mode: "send_channel", label: "Send Message (Channel)", desc: "Post message in selected channel" },
+  { mode: "reply_current", label: "Reply in Current Channel", desc: "Reply where command is used" },
+  { mode: "send_dm", label: "Send DM", desc: "DM the user who ran command" },
+  { mode: "add_role", label: "Give Role", desc: "Add role to the user" },
+  { mode: "remove_role", label: "Remove Role", desc: "Remove role from the user" },
+  { mode: "react", label: "React", desc: "React with emoji" },
+  { mode: "delay", label: "Delay", desc: "Wait before next action" },
+  { mode: "create_thread", label: "Create Thread", desc: "Create thread from current message" }
+];
+
+function makeId() {
+  return `${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+}
+
+function getGuildId(): string {
+  if (typeof window === "undefined") return "";
+  const p = new URLSearchParams(window.location.search);
+  const fromUrl = String(p.get("guildId") || "").trim();
+  const fromStore = String(localStorage.getItem("activeGuildId") || "").trim();
+  const guildId = fromUrl || fromStore || "";
+  if (guildId) {
+    localStorage.setItem("activeGuildId", guildId);
+    if (!fromUrl) {
+      p.set("guildId", guildId);
+      window.history.replaceState({}, "", `${window.location.pathname}?${p.toString()}`);
+    }
+  }
+  return guildId;
+}
+
+function emptyDraft(): DraftCommand {
+  return {
+    name: "",
+    description: "",
+    enabled: true,
+    hideFromHelp: false,
+    staffOnly: false,
+    roleRequired: "",
+    cooldownSec: "0",
+    costCoins: "0",
+    actions: []
+  };
+}
+
+function fromApiAction(a: any): ActionDraft {
+  const type = String(a?.type || "").toUpperCase();
+  const c = a?.config || {};
+
+  if (type === "SEND_MESSAGE") {
+    return { id: makeId(), mode: "send_channel", channelId: String(c.channelId || ""), roleId: "", content: String(c.content || ""), ephemeral: false, emoji: "", delayMs: "0", threadName: "" };
+  }
+  if (type === "REPLY") {
+    return { id: makeId(), mode: "reply_current", channelId: "", roleId: "", content: String(c.content || ""), ephemeral: !!c.ephemeral, emoji: "", delayMs: "0", threadName: "" };
+  }
+  if (type === "DM") {
+    return { id: makeId(), mode: "send_dm", channelId: "", roleId: "", content: String(c.content || ""), ephemeral: false, emoji: "", delayMs: "0", threadName: "" };
+  }
+  if (type === "ADD_ROLE") {
+    return { id: makeId(), mode: "add_role", channelId: "", roleId: String(c.roleId || ""), content: "", ephemeral: false, emoji: "", delayMs: "0", threadName: "" };
+  }
+  if (type === "REMOVE_ROLE") {
+    return { id: makeId(), mode: "remove_role", channelId: "", roleId: String(c.roleId || ""), content: "", ephemeral: false, emoji: "", delayMs: "0", threadName: "" };
+  }
+  if (type === "REACT") {
+    return { id: makeId(), mode: "react", channelId: "", roleId: "", content: "", ephemeral: false, emoji: String(c.emoji || ""), delayMs: "0", threadName: "" };
+  }
+  if (type === "DELAY") {
+    return { id: makeId(), mode: "delay", channelId: "", roleId: "", content: "", ephemeral: false, emoji: "", delayMs: String(c.ms ?? 1000), threadName: "" };
+  }
+  if (type === "CREATE_THREAD") {
+    return { id: makeId(), mode: "create_thread", channelId: "", roleId: "", content: "", ephemeral: false, emoji: "", delayMs: "0", threadName: String(c.name || "Thread") };
+  }
+
+  return {
+    id: makeId(),
+    mode: "passthrough",
+    channelId: "",
+    roleId: "",
+    content: "",
+    ephemeral: false,
+    emoji: "",
+    delayMs: "0",
+    threadName: "",
+    rawAction: a
+  };
+}
+
+function toApiAction(step: ActionDraft) {
+  if (step.mode === "passthrough" && step.rawAction) return step.rawAction;
+
+  if (step.mode === "send_channel") return { type: "SEND_MESSAGE", config: { channelId: step.channelId, content: step.content } };
+  if (step.mode === "reply_current") return { type: "REPLY", config: { content: step.content, ephemeral: step.ephemeral } };
+  if (step.mode === "send_dm") return { type: "DM", config: { content: step.content } };
+  if (step.mode === "add_role") return { type: "ADD_ROLE", config: { roleId: step.roleId } };
+  if (step.mode === "remove_role") return { type: "REMOVE_ROLE", config: { roleId: step.roleId } };
+  if (step.mode === "react") return { type: "REACT", config: { emoji: step.emoji } };
+  if (step.mode === "delay") return { type: "DELAY", config: { ms: Number(step.delayMs || 0) } };
+  if (step.mode === "create_thread") return { type: "CREATE_THREAD", config: { name: step.threadName || "Thread" } };
+
+  return { type: "REPLY", config: { content: "No action configured." } };
+}
+
+export default function CustomCommandsPage() {
+  const [guildId, setGuildId] = useState("");
+  const [roles, setRoles] = useState<GuildRole[]>([]);
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [commands, setCommands] = useState<CustomCommand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [selectedId, setSelectedId] = useState<string>("new");
+  const [draft, setDraft] = useState<DraftCommand>(emptyDraft());
+
+  const selected = useMemo(() => commands.find((c) => c.id === selectedId), [commands, selectedId]);
+
+  async function loadGuildData(targetGuildId: string) {
+    const r = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`);
+    const j = await r.json();
+    setRoles(Array.isArray(j?.roles) ? j.roles : []);
+    setChannels(Array.isArray(j?.channels) ? j.channels : []);
+  }
+
+  async function loadCommands(targetGuildId: string) {
+    const r = await fetch(`/api/bot/commands?guildId=${encodeURIComponent(targetGuildId)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j?.error || "Failed to load commands");
+    setCommands(Array.isArray(j) ? j : []);
+  }
+
+  async function loadAll(targetGuildId: string) {
+    setLoading(true);
+    setMsg("");
+    try {
+      await Promise.all([loadGuildData(targetGuildId), loadCommands(targetGuildId)]);
+    } catch (e: any) {
+      setMsg(e?.message || "Load failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const gid = getGuildId();
+    setGuildId(gid);
+    if (gid) loadAll(gid);
+    else setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (selectedId === "new") {
+      setDraft(emptyDraft());
+      return;
+    }
+
+    const c = commands.find((x) => x.id === selectedId);
+    if (!c) return;
+
+    setDraft({
+      id: c.id,
+      name: c.name || "",
+      description: String(c.description || ""),
+      enabled: !!c.enabled,
+      hideFromHelp: !!c.hideFromHelp,
+      staffOnly: !!c.staffOnly,
+      roleRequired: String(c.roleRequired || ""),
+      cooldownSec: String(c.cooldownSec ?? 0),
+      costCoins: String(c.costCoins ?? 0),
+      actions: Array.isArray(c.actions) ? c.actions.map(fromApiAction) : []
+    });
+  }, [selectedId, commands]);
+
+  function updateDraft<K extends keyof DraftCommand>(key: K, value: DraftCommand[K]) {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function addAction(mode: ActionMode) {
+    const base: ActionDraft = {
+      id: makeId(),
+      mode,
+      channelId: "",
+      roleId: "",
+      content: "",
+      ephemeral: false,
+      emoji: "",
+      delayMs: "1000",
+      threadName: "Thread"
+    };
+    setDraft((prev) => ({ ...prev, actions: [...prev.actions, base] }));
+  }
+
+  function updateAction(id: string, patch: Partial<ActionDraft>) {
+    setDraft((prev) => ({
+      ...prev,
+      actions: prev.actions.map((a) => (a.id === id ? { ...a, ...patch } : a))
+    }));
+  }
+
+  function removeAction(id: string) {
+    setDraft((prev) => ({ ...prev, actions: prev.actions.filter((a) => a.id !== id) }));
+  }
+
+  function moveAction(id: string, dir: -1 | 1) {
+    setDraft((prev) => {
+      const idx = prev.actions.findIndex((a) => a.id === id);
+      if (idx < 0) return prev;
+      const nextIdx = idx + dir;
+      if (nextIdx < 0 || nextIdx >= prev.actions.length) return prev;
+      const arr = [...prev.actions];
+      const tmp = arr[idx];
+      arr[idx] = arr[nextIdx];
+      arr[nextIdx] = tmp;
+      return { ...prev, actions: arr };
+    });
+  }
+
+  async function saveCommand() {
+    if (!guildId) return;
+
+    const cleanName = draft.name.replace(/^!+/, "").trim().toLowerCase();
+    if (!cleanName) {
+      setMsg("Command name is required.");
+      return;
+    }
+    if (!draft.actions.length) {
+      setMsg("Add at least one action.");
+      return;
+    }
+
+    setSaving(true);
+    setMsg("");
+
+    try {
+      const payload = {
+        guildId,
+        name: cleanName,
+        description: draft.description || null,
+        enabled: draft.enabled,
+        hideFromHelp: draft.hideFromHelp,
+        staffOnly: draft.staffOnly,
+        roleRequired: draft.roleRequired || null,
+        cooldownSec: Number(draft.cooldownSec || 0),
+        costCoins: Number(draft.costCoins || 0),
+        actions: draft.actions.map(toApiAction),
+        createdBy: "dashboard"
+      };
+
+      if (!draft.id) {
+        const r = await fetch("/api/bot/commands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.error || "Create failed");
+      } else {
+        const r = await fetch(`/api/bot/command/${encodeURIComponent(draft.id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.error || "Update failed");
+      }
+
+      await loadCommands(guildId);
+      setMsg(draft.id ? "Command updated." : "Command created.");
+      if (!draft.id) setSelectedId("new");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function quickToggle(cmd: CustomCommand) {
+    try {
+      const r = await fetch(`/api/bot/command/${encodeURIComponent(cmd.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !cmd.enabled })
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Toggle failed");
+      await loadCommands(guildId);
+    } catch (e: any) {
+      setMsg(e?.message || "Toggle failed");
+    }
+  }
+
+  async function quickDelete(cmd: CustomCommand) {
+    try {
+      const r = await fetch(`/api/bot/command/${encodeURIComponent(cmd.id)}`, { method: "DELETE" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Delete failed");
+      await loadCommands(guildId);
+      if (selectedId === cmd.id) setSelectedId("new");
+    } catch (e: any) {
+      setMsg(e?.message || "Delete failed");
+    }
+  }
+
+  if (!guildId) return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+
+  return (
+    <div style={{ color: "#ff6b6b", maxWidth: 1300 }}>
+      <h1 style={h1Style}>Custom Commands</h1>
+      <p style={{ marginTop: 0 }}>Guild: {guildId}</p>
+      {msg ? <p style={{ color: "#ffb3b3" }}>{msg}</p> : null}
+      {loading ? <p>Loading...</p> : null}
+
+      {!loading ? (
+        <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: 14 }}>
+          <div style={cardStyle}>
+            <button onClick={() => setSelectedId("new")} style={btnPrimary}>+ New Command</button>
+
+            <div style={{ marginTop: 12, display: "grid", gap: 8, maxHeight: 680, overflowY: "auto" }}>
+              {commands.map((cmd) => (
+                <div key={cmd.id} style={{ ...miniCard, borderColor: selectedId === cmd.id ? "#aa0000" : "#5f0000" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <button onClick={() => setSelectedId(cmd.id)} style={linkButton}>!{cmd.name}</button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => quickToggle(cmd)} style={btnGhostMini}>{cmd.enabled ? "On" : "Off"}</button>
+                      <button onClick={() => quickDelete(cmd)} style={btnDangerMini}>X</button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#ff9d9d" }}>
+                    {cmd.enabled ? "Enabled" : "Disabled"} • {cmd.cooldownSec || 0}s
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <h3 style={h3Style}>{draft.id ? `Edit !${draft.name}` : "Create Command"}</h3>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <input value={draft.name} onChange={(e) => updateDraft("name", e.target.value)} placeholder="command name (no ! needed)" style={inputStyle} />
+              <select value={draft.roleRequired} onChange={(e) => updateDraft("roleRequired", e.target.value)} style={inputStyle}>
+                <option value="">No required role</option>
+                {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+
+              <input value={draft.cooldownSec} onChange={(e) => updateDraft("cooldownSec", e.target.value)} placeholder="cooldown seconds" style={inputStyle} />
+              <input value={draft.costCoins} onChange={(e) => updateDraft("costCoins", e.target.value)} placeholder="coin cost" style={inputStyle} />
+            </div>
+
+            <textarea value={draft.description} onChange={(e) => updateDraft("description", e.target.value)} rows={2} placeholder="description" style={{ ...inputStyle, width: "100%", marginTop: 10 }} />
+
+            <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+              <label><input type="checkbox" checked={draft.enabled} onChange={(e) => updateDraft("enabled", e.target.checked)} /> enabled</label>
+              <label><input type="checkbox" checked={draft.staffOnly} onChange={(e) => updateDraft("staffOnly", e.target.checked)} /> staff only</label>
+              <label><input type="checkbox" checked={draft.hideFromHelp} onChange={(e) => updateDraft("hideFromHelp", e.target.checked)} /> hide from help</label>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <h4 style={h4Style}>Action Builder</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(220px, 1fr))", gap: 8 }}>
+                {ACTION_CARDS.map((a) => (
+                  <button key={a.mode} onClick={() => addAction(a.mode)} style={actionCardBtn}>
+                    <div style={{ fontWeight: 800 }}>{a.label}</div>
+                    <div style={{ fontSize: 12, color: "#ff9d9d" }}>{a.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+              {draft.actions.map((a, idx) => (
+                <div key={a.id} style={actionRow}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                    <strong style={{ color: "#ffdede" }}>Step {idx + 1}: {a.mode.replaceAll("_", " ")}</strong>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => moveAction(a.id, -1)} style={btnGhostMini}>↑</button>
+                      <button onClick={() => moveAction(a.id, 1)} style={btnGhostMini}>↓</button>
+                      <button onClick={() => removeAction(a.id)} style={btnDangerMini}>Remove</button>
+                    </div>
+                  </div>
+
+                  {a.mode === "send_channel" && (
+                    <div style={twoCol}>
+                      <select value={a.channelId} onChange={(e) => updateAction(a.id, { channelId: e.target.value })} style={inputStyle}>
+                        <option value="">Select channel</option>
+                        {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                      </select>
+                      <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="message content" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                    </div>
+                  )}
+
+                  {a.mode === "reply_current" && (
+                    <div style={twoCol}>
+                      <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="reply content" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={a.ephemeral} onChange={(e) => updateAction(a.id, { ephemeral: e.target.checked })} />
+                        ephemeral (slash-style only)
+                      </label>
+                    </div>
+                  )}
+
+                  {a.mode === "send_dm" && (
+                    <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="DM content" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                  )}
+
+                  {(a.mode === "add_role" || a.mode === "remove_role") && (
+                    <select value={a.roleId} onChange={(e) => updateAction(a.id, { roleId: e.target.value })} style={inputStyle}>
+                      <option value="">Select role</option>
+                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                  )}
+
+                  {a.mode === "react" && (
+                    <input value={a.emoji} onChange={(e) => updateAction(a.id, { emoji: e.target.value })} placeholder="emoji (ex: 😀 or 🔥)" style={inputStyle} />
+                  )}
+
+                  {a.mode === "delay" && (
+                    <input value={a.delayMs} onChange={(e) => updateAction(a.id, { delayMs: e.target.value })} placeholder="delay ms (ex: 1500)" style={inputStyle} />
+                  )}
+
+                  {a.mode === "create_thread" && (
+                    <input value={a.threadName} onChange={(e) => updateAction(a.id, { threadName: e.target.value })} placeholder="thread name" style={inputStyle} />
+                  )}
+
+                  {a.mode === "passthrough" && (
+                    <div style={{ fontSize: 12, color: "#ffadad" }}>
+                      Unsupported legacy action preserved automatically (no data loss).
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <button onClick={saveCommand} disabled={saving} style={btnPrimary}>
+                {saving ? "Saving..." : draft.id ? "Save Command" : "Create Command"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const h1Style: React.CSSProperties = {
+  color: "#ff3131",
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+  marginBottom: 6
+};
+
+const h3Style: React.CSSProperties = {
+  margin: "0 0 10px",
+  color: "#ffdada",
+  letterSpacing: "0.08em",
+  textTransform: "uppercase"
+};
+
+const h4Style: React.CSSProperties = {
+  margin: "0 0 8px",
+  color: "#ffdada",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase"
+};
+
+const cardStyle: React.CSSProperties = {
+  border: "1px solid #6f0000",
+  borderRadius: 12,
+  padding: 12,
+  background: "rgba(100,0,0,0.08)"
+};
+
+const miniCard: React.CSSProperties = {
+  border: "1px solid #5f0000",
+  borderRadius: 10,
+  padding: 8,
+  background: "rgba(255,0,0,0.05)"
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: 10,
+  background: "#0d0d0d",
+  border: "1px solid #7a0000",
+  color: "#ffd2d2",
+  borderRadius: 8
+};
+
+const btnPrimary: React.CSSProperties = {
+  border: "1px solid #9a0000",
+  background: "rgba(255,0,0,0.15)",
+  color: "#ffd6d6",
+  padding: "10px 14px",
+  borderRadius: 10,
+  cursor: "pointer"
+};
+
+const btnGhostMini: React.CSSProperties = {
+  border: "1px solid #8a0000",
+  background: "transparent",
+  color: "#ffd6d6",
+  padding: "4px 8px",
+  borderRadius: 8,
+  cursor: "pointer"
+};
+
+const btnDangerMini: React.CSSProperties = {
+  border: "1px solid #9a0000",
+  background: "transparent",
+  color: "#ffb0b0",
+  padding: "4px 8px",
+  borderRadius: 8,
+  cursor: "pointer"
+};
+
+const linkButton: React.CSSProperties = {
+  border: "none",
+  background: "transparent",
+  color: "#ffdede",
+  cursor: "pointer",
+  fontWeight: 800,
+  padding: 0,
+  textAlign: "left"
+};
+
+const actionCardBtn: React.CSSProperties = {
+  border: "1px solid #7a0000",
+  background: "rgba(255,0,0,0.06)",
+  color: "#ffd6d6",
+  borderRadius: 10,
+  padding: "10px 12px",
+  textAlign: "left",
+  cursor: "pointer"
+};
+
+const actionRow: React.CSSProperties = {
+  border: "1px solid #5f0000",
+  borderRadius: 10,
+  padding: 10,
+  background: "rgba(255,0,0,0.04)"
+};
+
+const twoCol: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 10,
+  marginTop: 8
+};

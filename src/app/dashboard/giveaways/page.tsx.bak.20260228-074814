@@ -1,0 +1,68 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function GiveawaysPage() {
+  const [guildId, setGuildId] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("guildId") || "";
+    const s = localStorage.getItem("activeGuildId") || "";
+    const gid = q || s || "";
+    setGuildId(gid);
+    if (gid) {
+      localStorage.setItem("activeGuildId", gid);
+      fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(gid)}`)
+        .then((r) => r.json())
+        .then((j) => setEnabled(!!j?.config?.features?.giveawaysEnabled))
+        .catch(() => {});
+    }
+  }, []);
+
+  async function save() {
+    if (!guildId) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      const r = await fetch("/api/bot/dashboard-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          patch: { features: { giveawaysEnabled: enabled } }
+        })
+      });
+      const j = await r.json();
+      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
+      setMsg("Giveaways settings saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ color: "#ff5252", padding: 24, maxWidth: 980 }}>
+      <h1 style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>Giveaways Engine</h1>
+      <p>Guild: {guildId || "None selected"}</p>
+
+      <div style={{ border: "1px solid #6f0000", borderRadius: 12, padding: 16, background: "rgba(120,0,0,0.08)", marginBottom: 14 }}>
+        <label>
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> giveawaysEnabled
+        </label>
+        <p style={{ marginTop: 10 }}>
+          Custom sent-image support stays in your bot engine. This page controls engine enable/disable per guild.
+        </p>
+      </div>
+
+      <button onClick={save} disabled={saving} style={{ padding: "10px 16px" }}>
+        {saving ? "Saving..." : "Save Giveaways"}
+      </button>
+      {msg ? <p style={{ marginTop: 10 }}>{msg}</p> : null}
+    </div>
+  );
+}
