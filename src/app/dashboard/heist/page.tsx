@@ -5,30 +5,23 @@ import { useEffect, useMemo, useState } from "react";
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string };
 
-const DEFAULT_FEATURES = { aiEnabled: true };
+const DEFAULT_FEATURES = { heistEnabled: true };
 
-const DEFAULT_AI = {
-  enabled: false,
-  planTier: "free",
-  monthlyMessageLimit: 50,
-  model: "gpt-4o-mini",
-  temperature: 0.7,
-  maxTokens: 512,
-  allowNsfw: false,
-  allowedChannelIds: [] as string[],
-  blockedChannelIds: [] as string[],
-  allowedRoleIds: [] as string[],
-  blockedRoleIds: [] as string[],
-  botDisplayName: "",
-  botStatus: "online",
-  activityType: "listening",
-  activityText: "/help",
-  avatarUrl: "",
-  bannerUrl: "",
-  backstoryEnabled: false,
-  backstoryText: "",
-  allowCharacterMarketplace: false,
-  installedCharacterIds: [] as string[]
+const DEFAULT_HEIST = {
+  enabled: true,
+  queueChannelId: "",
+  announcementChannelId: "",
+  transcriptChannelId: "",
+  hostRoleId: "",
+  staffRoleIds: [] as string[],
+  minCrewSize: 2,
+  maxCrewSize: 6,
+  signupTimeoutMinutes: 20,
+  cooldownMinutes: 15,
+  allowMultipleSessions: false,
+  autoCloseOnTimeout: true,
+  openTemplate: "Heist queue is OPEN. React to join.",
+  closeTemplate: "Heist queue closed."
 };
 
 function clone<T>(v: T): T {
@@ -42,13 +35,6 @@ function getGuildIdClient(): string {
   const gid = (fromUrl || fromStore).trim();
   if (gid) localStorage.setItem("activeGuildId", gid);
   return gid;
-}
-
-function parseCsv(v: string): string[] {
-  return String(v || "").split(",").map((x) => x.trim()).filter(Boolean);
-}
-function toCsv(v: string[]): string {
-  return (v || []).join(", ");
 }
 
 function cardStyle(): React.CSSProperties {
@@ -120,7 +106,7 @@ async function saveEngine(guildId: string, engine: string, config: any) {
   throw new Error("Failed to save engine config.");
 }
 
-export default function AiPage() {
+export default function HeistPage() {
   const [guildId, setGuildId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,8 +118,8 @@ export default function AiPage() {
   const [features, setFeatures] = useState<any>(clone(DEFAULT_FEATURES));
   const [baseFeatures, setBaseFeatures] = useState<any>(clone(DEFAULT_FEATURES));
 
-  const [cfg, setCfg] = useState<any>(clone(DEFAULT_AI));
-  const [baseCfg, setBaseCfg] = useState<any>(clone(DEFAULT_AI));
+  const [cfg, setCfg] = useState<any>(clone(DEFAULT_HEIST));
+  const [baseCfg, setBaseCfg] = useState<any>(clone(DEFAULT_HEIST));
 
   const roleOptions = useMemo(() => roles.map((r) => ({ id: r.id, name: `@${r.name}` })), [roles]);
   const channelOptions = useMemo(() => channels.map((c) => ({ id: c.id, name: `#${c.name}` })), [channels]);
@@ -157,28 +143,28 @@ export default function AiPage() {
         setLoading(true);
         setMsg("");
 
-        const [cfgRes, gdRes, aiRes] = await Promise.all([
+        const [cfgRes, gdRes, heistRes] = await Promise.all([
           fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=ai-personas`)
+          fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=heist`)
         ]);
 
         const cfgJson = await cfgRes.json().catch(() => ({}));
         const gdJson = await gdRes.json().catch(() => ({}));
-        const aiJson = await aiRes.json().catch(() => ({}));
+        const heistJson = await heistRes.json().catch(() => ({}));
 
         const mergedFeatures = { ...DEFAULT_FEATURES, ...(cfgJson?.config?.features || {}) };
         setFeatures(mergedFeatures);
         setBaseFeatures(clone(mergedFeatures));
 
-        const mergedCfg = { ...DEFAULT_AI, ...(aiJson?.config || {}) };
+        const mergedCfg = { ...DEFAULT_HEIST, ...(heistJson?.config || {}) };
         setCfg(mergedCfg);
         setBaseCfg(clone(mergedCfg));
 
         setRoles(Array.isArray(gdJson?.roles) ? gdJson.roles : []);
         setChannels(Array.isArray(gdJson?.channels) ? gdJson.channels : []);
       } catch (e: any) {
-        setMsg(e?.message || "Failed loading AI settings.");
+        setMsg(e?.message || "Failed loading heist settings.");
       } finally {
         setLoading(false);
       }
@@ -198,9 +184,9 @@ export default function AiPage() {
     setBaseFeatures(clone(merged));
   }
 
-  async function saveAi() {
-    const json = await saveEngine(guildId, "ai-personas", cfg);
-    const merged = { ...DEFAULT_AI, ...(json?.config || cfg) };
+  async function saveHeist() {
+    const json = await saveEngine(guildId, "heist", cfg);
+    const merged = { ...DEFAULT_HEIST, ...(json?.config || cfg) };
     setCfg(merged);
     setBaseCfg(clone(merged));
   }
@@ -211,8 +197,8 @@ export default function AiPage() {
     setMsg("");
     try {
       if (featuresDirty) await saveFeatures();
-      if (cfgDirty) await saveAi();
-      setMsg("AI Persona settings saved.");
+      if (cfgDirty) await saveHeist();
+      setMsg("GTA Ops settings saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
@@ -221,7 +207,7 @@ export default function AiPage() {
   }
 
   if (!guildId && !loading) return <div style={{ color: "#f87171", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
-  if (loading) return <div style={{ color: "#fecaca", padding: 20 }}>Loading AI settings...</div>;
+  if (loading) return <div style={{ color: "#fecaca", padding: 20 }}>Loading GTA Ops settings...</div>;
 
   return (
     <div style={{ maxWidth: 1240, margin: "0 auto", color: "#fecaca" }}>
@@ -229,9 +215,9 @@ export default function AiPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <div style={{ color: "#fff", fontWeight: 900, fontSize: 20, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-              AI Personas Studio
+              GTA Ops / Heist
             </div>
-            <div style={{ color: "#fca5a5", marginTop: 4, fontSize: 13 }}>Guild: {guildId} (separate from bot persona)</div>
+            <div style={{ color: "#fca5a5", marginTop: 4, fontSize: 13 }}>Guild: {guildId}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span
@@ -284,106 +270,69 @@ export default function AiPage() {
 
       <details open style={cardStyle()}>
         <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", display: "flex", justifyContent: "space-between" }}>
-          <span style={{ color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>Engine & Plan</span>
-          <Pill on={!!features.aiEnabled && !!cfg.enabled} />
+          <span style={{ color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>Engine Toggle</span>
+          <Pill on={!!features.heistEnabled && !!cfg.enabled} />
         </summary>
-        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 12 }}>
+        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12 }}>
           <label style={labelStyle()}>
-            <input type="checkbox" checked={!!features.aiEnabled} onChange={(e) => setFeatures((p: any) => ({ ...p, aiEnabled: e.target.checked }))} /> AI Feature Enabled
+            <input type="checkbox" checked={!!features.heistEnabled} onChange={(e) => setFeatures((p: any) => ({ ...p, heistEnabled: e.target.checked }))} /> Feature Enabled
           </label>
           <label style={labelStyle()}>
-            <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg((p: any) => ({ ...p, enabled: e.target.checked }))} /> AI Engine Active
+            <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg((p: any) => ({ ...p, enabled: e.target.checked }))} /> Engine Active
           </label>
           <label style={labelStyle()}>
-            <input type="checkbox" checked={!!cfg.allowNsfw} onChange={(e) => setCfg((p: any) => ({ ...p, allowNsfw: e.target.checked }))} /> NSFW Allowed
+            <input type="checkbox" checked={!!cfg.allowMultipleSessions} onChange={(e) => setCfg((p: any) => ({ ...p, allowMultipleSessions: e.target.checked }))} /> Allow Multiple Sessions
           </label>
-
-          <div>
-            <span style={labelStyle()}>Plan Tier</span>
-            <select style={inputStyle()} value={String(cfg.planTier || "free")} onChange={(e) => setCfg((p: any) => ({ ...p, planTier: e.target.value }))}>
-              <option value="free">free</option>
-              <option value="bronze">bronze</option>
-              <option value="silver">silver</option>
-              <option value="gold">gold</option>
-              <option value="diamond">diamond</option>
-              <option value="platinum">platinum</option>
-            </select>
-          </div>
-          <div>
-            <span style={labelStyle()}>Monthly Message Limit</span>
-            <input type="number" style={inputStyle()} value={Number(cfg.monthlyMessageLimit || 50)} onChange={(e) => setCfg((p: any) => ({ ...p, monthlyMessageLimit: Number(e.target.value || 0) }))} />
-          </div>
-          <div>
-            <span style={labelStyle()}>Model</span>
-            <input style={inputStyle()} value={String(cfg.model || "")} onChange={(e) => setCfg((p: any) => ({ ...p, model: e.target.value }))} />
-          </div>
-          <div>
-            <span style={labelStyle()}>Temperature</span>
-            <input type="number" step="0.1" style={inputStyle()} value={Number(cfg.temperature || 0.7)} onChange={(e) => setCfg((p: any) => ({ ...p, temperature: Number(e.target.value || 0) }))} />
-          </div>
-          <div>
-            <span style={labelStyle()}>Max Tokens</span>
-            <input type="number" style={inputStyle()} value={Number(cfg.maxTokens || 512)} onChange={(e) => setCfg((p: any) => ({ ...p, maxTokens: Number(e.target.value || 0) }))} />
-          </div>
+          <label style={labelStyle()}>
+            <input type="checkbox" checked={!!cfg.autoCloseOnTimeout} onChange={(e) => setCfg((p: any) => ({ ...p, autoCloseOnTimeout: e.target.checked }))} /> Auto Close On Timeout
+          </label>
         </div>
       </details>
 
       <details open style={cardStyle()}>
         <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
-          Bot Personalizer
-        </summary>
-        <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12 }}>
-          <div><span style={labelStyle()}>Display Name</span><input style={inputStyle()} value={String(cfg.botDisplayName || "")} onChange={(e) => setCfg((p: any) => ({ ...p, botDisplayName: e.target.value }))} /></div>
-          <div>
-            <span style={labelStyle()}>Status</span>
-            <select style={inputStyle()} value={String(cfg.botStatus || "online")} onChange={(e) => setCfg((p: any) => ({ ...p, botStatus: e.target.value }))}>
-              <option value="online">online</option>
-              <option value="idle">idle</option>
-              <option value="dnd">dnd</option>
-              <option value="invisible">invisible</option>
-            </select>
-          </div>
-          <div>
-            <span style={labelStyle()}>Activity Type</span>
-            <select style={inputStyle()} value={String(cfg.activityType || "listening")} onChange={(e) => setCfg((p: any) => ({ ...p, activityType: e.target.value }))}>
-              <option value="playing">playing</option>
-              <option value="listening">listening</option>
-              <option value="watching">watching</option>
-              <option value="competing">competing</option>
-            </select>
-          </div>
-          <div><span style={labelStyle()}>Activity Text</span><input style={inputStyle()} value={String(cfg.activityText || "")} onChange={(e) => setCfg((p: any) => ({ ...p, activityText: e.target.value }))} /></div>
-          <div><span style={labelStyle()}>Avatar URL</span><input style={inputStyle()} value={String(cfg.avatarUrl || "")} onChange={(e) => setCfg((p: any) => ({ ...p, avatarUrl: e.target.value }))} /></div>
-          <div><span style={labelStyle()}>Banner URL</span><input style={inputStyle()} value={String(cfg.bannerUrl || "")} onChange={(e) => setCfg((p: any) => ({ ...p, bannerUrl: e.target.value }))} /></div>
-        </div>
-      </details>
-
-      <details open style={cardStyle()}>
-        <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
-          Channel & Role Permissions
+          Channels & Staff
         </summary>
         <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12 }}>
           <div>
-            <span style={labelStyle()}>Allowed Channels (multi-select)</span>
-            <select multiple value={cfg.allowedChannelIds || []} onChange={(e) => setCfg((p: any) => ({ ...p, allowedChannelIds: Array.from(e.target.selectedOptions).map((o) => o.value) }))} style={{ ...inputStyle(), minHeight: 120 }}>
+            <span style={labelStyle()}>Queue Channel</span>
+            <select style={inputStyle()} value={cfg.queueChannelId || ""} onChange={(e) => setCfg((p: any) => ({ ...p, queueChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
               {channelOptions.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
             </select>
           </div>
           <div>
-            <span style={labelStyle()}>Blocked Channels (multi-select)</span>
-            <select multiple value={cfg.blockedChannelIds || []} onChange={(e) => setCfg((p: any) => ({ ...p, blockedChannelIds: Array.from(e.target.selectedOptions).map((o) => o.value) }))} style={{ ...inputStyle(), minHeight: 120 }}>
+            <span style={labelStyle()}>Announcement Channel</span>
+            <select style={inputStyle()} value={cfg.announcementChannelId || ""} onChange={(e) => setCfg((p: any) => ({ ...p, announcementChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
               {channelOptions.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
             </select>
           </div>
           <div>
-            <span style={labelStyle()}>Allowed Roles (multi-select)</span>
-            <select multiple value={cfg.allowedRoleIds || []} onChange={(e) => setCfg((p: any) => ({ ...p, allowedRoleIds: Array.from(e.target.selectedOptions).map((o) => o.value) }))} style={{ ...inputStyle(), minHeight: 120 }}>
+            <span style={labelStyle()}>Transcript Channel</span>
+            <select style={inputStyle()} value={cfg.transcriptChannelId || ""} onChange={(e) => setCfg((p: any) => ({ ...p, transcriptChannelId: e.target.value }))}>
+              <option value="">Select channel</option>
+              {channelOptions.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
+            </select>
+          </div>
+          <div>
+            <span style={labelStyle()}>Host Role</span>
+            <select style={inputStyle()} value={cfg.hostRoleId || ""} onChange={(e) => setCfg((p: any) => ({ ...p, hostRoleId: e.target.value }))}>
+              <option value="">Select role</option>
               {roleOptions.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.id})</option>)}
             </select>
           </div>
-          <div>
-            <span style={labelStyle()}>Blocked Roles (multi-select)</span>
-            <select multiple value={cfg.blockedRoleIds || []} onChange={(e) => setCfg((p: any) => ({ ...p, blockedRoleIds: Array.from(e.target.selectedOptions).map((o) => o.value) }))} style={{ ...inputStyle(), minHeight: 120 }}>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <span style={labelStyle()}>Staff Roles (multi-select)</span>
+            <select
+              multiple
+              value={Array.isArray(cfg.staffRoleIds) ? cfg.staffRoleIds : []}
+              onChange={(e) => {
+                const vals = Array.from(e.target.selectedOptions).map((o) => o.value);
+                setCfg((p: any) => ({ ...p, staffRoleIds: vals }));
+              }}
+              style={{ ...inputStyle(), minHeight: 140 }}
+            >
               {roleOptions.map((r) => <option key={r.id} value={r.id}>{r.name} ({r.id})</option>)}
             </select>
           </div>
@@ -392,22 +341,20 @@ export default function AiPage() {
 
       <details open style={cardStyle()}>
         <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
-          Backstory & Character Catalog
+          Queue Rules
         </summary>
         <div style={{ padding: 14, display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12 }}>
-          <label style={labelStyle()}>
-            <input type="checkbox" checked={!!cfg.backstoryEnabled} onChange={(e) => setCfg((p: any) => ({ ...p, backstoryEnabled: e.target.checked }))} /> Backstory Enabled
-          </label>
-          <label style={labelStyle()}>
-            <input type="checkbox" checked={!!cfg.allowCharacterMarketplace} onChange={(e) => setCfg((p: any) => ({ ...p, allowCharacterMarketplace: e.target.checked }))} /> Character Marketplace Enabled
-          </label>
+          <div><span style={labelStyle()}>Min Crew Size</span><input type="number" style={inputStyle()} value={Number(cfg.minCrewSize || 2)} onChange={(e) => setCfg((p: any) => ({ ...p, minCrewSize: Number(e.target.value || 2) }))} /></div>
+          <div><span style={labelStyle()}>Max Crew Size</span><input type="number" style={inputStyle()} value={Number(cfg.maxCrewSize || 6)} onChange={(e) => setCfg((p: any) => ({ ...p, maxCrewSize: Number(e.target.value || 6) }))} /></div>
+          <div><span style={labelStyle()}>Signup Timeout (minutes)</span><input type="number" style={inputStyle()} value={Number(cfg.signupTimeoutMinutes || 20)} onChange={(e) => setCfg((p: any) => ({ ...p, signupTimeoutMinutes: Number(e.target.value || 20) }))} /></div>
+          <div><span style={labelStyle()}>Cooldown (minutes)</span><input type="number" style={inputStyle()} value={Number(cfg.cooldownMinutes || 15)} onChange={(e) => setCfg((p: any) => ({ ...p, cooldownMinutes: Number(e.target.value || 15) }))} /></div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <span style={labelStyle()}>Backstory Text</span>
-            <textarea style={{ ...inputStyle(), minHeight: 120 }} value={String(cfg.backstoryText || "")} onChange={(e) => setCfg((p: any) => ({ ...p, backstoryText: e.target.value }))} />
+            <span style={labelStyle()}>Open Template</span>
+            <textarea style={{ ...inputStyle(), minHeight: 70 }} value={String(cfg.openTemplate || "")} onChange={(e) => setCfg((p: any) => ({ ...p, openTemplate: e.target.value }))} />
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <span style={labelStyle()}>Installed Character IDs (comma-separated)</span>
-            <input style={inputStyle()} value={toCsv(cfg.installedCharacterIds || [])} onChange={(e) => setCfg((p: any) => ({ ...p, installedCharacterIds: parseCsv(e.target.value) }))} />
+            <span style={labelStyle()}>Close Template</span>
+            <textarea style={{ ...inputStyle(), minHeight: 70 }} value={String(cfg.closeTemplate || "")} onChange={(e) => setCfg((p: any) => ({ ...p, closeTemplate: e.target.value }))} />
           </div>
         </div>
       </details>

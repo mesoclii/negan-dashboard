@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export default function AiPersonaRedirectPage() {
+export default function AiToneRedirectPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const gid = params.get("guildId") || localStorage.getItem("activeGuildId") || "";

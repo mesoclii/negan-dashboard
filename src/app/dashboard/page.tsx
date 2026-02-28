@@ -1,121 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Guild = { id: string; name: string; icon?: string | null };
-type DashboardConfig = {
-  features?: Record<string, boolean>;
-  security?: {
-    preOnboarding?: { enabled?: boolean };
-    verification?: { enabled?: boolean };
-    onboarding?: { enabled?: boolean };
+type Features = Record<string, boolean>;
+
+function getGuildId() {
+  if (typeof window === "undefined") return "";
+  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
+  const fromStore = localStorage.getItem("activeGuildId") || "";
+  const gid = (fromUrl || fromStore).trim();
+  if (gid) localStorage.setItem("activeGuildId", gid);
+  return gid;
+}
+
+function withGuild(path: string, guildId: string) {
+  if (!guildId) return path;
+  const glue = path.includes("?") ? "&" : "?";
+  return `${path}${glue}guildId=${encodeURIComponent(guildId)}`;
+}
+
+function card(): React.CSSProperties {
+  return {
+    border: "1px solid rgba(255,0,0,0.35)",
+    borderRadius: 12,
+    padding: 14,
+    background: "rgba(45,0,0,0.25)"
   };
-};
-type GiveawaysCfg = {
-  enabled?: boolean;
-  defaultChannelId?: string | null;
-  channelId?: string | null;
-  ticketChannelId?: string | null;
-  defaultImageUrl?: string | null;
-};
+}
 
-const card: CSSProperties = {
-  border: "1px solid #6f0000",
-  borderRadius: 14,
-  padding: 14,
-  background: "rgba(120,0,0,0.10)"
-};
+function input(): React.CSSProperties {
+  return {
+    width: "100%",
+    background: "#090909",
+    color: "#ffd9d9",
+    border: "1px solid rgba(255,0,0,0.45)",
+    borderRadius: 8,
+    padding: "10px 12px"
+  };
+}
 
-const row: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 8
-};
+function badge(on?: boolean): React.CSSProperties {
+  return {
+    display: "inline-block",
+    border: "1px solid rgba(255,0,0,0.5)",
+    borderRadius: 999,
+    padding: "2px 10px",
+    fontSize: 12,
+    color: on ? "#b7ffb7" : "#ffb7b7",
+    marginLeft: 6
+  };
+}
 
-const btn: CSSProperties = {
-  textDecoration: "none",
-  display: "inline-block",
-  padding: "8px 12px",
-  border: "1px solid #a30000",
-  borderRadius: 10,
-  color: "#ff6b6b",
-  fontWeight: 800,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  fontSize: 12
-};
-
-function Status({ on }: { on: boolean }) {
+function line(label: string, on?: boolean) {
   return (
-    <span
-      style={{
-        border: "1px solid #a30000",
-        borderRadius: 999,
-        padding: "2px 10px",
-        fontSize: 12,
-        color: on ? "#b7ffb7" : "#ff9b9b",
-        background: on ? "rgba(0,120,0,0.22)" : "rgba(120,0,0,0.22)"
-      }}
-    >
-      {on ? "ENABLED" : "DISABLED"}
-    </span>
+    <div style={{ marginTop: 6 }}>
+      {label}
+      <span style={badge(on)}>{on ? "ENABLED" : "DISABLED"}</span>
+    </div>
   );
 }
 
-function qGuild(href: string, guildId: string) {
-  if (!guildId) return href;
-  return href.includes("?")
-    ? `${href}&guildId=${encodeURIComponent(guildId)}`
-    : `${href}?guildId=${encodeURIComponent(guildId)}`;
-}
-
-function readFlag(features: Record<string, boolean> | undefined, key: string, fallback = false) {
-  const v = features?.[key];
-  return typeof v === "boolean" ? v : fallback;
-}
-
-export default function DashboardPage() {
+export default function OverviewPage() {
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<DashboardConfig>({});
-  const [giveaways, setGiveaways] = useState<GiveawaysCfg>({});
+  const [features, setFeatures] = useState<Features>({});
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
-  const activeGuild = useMemo(
-    () => guilds.find((g) => g.id === guildId),
-    [guilds, guildId]
-  );
+  const guildName = useMemo(() => guilds.find((g) => g.id === guildId)?.name || guildId, [guilds, guildId]);
 
   useEffect(() => {
     (async () => {
       try {
+        setLoading(true);
         const r = await fetch("/api/bot/guilds");
         const j = await r.json();
         const list: Guild[] = Array.isArray(j?.guilds) ? j.guilds : [];
         setGuilds(list);
 
-        const fromUrl =
-          typeof window !== "undefined"
-            ? new URLSearchParams(window.location.search).get("guildId") || ""
-            : "";
-        const fromStore =
-          typeof window !== "undefined" ? localStorage.getItem("activeGuildId") || "" : "";
-        const next = fromUrl || fromStore || list[0]?.id || "";
-
-        if (next) {
-          setGuildId(next);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("activeGuildId", next);
-            const u = new URL(window.location.href);
-            u.searchParams.set("guildId", next);
-            window.history.replaceState({}, "", u.toString());
-          }
+        const gid = getGuildId() || list[0]?.id || "";
+        setGuildId(gid);
+        if (gid && typeof window !== "undefined") {
+          localStorage.setItem("activeGuildId", gid);
+          const u = new URL(window.location.href);
+          u.searchParams.set("guildId", gid);
+          window.history.replaceState({}, "", u.toString());
         }
-      } catch {
-        setMsg("Failed to load guilds.");
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load guild list");
       } finally {
         setLoading(false);
       }
@@ -126,76 +100,35 @@ export default function DashboardPage() {
     if (!guildId) return;
     (async () => {
       try {
-        const [cfgRes, gwRes] = await Promise.all([
-          fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=giveaways`)
-        ]);
-
-        const cfgJson = await cfgRes.json();
-        const gwJson = await gwRes.json();
-
-        setCfg(cfgJson?.config || {});
-        setGiveaways(gwJson?.config || {});
-      } catch {
-        setMsg("Failed to load config.");
+        const r = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`);
+        const j = await r.json();
+        setFeatures(j?.config?.features || {});
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load dashboard config");
       }
     })();
   }, [guildId]);
 
-  const f = cfg.features || {};
-  const preOnboardingEnabled = cfg.security?.preOnboarding?.enabled !== false;
-  const verificationEnabled = readFlag(f, "verificationEnabled", false);
-  const onboardingEnabled = readFlag(f, "onboardingEnabled", false);
+  function switchGuild(next: string) {
+    setGuildId(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("activeGuildId", next);
+      const u = new URL(window.location.href);
+      u.searchParams.set("guildId", next);
+      window.history.replaceState({}, "", u.toString());
+    }
+  }
 
-  const ttsEnabled = readFlag(f, "ttsEnabled", false);
-  const governanceEnabled = readFlag(f, "governanceEnabled", false);
-
-  const economyEnabled = readFlag(f, "economyEnabled", false);
-  const birthdayEnabled = readFlag(f, "birthdayEnabled", false);
-  const giveawaysEnabled = giveaways.enabled !== false;
-
-  const rareDropEnabled = readFlag(f, "rareDropEnabled", false);
-  const pokemonEnabled = readFlag(f, "pokemonEnabled", false);
-  const catDropEnabled = readFlag(f, "catDropEnabled", true);
-  const contractsEnabled = readFlag(f, "contractsEnabled", true);
-
-  const heistEnabled = readFlag(f, "heistEnabled", false);
-  const aiEnabled = readFlag(f, "aiEnabled", false);
-
-  if (loading) return <div style={{ color: "#ff7a7a", padding: 20 }}>Loading...</div>;
-  if (!guildId) return <div style={{ color: "#ff7a7a", padding: 20 }}>No guild selected.</div>;
+  if (loading) return <div style={{ color: "#ff6b6b", padding: 24 }}>Loading overview…</div>;
+  if (!guildId) return <div style={{ color: "#ff6b6b", padding: 24 }}>No guild available. Open /guilds first.</div>;
 
   return (
-    <div style={{ color: "#ff5a5a" }}>
-      <h1 style={{ letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 8 }}>
-        Control Overview
-      </h1>
-      <p style={{ marginTop: 0, opacity: 0.9 }}>
-        Guild-scoped dashboard. Saviors can stay baseline, others can start blank.
-      </p>
+    <div style={{ color: "#ff5252", padding: 18 }}>
+      <h1 style={{ margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", fontSize: 20 }}>Control Overview</h1>
+      <div style={{ marginTop: 6 }}>Guild-scoped dashboard. Saviors can stay baseline, others can stay blank until configured.</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 10 }}>
-        <select
-          value={guildId}
-          onChange={(e) => {
-            const next = e.target.value;
-            setGuildId(next);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("activeGuildId", next);
-              const u = new URL(window.location.href);
-              u.searchParams.set("guildId", next);
-              window.history.replaceState({}, "", u.toString());
-            }
-          }}
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 10,
-            border: "1px solid #7a0000",
-            background: "#0b0b0b",
-            color: "#ffd2d2"
-          }}
-        >
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, maxWidth: 1050 }}>
+        <select value={guildId} onChange={(e) => switchGuild(e.target.value)} style={input()}>
           {guilds.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name} ({g.id})
@@ -203,63 +136,71 @@ export default function DashboardPage() {
           ))}
         </select>
 
-        <Link href={qGuild("/dashboard/control-center", guildId)} style={{ ...btn, textAlign: "center" }}>
+        <Link href={withGuild("/dashboard/setup", guildId)} style={{ ...input(), textDecoration: "none", textAlign: "center", fontWeight: 900 }}>
           Setup
         </Link>
       </div>
 
-      <div style={{ marginBottom: 14 }}>
-        Active: {activeGuild?.name || guildId}
+      <div style={{ marginTop: 8, color: "#ff9f9f" }}>Active: {guildName}</div>
+
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>Security</div>
+          {line("Pre-Onboarding", !!features.onboardingEnabled)}
+          {line("Verification", !!features.verificationEnabled)}
+          {line("Lockdown", !!features.lockdownEnabled)}
+          {line("Raid", !!features.raidEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/security", guildId)} style={{ color: "#ffb0b0" }}>Open Security</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>Access</div>
+          {line("Tickets", !!features.ticketsEnabled)}
+          {line("TTS", !!features.ttsEnabled)}
+          {line("Governance", !!features.governanceEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/access", guildId)} style={{ color: "#ffb0b0" }}>Open Access</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>Economy</div>
+          {line("Economy", !!features.economyEnabled)}
+          {line("Birthdays", !!features.birthdayEnabled)}
+          {line("Giveaways", !!features.giveawaysEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/economy", guildId)} style={{ color: "#ffb0b0" }}>Open Economy</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>Games</div>
+          {line("Rare Drop", !!features.rareDropEnabled)}
+          {line("Cat Drop", !!features.catdropEnabled)}
+          {line("Pokemon", !!features.pokemonEnabled)}
+          {line("Pokemon Private-Only", !!features.pokemonPrivateOnly)}
+          {line("Crew", !!features.crewEnabled)}
+          {line("Contracts", !!features.contractsEnabled)}
+          {line("Progression", !!features.progressionEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/games", guildId)} style={{ color: "#ffb0b0" }}>Open Games</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>GTA Ops</div>
+          {line("Heist", !!features.heistEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/heist", guildId)} style={{ color: "#ffb0b0" }}>Open GTA Ops</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>AI Personas</div>
+          {line("AI Personas Engine", !!features.aiEnabled)}
+          <div style={{ marginTop: 10 }}><Link href={withGuild("/dashboard/ai", guildId)} style={{ color: "#ffb0b0" }}>Open AI Personas</Link></div>
+        </div>
+
+        <div style={card()}>
+          <div style={{ fontWeight: 900, fontSize: 22 }}>Automation</div>
+          <div style={{ marginTop: 8 }}><Link href={withGuild("/dashboard/automations", guildId)} style={{ color: "#ffb0b0" }}>Open Automations</Link></div>
+          <div style={{ marginTop: 8 }}><Link href={withGuild("/dashboard/commands", guildId)} style={{ color: "#ffb0b0" }}>Open Command Studio</Link></div>
+        </div>
       </div>
 
-      {msg ? <p style={{ color: "#ff8080" }}>{msg}</p> : null}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(280px,1fr))", gap: 12 }}>
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>Security</h3>
-          <div style={row}><span>Pre-Onboarding</span><Status on={preOnboardingEnabled} /></div>
-          <div style={row}><span>Verification</span><Status on={verificationEnabled} /></div>
-          <div style={row}><span>Onboarding</span><Status on={onboardingEnabled} /></div>
-          <Link href={qGuild("/dashboard/security", guildId)} style={btn}>Open Security</Link>
-        </div>
-
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>Access</h3>
-          <div style={row}><span>TTS</span><Status on={ttsEnabled} /></div>
-          <div style={row}><span>Governance</span><Status on={governanceEnabled} /></div>
-          <Link href={qGuild("/dashboard/access", guildId)} style={btn}>Open Access</Link>
-        </div>
-
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>Economy</h3>
-          <div style={row}><span>Economy</span><Status on={economyEnabled} /></div>
-          <div style={row}><span>Birthdays</span><Status on={birthdayEnabled} /></div>
-          <div style={row}><span>Giveaways</span><Status on={giveawaysEnabled} /></div>
-          <Link href={qGuild("/dashboard/economy", guildId)} style={btn}>Open Economy</Link>
-        </div>
-
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>Games</h3>
-          <div style={row}><span>Rare Drop</span><Status on={rareDropEnabled} /></div>
-          <div style={row}><span>Pokemon</span><Status on={pokemonEnabled} /></div>
-          <div style={row}><span>Cat Drop</span><Status on={catDropEnabled} /></div>
-          <div style={row}><span>Contracts</span><Status on={contractsEnabled} /></div>
-          <Link href={qGuild("/dashboard/games", guildId)} style={btn}>Open Games</Link>
-        </div>
-
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>GTA Ops</h3>
-          <div style={row}><span>Heist</span><Status on={heistEnabled} /></div>
-          <Link href={qGuild("/dashboard/gta-ops", guildId)} style={btn}>Open GTA Ops</Link>
-        </div>
-
-        <div style={card}>
-          <h3 style={{ marginTop: 0, letterSpacing: "0.10em", textTransform: "uppercase" }}>AI Personas</h3>
-          <div style={row}><span>AI Engine</span><Status on={aiEnabled} /></div>
-          <p style={{ marginTop: 8, marginBottom: 10 }}>Separate from bot persona settings.</p>
-          <Link href={qGuild("/dashboard/ai", guildId)} style={btn}>Open AI Personas</Link>
-        </div>
-      </div>
+      {msg ? <div style={{ marginTop: 10, color: "#ffb3b3" }}>{msg}</div> : null}
     </div>
   );
 }

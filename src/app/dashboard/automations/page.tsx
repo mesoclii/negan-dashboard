@@ -10,37 +10,58 @@ type Automation = {
   description?: string | null;
   status: string;
   enabled: boolean;
+  triggerType: string;
+  runLimitPerMin: number;
+  maxActions: number;
 };
 
 function getGuildId(): string {
   if (typeof window === "undefined") return "";
-  const p = new URLSearchParams(window.location.search);
-  const fromUrl = String(p.get("guildId") || "").trim();
-  const fromStore = String(localStorage.getItem("activeGuildId") || "").trim();
-  const guildId = fromUrl || fromStore || "";
-  if (guildId) {
-    localStorage.setItem("activeGuildId", guildId);
-    if (!fromUrl) {
-      p.set("guildId", guildId);
-      window.history.replaceState({}, "", `${window.location.pathname}?${p.toString()}`);
-    }
-  }
-  return guildId;
+  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
+  const fromStore = localStorage.getItem("activeGuildId") || "";
+  const gid = (fromUrl || fromStore).trim();
+  if (gid) localStorage.setItem("activeGuildId", gid);
+  return gid;
+}
+
+function box(): React.CSSProperties {
+  return {
+    border: "1px solid rgba(255,0,0,0.35)",
+    borderRadius: 12,
+    padding: 12,
+    background: "rgba(40,0,0,0.25)"
+  };
+}
+
+function input(): React.CSSProperties {
+  return {
+    width: "100%",
+    background: "#090909",
+    color: "#ffd9d9",
+    border: "1px solid rgba(255,0,0,0.45)",
+    borderRadius: 8,
+    padding: "10px 12px"
+  };
 }
 
 export default function AutomationsPage() {
   const [guildId, setGuildId] = useState("");
   const [items, setItems] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState("");
 
-  async function load(targetGuildId: string) {
-    setLoading(true);
-    setMsg("");
+  useEffect(() => setGuildId(getGuildId()), []);
+  useEffect(() => {
+    if (guildId) loadAutomations(guildId);
+  }, [guildId]);
+
+  async function loadAutomations(gid: string) {
     try {
-      const r = await fetch(`/api/bot/automations?guildId=${encodeURIComponent(targetGuildId)}`);
+      setLoading(true);
+      setMsg("");
+      const r = await fetch(`/api/bot/automations?guildId=${encodeURIComponent(gid)}`);
       const j = await r.json();
-      if (!r.ok) throw new Error(j?.error || "Failed to load automations");
       setItems(Array.isArray(j) ? j : []);
     } catch (e: any) {
       setMsg(e?.message || "Failed to load automations");
@@ -50,139 +71,112 @@ export default function AutomationsPage() {
     }
   }
 
-  useEffect(() => {
-    const gid = getGuildId();
-    setGuildId(gid);
-    if (gid) load(gid);
-    else setLoading(false);
-  }, []);
-
   async function createAutomation() {
     if (!guildId) return;
-    setMsg("");
     try {
+      setCreating(true);
+      setMsg("");
+
+      const now = new Date();
       const payload = {
         guildId,
-        name: `Automation ${new Date().toLocaleString()}`,
+        name: `Automation ${now.toLocaleString()}`,
         description: "Created from Possum dashboard",
+        status: "DRAFT",
+        enabled: true,
         triggerType: "MESSAGE_CREATE",
         triggerConfig: { channels: [], keywords: [] },
+        runLimitPerMin: 30,
+        maxActions: 25,
+        timeoutMs: 3000,
         createdBy: "dashboard"
       };
 
-      const r = await fetch("/api/bot/automations", {
+      const r = await fetch("/api/bot/automation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Create failed");
-      await load(guildId);
+
+      const id = String(j?.id || "");
+      if (id) {
+        window.location.href = `/dashboard/automations/${id}?guildId=${encodeURIComponent(guildId)}`;
+        return;
+      }
+
+      await loadAutomations(guildId);
       setMsg("Automation created.");
     } catch (e: any) {
       setMsg(e?.message || "Create failed");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function quickToggle(item: Automation) {
+    try {
+      const r = await fetch(`/api/bot/automation/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !item.enabled })
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Toggle failed");
+      await loadAutomations(guildId);
+    } catch (e: any) {
+      setMsg(e?.message || "Toggle failed");
     }
   }
 
   if (!guildId) {
-    return <div style={{ color: "#ff5a5a", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+    return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
   }
 
   return (
-    <div style={{ color: "#ff6b6b", maxWidth: 1100 }}>
-      <h1 style={{ color: "#ff3131", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 6 }}>
-        Automations
-      </h1>
-      <p style={{ marginTop: 0, opacity: 0.9 }}>Guild: {guildId}</p>
+    <div style={{ color: "#ff5252", padding: 18 }}>
+      <h1 style={{ margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", fontSize: 20 }}>Automations</h1>
+      <div style={{ marginTop: 4 }}>Guild: {guildId}</div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <button
-          onClick={createAutomation}
-          style={{
-            border: "1px solid #9a0000",
-            background: "rgba(255,0,0,0.15)",
-            color: "#ffd6d6",
-            padding: "10px 14px",
-            borderRadius: 10,
-            fontWeight: 800,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            cursor: "pointer"
-          }}
-        >
-          New Automation
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <button onClick={createAutomation} disabled={creating} style={{ ...input(), width: 220, cursor: "pointer", fontWeight: 900 }}>
+          {creating ? "Creating..." : "+ New Automation"}
         </button>
-
-        <button
-          onClick={() => load(guildId)}
-          style={{
-            border: "1px solid #6a0000",
-            background: "transparent",
-            color: "#ff9d9d",
-            padding: "10px 14px",
-            borderRadius: 10,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            cursor: "pointer"
-          }}
-        >
+        <button onClick={() => loadAutomations(guildId)} style={{ ...input(), width: 130, cursor: "pointer", fontWeight: 900 }}>
           Refresh
         </button>
       </div>
 
-      {msg ? <p style={{ color: "#ff9f9f" }}>{msg}</p> : null}
-      {loading ? <p>Loading...</p> : null}
+      {msg ? <div style={{ marginTop: 10, color: "#ffb3b3" }}>{msg}</div> : null}
+      {loading ? <div style={{ marginTop: 12 }}>Loading…</div> : null}
 
-      {!loading && items.length === 0 ? (
-        <div style={{ border: "1px solid #5a0000", borderRadius: 12, padding: 16, background: "rgba(255,0,0,0.06)" }}>
-          No automations yet.
-        </div>
-      ) : null}
-
-      <div style={{ display: "grid", gap: 12 }}>
-        {items.map((item) => (
-          <div
-            key={item.id}
-            style={{
-              border: "1px solid #7b0000",
-              borderRadius: 12,
-              padding: 14,
-              background: "rgba(100,0,0,0.08)"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-              <div>
-                <div style={{ fontWeight: 900, color: "#ffe5e5", letterSpacing: "0.06em" }}>{item.name}</div>
-                <div style={{ fontSize: 12, color: "#ff9d9d" }}>
-                  {item.status} • {item.enabled ? "ENABLED" : "DISABLED"}
+      {!loading && (
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          {items.map((a) => (
+            <div key={a.id} style={box()}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18 }}>{a.name}</div>
+                  <div style={{ fontSize: 13, color: "#ff9c9c" }}>{a.description || "No description"}</div>
+                  <div style={{ marginTop: 4, fontSize: 12 }}>
+                    Trigger: {a.triggerType} • Status: {a.status} • {a.enabled ? "Enabled" : "Disabled"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button onClick={() => quickToggle(a)} style={{ ...input(), width: 90, cursor: "pointer", fontWeight: 900 }}>
+                    {a.enabled ? "On" : "Off"}
+                  </button>
+                  <Link href={`/dashboard/automations/${a.id}?guildId=${encodeURIComponent(guildId)}`} style={{ ...input(), width: 120, textDecoration: "none", textAlign: "center", fontWeight: 900 }}>
+                    Open
+                  </Link>
                 </div>
               </div>
-
-              <Link
-                href={`/dashboard/automations/${encodeURIComponent(item.id)}?guildId=${encodeURIComponent(guildId)}`}
-                style={{
-                  border: "1px solid #9a0000",
-                  background: "rgba(255,0,0,0.15)",
-                  color: "#fff1f1",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  fontWeight: 800,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase"
-                }}
-              >
-                Open Editor
-              </Link>
             </div>
-
-            {item.description ? (
-              <div style={{ marginTop: 8, color: "#ffc0c0", fontSize: 13 }}>{item.description}</div>
-            ) : null}
-          </div>
-        ))}
-      </div>
+          ))}
+          {!items.length ? <div style={box()}>No automations yet.</div> : null}
+        </div>
+      )}
     </div>
   );
 }

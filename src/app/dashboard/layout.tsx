@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { PossumSidebar } from "@/components/possum/PossumSidebar";
+import { DashboardSaveUX } from "@/components/possum/DashboardSaveUX";
 import { possum } from "@/styles/possumTheme";
 
 function SidebarFallback() {
@@ -100,6 +101,7 @@ export default function DashboardLayout({
           </header>
 
           <div style={{ padding: 22 }}>{children}</div>
+                  <DashboardSaveUX />
         </main>
       </div>
     </div>

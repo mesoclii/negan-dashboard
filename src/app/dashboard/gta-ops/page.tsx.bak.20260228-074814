@@ -1,5 +1,0 @@
-"use client"; import { useEffect, useState } from "react";
-export default function GtaOpsPage(){const[g,setG]=useState("");const[heist,setHeist]=useState(false);const[msg,setMsg]=useState("");
-useEffect(()=>{const q=new URLSearchParams(window.location.search).get("guildId")||localStorage.getItem("activeGuildId")||"";setG(q);if(q){localStorage.setItem("activeGuildId",q);fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(q)}`).then(r=>r.json()).then(j=>setHeist(!!j?.config?.features?.heistEnabled));}},[]);
-async function save(){const r=await fetch("/api/bot/dashboard-config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({guildId:g,patch:{features:{heistEnabled:heist}}})});const j=await r.json().catch(()=>({}));setMsg(r.ok?"Saved.":(j?.error||"Save failed"));}
-return <div style={{color:"#ff5252",padding:24}}><h1>GTA OPS</h1><label><input type="checkbox" checked={heist} onChange={e=>setHeist(e.target.checked)}/> heistEnabled</label><br/><button onClick={save}>Save GTA Ops</button><p>{msg}</p></div>}

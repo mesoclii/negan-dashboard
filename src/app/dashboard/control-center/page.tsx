@@ -1,68 +1,92 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-type Config = {
-  features?: Record<string, boolean>;
-  security?: {
-    preOnboarding?: Record<string, any>;
-    onboarding?: Record<string, any>;
-    verification?: Record<string, any>;
-    lockdown?: Record<string, any>;
-    raid?: Record<string, any>;
+type Features = Record<string, boolean>;
+
+const FEATURE_KEYS: Array<{ key: string; label: string; group: string }> = [
+  { key: "securityEnabled", label: "Security Core", group: "Security" },
+  { key: "onboardingEnabled", label: "Pre-Onboarding / Onboarding", group: "Security" },
+  { key: "verificationEnabled", label: "Verification", group: "Security" },
+  { key: "lockdownEnabled", label: "Lockdown", group: "Security" },
+  { key: "raidEnabled", label: "Raid", group: "Security" },
+
+  { key: "ticketsEnabled", label: "Tickets", group: "Access" },
+  { key: "ttsEnabled", label: "TTS", group: "Access" },
+  { key: "governanceEnabled", label: "Governance", group: "Access" },
+
+  { key: "economyEnabled", label: "Economy", group: "Economy" },
+  { key: "birthdayEnabled", label: "Birthdays", group: "Economy" },
+  { key: "giveawaysEnabled", label: "Giveaways", group: "Economy" },
+
+  { key: "rareDropEnabled", label: "Rare Drop", group: "Games" },
+  { key: "catdropEnabled", label: "Cat Drop", group: "Games" },
+  { key: "pokemonEnabled", label: "Pokemon", group: "Games" },
+  { key: "pokemonPrivateOnly", label: "Pokemon Private-Only", group: "Games" },
+  { key: "crewEnabled", label: "Crew", group: "Games" },
+  { key: "contractsEnabled", label: "Contracts", group: "Games" },
+  { key: "progressionEnabled", label: "Progression", group: "Games" },
+
+  { key: "heistEnabled", label: "Heist", group: "GTA Ops" },
+  { key: "aiEnabled", label: "AI Personas", group: "AI" }
+];
+
+function getGuildId() {
+  if (typeof window === "undefined") return "";
+  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
+  const fromStore = localStorage.getItem("activeGuildId") || "";
+  const gid = (fromUrl || fromStore).trim();
+  if (gid) localStorage.setItem("activeGuildId", gid);
+  return gid;
+}
+
+function withGuild(path: string, guildId: string) {
+  if (!guildId) return path;
+  const glue = path.includes("?") ? "&" : "?";
+  return `${path}${glue}guildId=${encodeURIComponent(guildId)}`;
+}
+
+function card(): React.CSSProperties {
+  return {
+    border: "1px solid rgba(255,0,0,0.35)",
+    borderRadius: 12,
+    padding: 14,
+    background: "rgba(45,0,0,0.25)"
   };
-};
+}
 
-type Guild = { id: string; name: string };
+function input(): React.CSSProperties {
+  return {
+    width: "100%",
+    background: "#090909",
+    color: "#ffd9d9",
+    border: "1px solid rgba(255,0,0,0.45)",
+    borderRadius: 8,
+    padding: "10px 12px"
+  };
+}
+
+function btn(): React.CSSProperties {
+  return {
+    border: "1px solid rgba(255,0,0,0.45)",
+    background: "transparent",
+    color: "#ffd0d0",
+    borderRadius: 8,
+    padding: "8px 10px",
+    cursor: "pointer",
+    fontWeight: 900
+  };
+}
 
 export default function ControlCenterPage() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
   const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<Config>({});
+  const [features, setFeatures] = useState<Features>({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const guildName = useMemo(
-    () => guilds.find((g) => g.id === guildId)?.name || guildId,
-    [guilds, guildId]
-  );
-
-  const ff = (k: string) => Boolean(cfg.features?.[k]);
-  const sf = (path: "lockdown" | "raid") => Boolean((cfg.security as any)?.[path]?.enabled);
-  const preOnboardingActive =
-    Boolean(cfg.security?.preOnboarding?.autoBanOnBlacklistRejoin) ||
-    Boolean(cfg.security?.preOnboarding?.autoBanOnRefusalRole);
-
-  function withGuild(path: string) {
-    if (!guildId) return path;
-    return `${path}${path.includes("?") ? "&" : "?"}guildId=${encodeURIComponent(guildId)}`;
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/bot/guilds");
-        const j = await r.json();
-        const list: Guild[] = Array.isArray(j?.guilds) ? j.guilds : [];
-        setGuilds(list);
-
-        const q = new URLSearchParams(window.location.search).get("guildId") || "";
-        const s = localStorage.getItem("activeGuildId") || "";
-        const next = q || s || list[0]?.id || "";
-        setGuildId(next);
-
-        if (next) {
-          localStorage.setItem("activeGuildId", next);
-          const u = new URL(window.location.href);
-          u.searchParams.set("guildId", next);
-          window.history.replaceState({}, "", u.toString());
-        }
-      } catch {
-        setMsg("Failed to load guilds.");
-      }
-    })();
-  }, []);
+  useEffect(() => setGuildId(getGuildId()), []);
 
   useEffect(() => {
     if (!guildId) {
@@ -75,8 +99,7 @@ export default function ControlCenterPage() {
         setMsg("");
         const r = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`);
         const j = await r.json();
-        if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load config");
-        setCfg(j?.config || {});
+        setFeatures(j?.config?.features || {});
       } catch (e: any) {
         setMsg(e?.message || "Failed to load control center");
       } finally {
@@ -85,81 +108,106 @@ export default function ControlCenterPage() {
     })();
   }, [guildId]);
 
-  const card: React.CSSProperties = {
-    border: "1px solid #6f0000",
-    borderRadius: 12,
-    padding: 14,
-    background: "rgba(120,0,0,0.08)",
-    display: "grid",
-    gap: 8
-  };
+  async function saveFeature(key: string, value: boolean) {
+    try {
+      setSaving(true);
+      setMsg("");
+      const r = await fetch("/api/bot/dashboard-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guildId, patch: { features: { [key]: value } } })
+      });
+      const j = await r.json();
+      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
+      setFeatures((p) => ({ ...p, [key]: value }));
+      setMsg(`${key} updated.`);
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
-  const on = (v: boolean) => (
-    <span
-      style={{
-        display: "inline-block",
-        width: "fit-content",
-        padding: "4px 8px",
-        borderRadius: 999,
-        border: "1px solid #7a0000",
-        background: v ? "rgba(0,120,0,0.20)" : "rgba(120,0,0,0.20)",
-        color: v ? "#bcffbc" : "#ff9d9d",
-        fontSize: 12,
-        textTransform: "uppercase",
-        letterSpacing: "0.08em"
-      }}
-    >
-      {v ? "Enabled" : "Disabled"}
-    </span>
-  );
+  async function saveAll() {
+    try {
+      setSaving(true);
+      setMsg("");
+      const r = await fetch("/api/bot/dashboard-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guildId, patch: { features } })
+      });
+      const j = await r.json();
+      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save all failed");
+      setMsg("All toggles saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save all failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!guildId) return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+  if (loading) return <div style={{ color: "#ff6b6b", padding: 24 }}>Loading control center…</div>;
+
+  const groups = Array.from(new Set(FEATURE_KEYS.map((f) => f.group)));
 
   return (
-    <div style={{ color: "#ff5252", padding: 22 }}>
-      <h1 style={{ margin: 0, letterSpacing: "0.16em", textTransform: "uppercase", color: "#ff2a2a" }}>
-        Control Center
-      </h1>
-      <p style={{ marginTop: 8 }}>Engine map + status by guild.</p>
+    <div style={{ color: "#ff5252", padding: 18 }}>
+      <h1 style={{ margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", fontSize: 20 }}>Control Center</h1>
+      <div style={{ marginTop: 6 }}>Quick toggles (deep config still lives in each module page).</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", maxWidth: 920, marginBottom: 14 }}>
-        <select
-          value={guildId}
-          onChange={(e) => {
-            const next = e.target.value;
-            setGuildId(next);
-            localStorage.setItem("activeGuildId", next);
-            const u = new URL(window.location.href);
-            u.searchParams.set("guildId", next);
-            window.history.replaceState({}, "", u.toString());
-          }}
-          style={{ padding: 10, borderRadius: 8, border: "1px solid #7a0000", background: "#0d0d0d", color: "#ffd2d2" }}
-        >
-          {guilds.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name} ({g.id})
-            </option>
-          ))}
-        </select>
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <button onClick={saveAll} disabled={saving} style={btn()}>
+          {saving ? "Saving..." : "Save All"}
+        </button>
+        <Link href={withGuild("/dashboard/setup", guildId)} style={{ ...btn(), textDecoration: "none" }}>
+          Setup
+        </Link>
       </div>
 
-      <p style={{ color: "#ff8a8a" }}>{guildName ? `Active: ${guildName}` : ""} {msg ? `• ${msg}` : ""}</p>
-      {loading ? <p>Loading...</p> : null}
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {groups.map((g) => (
+          <div key={g} style={card()}>
+            <div style={{ fontWeight: 900, fontSize: 20 }}>{g}</div>
+            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+              {FEATURE_KEYS.filter((f) => f.group === g).map((f) => (
+                <div key={f.key} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
+                  <div>{f.label}</div>
+                  <button
+                    style={btn()}
+                    disabled={saving}
+                    onClick={() => {
+                      const v = !features[f.key];
+                      setFeatures((p) => ({ ...p, [f.key]: v }));
+                    }}
+                  >
+                    {features[f.key] ? "Enabled" : "Disabled"}
+                  </button>
+                  <button
+                    style={btn()}
+                    disabled={saving}
+                    onClick={() => saveFeature(f.key, !features[f.key])}
+                  >
+                    Quick Save
+                  </button>
+                </div>
+              ))}
+            </div>
 
-      {!loading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 12 }}>
-          <div style={card}><h3 style={{ margin: 0 }}>Pre-Onboarding</h3>{on(preOnboardingActive)}<Link href={withGuild("/dashboard/security/pre-onboarding")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Onboarding</h3>{on(ff("onboardingEnabled"))}<Link href={withGuild("/dashboard/security/onboarding")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Verification</h3>{on(ff("verificationEnabled"))}<Link href={withGuild("/dashboard/security/verification")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Lockdown</h3>{on(sf("lockdown"))}<Link href={withGuild("/dashboard/security/lockdown")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Raid</h3>{on(sf("raid"))}<Link href={withGuild("/dashboard/security/raid")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Economy</h3>{on(ff("economyEnabled"))}<Link href={withGuild("/dashboard/economy")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Games</h3>{on(ff("rareDropEnabled"))}<Link href={withGuild("/dashboard/games")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Giveaways</h3>{on(ff("giveawaysEnabled"))}<Link href={withGuild("/dashboard/giveaways")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>GTA Ops / Heist</h3>{on(ff("heistEnabled"))}<Link href={withGuild("/dashboard/gta-ops")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Access + Tickets + TTS</h3>{on(ff("ticketsEnabled"))}<Link href={withGuild("/dashboard/access")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>AI Personas Engine</h3>{on(ff("aiEnabled"))}<Link href={withGuild("/dashboard/ai/persona")} style={{ color: "#ff9d9d" }}>Open</Link></div>
-          <div style={card}><h3 style={{ margin: 0 }}>Automation + Commands</h3><Link href={withGuild("/dashboard/automations")} style={{ color: "#ff9d9d" }}>Automations</Link><Link href={withGuild("/dashboard/custom-commands")} style={{ color: "#ff9d9d" }}>Command Studio</Link></div>
-        </div>
-      )}
+            <div style={{ marginTop: 10 }}>
+              {g === "Security" && <Link href={withGuild("/dashboard/security", guildId)} style={{ color: "#ffb0b0" }}>Open Security</Link>}
+              {g === "Access" && <Link href={withGuild("/dashboard/access", guildId)} style={{ color: "#ffb0b0" }}>Open Access</Link>}
+              {g === "Economy" && <Link href={withGuild("/dashboard/economy", guildId)} style={{ color: "#ffb0b0" }}>Open Economy</Link>}
+              {g === "Games" && <Link href={withGuild("/dashboard/games", guildId)} style={{ color: "#ffb0b0" }}>Open Games</Link>}
+              {g === "GTA Ops" && <Link href={withGuild("/dashboard/heist", guildId)} style={{ color: "#ffb0b0" }}>Open GTA Ops</Link>}
+              {g === "AI" && <Link href={withGuild("/dashboard/ai", guildId)} style={{ color: "#ffb0b0" }}>Open AI Personas</Link>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {msg ? <div style={{ marginTop: 10, color: "#ffb3b3" }}>{msg}</div> : null}
     </div>
   );
 }

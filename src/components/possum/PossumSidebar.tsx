@@ -13,8 +13,9 @@ const GROUPS: NavGroup[] = [
     title: "Core",
     items: [
       { label: "Overview", href: "/dashboard" },
-      { label: "Setup", href: "/dashboard/control-center" },
+      { label: "Modules", href: "/dashboard/modules" },
       { label: "Setup", href: "/dashboard/setup" },
+      { label: "Control Center", href: "/dashboard/control-center" },
       { label: "Guild Roles", href: "/dashboard/roles" },
       { label: "System Health", href: "/dashboard/system-health" }
     ]
@@ -27,18 +28,12 @@ const GROUPS: NavGroup[] = [
       { label: "Onboarding", href: "/dashboard/security/onboarding" },
       { label: "Verification", href: "/dashboard/security/verification" },
       { label: "Lockdown", href: "/dashboard/security/lockdown" },
-      { label: "Raid", href: "/dashboard/security/raid" },
-      { label: "Escalation", href: "/dashboard/security/escalation" },
-      { label: "Policy", href: "/dashboard/security/policy" }
+      { label: "Raid", href: "/dashboard/security/raid" }
     ]
   },
   {
     title: "Access",
-    items: [
-      { label: "Access Control", href: "/dashboard/access" },
-      { label: "VIP", href: "/dashboard/vip" },
-      { label: "AI Personas", href: "/dashboard/ai/persona" }
-    ]
+    items: [{ label: "Access", href: "/dashboard/access" }]
   },
   {
     title: "Economy",
@@ -46,28 +41,22 @@ const GROUPS: NavGroup[] = [
   },
   {
     title: "Games",
-    items: [
-      { label: "Games", href: "/dashboard/games" },
-      { label: "Giveaways", href: "/dashboard/giveaways" }
-    ]
+    items: [{ label: "Games", href: "/dashboard/games" }]
   },
   {
     title: "GTA Ops",
-    items: [{ label: "GTA Ops", href: "/dashboard/gta-ops" }]
+    items: [{ label: "Heist Ops", href: "/dashboard/heist" }]
   },
   {
     title: "Automation",
     items: [
       { label: "Automations", href: "/dashboard/automations" },
-      { label: "Custom Commands", href: "/dashboard/custom-commands" }
+      { label: "Command Studio", href: "/dashboard/commands" }
     ]
   },
   {
     title: "AI",
-    items: [
-      { label: "AI Overview", href: "/dashboard/ai" },
-      { label: "Personas Engine", href: "/dashboard/ai/persona" }
-    ]
+    items: [{ label: "AI Personas", href: "/dashboard/ai" }]
   }
 ];
 
@@ -103,10 +92,28 @@ export function PossumSidebar() {
       }}
     >
       <div style={{ marginBottom: 16 }}>
-        <div style={{ color: possum.red, textShadow: possum.glowSoft, fontWeight: 950, letterSpacing: "0.22em", textTransform: "uppercase", fontSize: 22 }}>
+        <div
+          style={{
+            color: possum.red,
+            textShadow: possum.glowSoft,
+            fontWeight: 950,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            fontSize: 22
+          }}
+        >
           POSSUM
         </div>
-        <div style={{ marginTop: 10, color: possum.soft, letterSpacing: "0.22em", textTransform: "uppercase", fontSize: 12, opacity: 0.9 }}>
+        <div
+          style={{
+            marginTop: 10,
+            color: possum.soft,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            fontSize: 12,
+            opacity: 0.9
+          }}
+        >
           Control System
         </div>
       </div>
