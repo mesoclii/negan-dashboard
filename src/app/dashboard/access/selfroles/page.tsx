@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import SelfrolesClient from "./SelfrolesClient";
+import RolesClient from "../../roles/RolesClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,7 +11,7 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <SelfrolesClient />
+      <RolesClient />
     </Suspense>
   );
 }

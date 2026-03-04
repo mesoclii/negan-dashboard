@@ -85,8 +85,8 @@ export default function AccessClient() {
         <Link href={withGuild("/dashboard/access/selfroles", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
           <b>Selfroles</b>
         </Link>
-        <Link href={withGuild("/dashboard/access/utilities", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
-          <b>Utilities</b>
+        <Link href={withGuild("/dashboard/security/engines", guildId)} style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none" }}>
+          <b>Engines</b>
         </Link>
       </div>
     </main>

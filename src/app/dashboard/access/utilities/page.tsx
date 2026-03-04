@@ -1,17 +1,16 @@
-import { Suspense } from "react";
-import UtilitiesClient from "./UtilitiesClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading utilities...</div>;
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <UtilitiesClient />
-    </Suspense>
-  );
+export default function Page({
+  searchParams,
+}: {
+  searchParams?: { guildId?: string; guildid?: string };
+}) {
+  const gid = String(searchParams?.guildId || searchParams?.guildid || "").trim();
+  if (gid) {
+    redirect(`/dashboard/security/engines?guildId=${encodeURIComponent(gid)}&guildid=${encodeURIComponent(gid)}`);
+  }
+  redirect("/dashboard/security/engines");
 }

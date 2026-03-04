@@ -24,6 +24,22 @@ async function readJsonSafe(response: Response) {
   }
 }
 
+function normalizeWriteBody(req: NextApiRequest, guildId: string) {
+  const body = req.body && typeof req.body === "object" ? { ...req.body } : {};
+  body.guildId = guildId;
+
+  if (
+    typeof body.engine === "string" &&
+    body.engine.trim() &&
+    body.config === undefined &&
+    body.patch !== undefined
+  ) {
+    body.config = body.patch;
+  }
+
+  return body;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const guildId = readGuildIdFromRequest(req);
@@ -40,6 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(`${BOT_API}/engine-config?${query.toString()}`, {
         headers: headersWithAuth(false),
+        cache: "no-store",
       });
 
       const data = await readJsonSafe(upstream);
@@ -50,11 +67,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!guildId) {
         return res.status(400).json({ success: false, error: "guildId is required" });
       }
+
       if (isWriteBlockedForGuild(guildId)) {
         return res.status(403).json(stockLockError(guildId));
       }
 
-      const body = { ...(req.body || {}), guildId };
+      const body = normalizeWriteBody(req, guildId);
       const upstream = await fetch(`${BOT_API}/engine-config`, {
         method: req.method,
         headers: headersWithAuth(true),

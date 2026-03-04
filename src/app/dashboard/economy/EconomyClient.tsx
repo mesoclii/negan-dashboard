@@ -1,26 +1,20 @@
 "use client";
 
-
-
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 type Channel = { id: string; name: string };
 
-const DEFAULT_FEATURES = {
+type FeaturesConfig = {
+  economyEnabled: boolean;
+  birthdayEnabled: boolean;
+  giveawaysEnabled: boolean;
+};
+
+const DEFAULT_FEATURES: FeaturesConfig = {
   economyEnabled: true,
   birthdayEnabled: true,
   giveawaysEnabled: true
-};
-
-const DEFAULT_GIVEAWAYS = {
-  enabled: true,
-  channelId: "",
-  ticketChannelId: "",
-  defaultImageUrl: "",
-  winnerCount: 1,
-  durationMinutes: 60,
-  dmWinners: true,
-  announcementTemplate: "Giveaway ended. Congratulations {{winners}}!"
 };
 
 function clone<T>(v: T): T {
@@ -87,47 +81,21 @@ function Pill({ on }: { on: boolean }) {
   );
 }
 
-async function saveEngine(guildId: string, engine: string, config: any) {
-  const tries = [
-    { guildId, engine, config },
-    { guildId, engine, patch: config },
-    { guildId, engine, data: config }
-  ];
-
-  for (const body of tries) {
-    const r = await fetch("/api/bot/engine-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok && j?.success !== false) return j;
-  }
-  throw new Error("Failed to save engine config.");
-}
-
 export default function EconomyPage() {
   const [guildId, setGuildId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const [channels, setChannels] = useState<Channel[]>([]);
+  const [_channels, setChannels] = useState<Channel[]>([]);
 
-  const [features, setFeatures] = useState<any>(clone(DEFAULT_FEATURES));
-  const [baseFeatures, setBaseFeatures] = useState<any>(clone(DEFAULT_FEATURES));
+  const [features, setFeatures] = useState<FeaturesConfig>(clone(DEFAULT_FEATURES));
+  const [baseFeatures, setBaseFeatures] = useState<FeaturesConfig>(clone(DEFAULT_FEATURES));
 
-  const [giveCfg, setGiveCfg] = useState<any>(clone(DEFAULT_GIVEAWAYS));
-  const [baseGiveCfg, setBaseGiveCfg] = useState<any>(clone(DEFAULT_GIVEAWAYS));
-
-  const channelOptions = useMemo(
-    () => channels.map((c) => ({ id: c.id, name: `#${c.name}` })),
-    [channels]
+  const featuresDirty = useMemo(
+    () => JSON.stringify(features) !== JSON.stringify(baseFeatures),
+    [features, baseFeatures]
   );
-
-  const featuresDirty = JSON.stringify(features) !== JSON.stringify(baseFeatures);
-  const giveDirty = JSON.stringify(giveCfg) !== JSON.stringify(baseGiveCfg);
-  const dirtyCount = Number(featuresDirty) + Number(giveDirty);
 
   useEffect(() => {
     setGuildId(getGuildIdClient());
@@ -144,24 +112,21 @@ export default function EconomyPage() {
         setLoading(true);
         setMsg("");
 
-        const [cfgRes, gdRes, giveRes] = await Promise.all([
+        const [cfgRes, gdRes] = await Promise.all([
           fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=giveaways`)
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
         ]);
 
         const cfgJson = await cfgRes.json().catch(() => ({}));
         const gdJson = await gdRes.json().catch(() => ({}));
-        const giveJson = await giveRes.json().catch(() => ({}));
 
-        const mergedFeatures = { ...DEFAULT_FEATURES, ...(cfgJson?.config?.features || {}) };
+        const mergedFeatures = {
+          ...DEFAULT_FEATURES,
+          ...(cfgJson?.config?.features || {})
+        } as FeaturesConfig;
+
         setFeatures(mergedFeatures);
         setBaseFeatures(clone(mergedFeatures));
-
-        const mergedGive = { ...DEFAULT_GIVEAWAYS, ...(giveJson?.config || {}) };
-        setGiveCfg(mergedGive);
-        setBaseGiveCfg(clone(mergedGive));
-
         setChannels(Array.isArray(gdJson?.channels) ? gdJson.channels : []);
       } catch (e: any) {
         setMsg(e?.message || "Failed loading economy settings.");
@@ -177,18 +142,17 @@ export default function EconomyPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guildId, patch: { features } })
     });
+
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json?.success === false) throw new Error(json?.error || "Feature save failed");
-    const merged = { ...DEFAULT_FEATURES, ...(json?.config?.features || {}) };
+
+    const merged = {
+      ...DEFAULT_FEATURES,
+      ...(json?.config?.features || features)
+    } as FeaturesConfig;
+
     setFeatures(merged);
     setBaseFeatures(clone(merged));
-  }
-
-  async function saveGiveaways() {
-    const json = await saveEngine(guildId, "giveaways", giveCfg);
-    const merged = { ...DEFAULT_GIVEAWAYS, ...(json?.config || giveCfg) };
-    setGiveCfg(merged);
-    setBaseGiveCfg(clone(merged));
   }
 
   async function saveAll() {
@@ -197,7 +161,6 @@ export default function EconomyPage() {
     setMsg("");
     try {
       if (featuresDirty) await saveFeatures();
-      if (giveDirty) await saveGiveaways();
       setMsg("Economy settings saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
@@ -233,29 +196,28 @@ export default function EconomyPage() {
                 fontSize: 11,
                 fontWeight: 900,
                 letterSpacing: "0.08em",
-                border: dirtyCount ? "1px solid rgba(245,158,11,.6)" : "1px solid rgba(148,163,184,.45)",
-                background: dirtyCount ? "rgba(245,158,11,.14)" : "rgba(148,163,184,.12)",
-                color: dirtyCount ? "#fcd34d" : "#cbd5e1"
+                border: featuresDirty ? "1px solid rgba(245,158,11,.6)" : "1px solid rgba(148,163,184,.45)",
+                background: featuresDirty ? "rgba(245,158,11,.14)" : "rgba(148,163,184,.12)",
+                color: featuresDirty ? "#fcd34d" : "#cbd5e1"
               }}
             >
-              {dirtyCount ? `${dirtyCount} UNSAVED` : "ALL SAVED"}
+              {featuresDirty ? "UNSAVED" : "ALL SAVED"}
             </span>
 
             <button
               onClick={() => {
                 setFeatures(clone(baseFeatures));
-                setGiveCfg(clone(baseGiveCfg));
                 setMsg("Reverted unsaved changes.");
               }}
-              disabled={saving || !dirtyCount}
-              style={{ ...inputStyle(), width: "auto", padding: "8px 12px", cursor: "pointer" }}
+              disabled={saving || !featuresDirty}
+              style={{ ...inputStyle, width: "auto", padding: "8px 12px", cursor: "pointer" }}
             >
               Revert
             </button>
 
             <button
               onClick={saveAll}
-              disabled={saving || !dirtyCount}
+              disabled={saving || !featuresDirty}
               style={{
                 border: "1px solid rgba(255,0,0,.75)",
                 borderRadius: 10,
@@ -276,29 +238,32 @@ export default function EconomyPage() {
         {msg ? <div style={{ marginTop: 8, color: "#fcd34d", fontSize: 12 }}>{msg}</div> : null}
       </div>
 
-      <details open style={cardStyle()}>
+      <details open style={cardStyle}>
         <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", display: "flex", justifyContent: "space-between" }}>
           <span style={{ color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
             Economy Modules
           </span>
-          <Pill on={!!features.economyEnabled || !!features.birthdayEnabled || !!features.giveawaysEnabled} />
+          <Pill on={!!features.economyEnabled || !!features.birthdayEnabled} />
         </summary>
         <div style={{ padding: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 12 }}>
-            {[
-              ["economyEnabled", "Economy"],
-              ["birthdayEnabled", "Birthdays"],
-              ["giveawaysEnabled", "Giveaways"]
-            ].map(([k, label]) => (
-              <label key={k} style={{ ...labelStyle(), marginBottom: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={!!features[k]}
-                  onChange={(e) => setFeatures((p: any) => ({ ...p, [k]: e.target.checked }))}
-                />{" "}
-                {label}
-              </label>
-            ))}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(220px,1fr))", gap: 12 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>
+              <input
+                type="checkbox"
+                checked={!!features.economyEnabled}
+                onChange={(e) => setFeatures((p) => ({ ...p, economyEnabled: e.target.checked }))}
+              />{" "}
+              Economy Enabled
+            </label>
+
+            <label style={{ ...labelStyle, marginBottom: 0 }}>
+              <input
+                type="checkbox"
+                checked={!!features.birthdayEnabled}
+                onChange={(e) => setFeatures((p) => ({ ...p, birthdayEnabled: e.target.checked }))}
+              />{" "}
+              Birthdays Enabled
+            </label>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
@@ -335,137 +300,37 @@ export default function EconomyPage() {
         </div>
       </details>
 
-      <details open style={cardStyle()}>
-        <summary style={{ cursor: "pointer", padding: "12px 14px", borderBottom: "1px solid rgba(255,0,0,.2)", display: "flex", justifyContent: "space-between" }}>
-          <span style={{ color: "#fff", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
-            Giveaways Engine
-          </span>
-          <Pill on={!!giveCfg.enabled} />
-        </summary>
-        <div style={{ padding: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12 }}>
-            <label style={labelStyle()}>
-              <input
-                type="checkbox"
-                checked={!!giveCfg.enabled}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, enabled: e.target.checked }))}
-              />{" "}
-              Engine Enabled
-            </label>
-
-            <label style={labelStyle()}>
-              <input
-                type="checkbox"
-                checked={!!giveCfg.dmWinners}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, dmWinners: e.target.checked }))}
-              />{" "}
-              DM Winners
-            </label>
-
-            <div>
-              <span style={labelStyle()}>Giveaway Channel</span>
-              <select
-                value={String(giveCfg.channelId || "")}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, channelId: e.target.value }))}
-                style={inputStyle()}
-              >
-                <option value="">Select channel</option>
-                {channelOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.id})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <span style={labelStyle()}>Ticket Channel</span>
-              <select
-                value={String(giveCfg.ticketChannelId || "")}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, ticketChannelId: e.target.value }))}
-                style={inputStyle()}
-              >
-                <option value="">Select channel</option>
-                {channelOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.id})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <span style={labelStyle()}>Winner Count</span>
-              <input
-                type="number"
-                style={inputStyle()}
-                value={Number(giveCfg.winnerCount || 1)}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, winnerCount: Number(e.target.value || 1) }))}
-              />
-            </div>
-
-            <div>
-              <span style={labelStyle()}>Duration (minutes)</span>
-              <input
-                type="number"
-                style={inputStyle()}
-                value={Number(giveCfg.durationMinutes || 60)}
-                onChange={(e) => setGiveCfg((p: any) => ({ ...p, durationMinutes: Number(e.target.value || 60) }))}
-              />
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <span style={labelStyle()}>Default Image URL</span>
-            <input
-              style={inputStyle()}
-              value={String(giveCfg.defaultImageUrl || "")}
-              onChange={(e) => setGiveCfg((p: any) => ({ ...p, defaultImageUrl: e.target.value }))}
-            />
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <span style={labelStyle()}>Announcement Template</span>
-            <textarea
-              style={{ ...inputStyle(), minHeight: 90 }}
-              value={String(giveCfg.announcementTemplate || "")}
-              onChange={(e) => setGiveCfg((p: any) => ({ ...p, announcementTemplate: e.target.value }))}
-            />
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-            <button
-              onClick={async () => {
-                setSaving(true);
-                setMsg("");
-                try {
-                  await saveGiveaways();
-                  setMsg("Giveaway settings saved.");
-                } catch (e: any) {
-                  setMsg(e?.message || "Save failed.");
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              disabled={saving}
-              style={{
-                border: "1px solid rgba(255,0,0,.55)",
-                borderRadius: 10,
-                background: "rgba(255,0,0,.12)",
-                color: "#fff",
-                fontWeight: 900,
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: "8px 12px",
-                cursor: "pointer"
-              }}
-            >
-              Save Giveaways
-            </button>
-          </div>
+      <div style={{ ...cardStyle(), padding: 14 }}>
+        <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
+          Economy Engines
+        </h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(240px,1fr))", gap: 10 }}>
+          <Link href={`/dashboard/economy/store?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, textDecoration: "none" }}>
+            Store Engine
+          </Link>
+          <Link href={`/dashboard/economy/progression?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, textDecoration: "none" }}>
+            Progression Engine
+          </Link>
+          <Link href={`/dashboard/economy/leaderboard?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, textDecoration: "none" }}>
+            Leaderboard Engine
+          </Link>
+          <Link href={`/dashboard/economy/radio-birthday?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, textDecoration: "none" }}>
+            Birthday / Radio Engine
+          </Link>
         </div>
-      </details>
+      </div>
+
+      <div style={{ ...cardStyle(), padding: 14 }}>
+        <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>
+          Separate Giveaways Entity
+        </h3>
+        <p style={{ color: "#fca5a5", fontSize: 13, marginTop: 0 }}>
+          Giveaways are managed on their own page and are not mixed into Economy controls.
+        </p>
+        <Link href={`/dashboard/giveaways?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, textDecoration: "none", display: "inline-block", width: "auto", fontWeight: 800 }}>
+          Open Giveaways Engine
+        </Link>
+      </div>
     </div>
   );
 }

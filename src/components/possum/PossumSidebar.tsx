@@ -11,8 +11,9 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/access", label: "Access" },
   { href: "/dashboard/ai", label: "AI" },
-  { href: "/dashboard/commands", label: "Commands" },
+  { href: "/dashboard/commands", label: "Command Studio" },
   { href: "/dashboard/economy", label: "Economy" },
+  { href: "/dashboard/games", label: "Games" },
   { href: "/dashboard/giveaways", label: "Giveaways" },
   { href: "/dashboard/governance", label: "Governance" },
   { href: "/dashboard/gta-ops", label: "GTA Ops" },

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import PossumSidebar from "@/components/possum/PossumSidebar";
+import DashboardAccessGate from "@/components/possum/DashboardAccessGate";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -18,16 +19,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <h1 className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft">Possum Dashboard</h1>
               </div>
 
-              <Link
-                href="/guilds"
-                className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
-              >
-                Change Guild
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/guilds"
+                  className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
+                >
+                  Change Guild
+                </Link>
+                <Link
+                  href="/"
+                  className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
+                >
+                  Exit
+                </Link>
+              </div>
             </div>
           </header>
 
-          <section className="px-5 py-5">{children}</section>
+          <section className="px-5 py-5">
+            <DashboardAccessGate>{children}</DashboardAccessGate>
+          </section>
         </main>
       </div>
     </div>

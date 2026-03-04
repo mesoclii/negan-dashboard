@@ -226,32 +226,18 @@ export default function TicketsPage() {
       const saveJson = await saveRes.json();
       if (!saveRes.ok || saveJson?.success === false) throw new Error(saveJson?.error || "Save failed");
 
-      const [a, b] = await Promise.all([
-        silentPost("/api/bot/dashboard-config", {
-          guildId,
-          patch: {
-            features: { ticketsEnabled: cfg.active },
-            security: {
-              onboarding: {
-                ticketCategoryId: cfg.panel.categoryId || "",
-                ticketChannelId: cfg.panel.channelId || ""
-              }
-            }
-          }
-        }),
-        silentPost("/api/bot/engine-config", {
-          guildId,
-          engine: "onboarding",
-          patch: {
-            ticketCategoryId: cfg.panel.categoryId || null,
-            transcriptChannelId: cfg.panel.transcriptChannelId || null,
-            logChannelId: cfg.panel.channelId || null,
-            staffRoleIds: cfg.panel.staffRoleIds || []
-          }
-        })
-      ]);
+      const synced = await silentPost("/api/bot/dashboard-config", {
+        guildId,
+        patch: {
+          features: { ticketsEnabled: cfg.active }
+        }
+      });
 
-      setMsg(`Saved. Live sync ${Number(a) + Number(b)}/2.`);
+      setMsg(
+        synced
+          ? "Saved Tickets. Support ticket config is isolated from onboarding/verification flows."
+          : "Saved Tickets."
+      );
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
@@ -276,6 +262,7 @@ export default function TicketsPage() {
         <div>
           <h1 style={{ margin: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Tickets Control</h1>
           <div style={{ color: "#ff9f9f", marginTop: 6 }}>Guild: {guildName || guildId}</div>
+          <div style={{ color: "#ffb0b0", marginTop: 4, fontSize: 12 }}>Support tickets are isolated from onboarding ticket flows.</div>
         </div>
         <button
           onClick={saveAll}

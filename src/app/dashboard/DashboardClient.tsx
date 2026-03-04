@@ -11,14 +11,15 @@ type Card = {
 const CARDS: Card[] = [
   { href: "/dashboard/access", title: "Access", description: "Roles, selfroles, tickets, and TTS controls." },
   { href: "/dashboard/ai", title: "AI", description: "Persona, tone, and memory configuration." },
-  { href: "/dashboard/commands", title: "Commands", description: "Custom command studio, command access, and behavior settings." },
+  { href: "/dashboard/commands", title: "Command Studio", description: "Custom command studio settings." },
   { href: "/dashboard/economy", title: "Economy", description: "Store, progression, and currency systems." },
-  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway setup and controls." },
+  { href: "/dashboard/games", title: "Games", description: "Rare drops, cat drops, Pokemon private features, and progression toggles." },
+  { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway runtime, templates, limits, and anti-abuse controls." },
   { href: "/dashboard/governance", title: "Governance", description: "Policy and governance tooling." },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA-specific operation controls." },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist engine and command settings." },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup and operation engine controls." },
   { href: "/dashboard/roles", title: "Roles", description: "Role-related dashboard actions." },
-  { href: "/dashboard/security", title: "Security", description: "Moderation, audit, and safety controls." },
+  { href: "/dashboard/security", title: "Security", description: "Moderation, access control, and safety engines." },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime and health monitoring." },
   { href: "/dashboard/vip", title: "VIP", description: "VIP tiers and role sync settings." }
 ];

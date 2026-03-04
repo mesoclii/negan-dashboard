@@ -145,7 +145,7 @@ export default function UtilitiesPage() {
         setChannels(Array.isArray(gj?.channels) ? gj.channels : []);
         setRoles(Array.isArray(gj?.roles) ? gj.roles : []);
       } catch {
-        setMsg("Failed to load Utilities config.");
+        setMsg("Failed to load engine runtime config.");
       } finally {
         setLoading(false);
       }
@@ -234,7 +234,7 @@ export default function UtilitiesPage() {
         })
       ]);
 
-      setMsg("Utilities saved.");
+      setMsg("Engine runtime saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
@@ -246,7 +246,7 @@ export default function UtilitiesPage() {
 
   return (
     <div style={{ color: "#ff5c5c", padding: 20, maxWidth: 1300 }}>
-      <h1 style={{ marginTop: 0, letterSpacing: "0.14em", textTransform: "uppercase" }}>Utilities Studio</h1>
+      <h1 style={{ marginTop: 0, letterSpacing: "0.14em", textTransform: "uppercase" }}>Engine Runtime Studio</h1>
       <p style={{ marginTop: -4, opacity: 0.9 }}>Guild: {guildId}</p>
 
       {loading ? <p>Loading...</p> : (
@@ -398,7 +398,7 @@ export default function UtilitiesPage() {
             <textarea style={{ ...input, minHeight: 80 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
           </div>
 
-          <button onClick={saveAll} disabled={saving}>{saving ? "Saving..." : "Save Utilities Studio"}</button>
+          <button onClick={saveAll} disabled={saving}>{saving ? "Saving..." : "Save Engine Runtime Studio"}</button>
           {msg ? <p style={{ marginTop: 10 }}>{msg}</p> : null}
         </>
       )}

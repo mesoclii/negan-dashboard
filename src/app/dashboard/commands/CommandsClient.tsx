@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 
 type GuildRole = { id: string; name: string; position?: number };
 type GuildChannel = { id: string; name: string; type?: number | string };
@@ -88,6 +88,105 @@ function getGuildId(): string {
   return guildId;
 }
 
+
+function splitPolicyAndActions(actionsRaw: any[]) {
+  const all = Array.isArray(actionsRaw) ? actionsRaw : [];
+  let policy: Record<string, any> = {};
+  const actions: any[] = [];
+
+  for (const a of all) {
+    if (String(a?.type || "").toUpperCase() === "__POLICY" && a?.config && typeof a.config === "object") {
+      policy = { ...a.config };
+      continue;
+    }
+    actions.push(a);
+  }
+
+  return { policy, actions };
+}
+
+function parseBool(value: any): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return null;
+  if (["1", "true", "yes", "on", "enabled"].includes(text)) return true;
+  if (["0", "false", "no", "off", "disabled"].includes(text)) return false;
+  return null;
+}
+
+function firstBool(values: any[], fallback = false): boolean {
+  for (const value of values) {
+    const parsed = parseBool(value);
+    if (parsed !== null) return parsed;
+  }
+  return fallback;
+}
+
+function firstNumber(values: any[], fallback = 0): number {
+  for (const value of values) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+  }
+  return fallback;
+}
+
+function resolveTriggerDeleteMode(policy: Record<string, any>, cmd?: any): "off" | "instant" | "timer" {
+  const explicit = String(policy?.deleteMode || cmd?.deleteMode || "").trim().toLowerCase();
+  if (explicit === "off") return "off";
+  if (explicit === "instant") return "instant";
+  if (explicit === "timer") return "timer";
+
+  const enabled = firstBool([
+    policy?.deleteTriggerMessage,
+    policy?.hideCommandUsage,
+    policy?.hideUsage,
+    policy?.hideTriggerMessage,
+    cmd?.deleteTriggerMessage,
+    cmd?.hideCommandUsage,
+    cmd?.hideUsage,
+    cmd?.hideTriggerMessage
+  ], false);
+
+  if (!enabled) return "off";
+  const delay = firstNumber([
+    policy?.deleteDelaySec,
+    policy?.deleteAfterSec,
+    policy?.deleteTriggerDelaySec,
+    cmd?.deleteDelaySec,
+    cmd?.deleteAfterSec,
+    cmd?.deleteTriggerDelaySec
+  ], 0);
+  return delay > 0 ? "timer" : "instant";
+}
+
+function resolveResponseDeleteMode(policy: Record<string, any>, cmd?: any): "off" | "timer" {
+  const explicit = String(policy?.responseDeleteMode || cmd?.responseDeleteMode || "").trim().toLowerCase();
+  if (explicit === "off") return "off";
+  if (explicit === "timer") return "timer";
+
+  const enabled = firstBool([
+    policy?.deleteBotResponses,
+    policy?.deleteResponses,
+    policy?.deleteBotResponse,
+    cmd?.deleteBotResponses,
+    cmd?.deleteResponses,
+    cmd?.deleteBotResponse
+  ], false);
+
+  return enabled ? "timer" : "off";
+}
+
+
+function describeDeleteModeFromCommand(cmd: CustomCommand): string {
+  const { policy } = splitPolicyAndActions(cmd.actions || []);
+  const mode = resolveTriggerDeleteMode(policy, cmd);
+  if (mode === "off") return "off";
+  if (mode === "instant") return "instant";
+  const sec = firstNumber([policy?.deleteDelaySec, policy?.deleteAfterSec, policy?.deleteTriggerDelaySec], 5) || 5;
+  return `${sec}s`;
+}
+
 function emptyAction(type: ActionType): ActionDraft {
   return {
     id: makeId(),
@@ -164,6 +263,11 @@ export default function CustomCommandsPage() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string>("new");
   const [draft, setDraft] = useState<CommandDraft>(emptyDraft());
+  const [policyRaw, setPolicyRaw] = useState<Record<string, any>>({});
+  const [triggerDeleteMode, setTriggerDeleteMode] = useState<"off" | "instant" | "timer">("off");
+  const [triggerDeleteDelaySec, setTriggerDeleteDelaySec] = useState("5");
+  const [responseDeleteMode, setResponseDeleteMode] = useState<"off" | "timer">("off");
+  const [responseDeleteDelaySec, setResponseDeleteDelaySec] = useState("10");
 
   const filteredCommands = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -207,10 +311,30 @@ export default function CustomCommandsPage() {
   useEffect(() => {
     if (selectedId === "new") {
       setDraft(emptyDraft());
+      setPolicyRaw({});
+      setTriggerDeleteMode("off");
+      setTriggerDeleteDelaySec("5");
+      setResponseDeleteMode("off");
+      setResponseDeleteDelaySec("10");
       return;
     }
     const cmd = commands.find((c) => c.id === selectedId);
     if (!cmd) return;
+
+    const { policy, actions } = splitPolicyAndActions(cmd.actions || []);
+
+    setPolicyRaw(policy);
+    setTriggerDeleteMode(resolveTriggerDeleteMode(policy, cmd));
+    setTriggerDeleteDelaySec(String(firstNumber([
+      policy?.deleteDelaySec,
+      policy?.deleteAfterSec,
+      policy?.deleteTriggerDelaySec
+    ], 5) || 5));
+    setResponseDeleteMode(resolveResponseDeleteMode(policy, cmd));
+    setResponseDeleteDelaySec(String(firstNumber([
+      policy?.responseDeleteSec,
+      policy?.responseDeleteAfterSec
+    ], 10) || 10));
 
     setDraft({
       id: cmd.id,
@@ -222,7 +346,7 @@ export default function CustomCommandsPage() {
       roleRequired: String(cmd.roleRequired || ""),
       cooldownSec: String(cmd.cooldownSec ?? 0),
       costCoins: String(cmd.costCoins ?? 0),
-      actions: Array.isArray(cmd.actions) ? cmd.actions.map(apiActionToDraft) : []
+      actions: Array.isArray(actions) ? actions.map(apiActionToDraft) : []
     });
   }, [selectedId, commands]);
 
@@ -275,6 +399,40 @@ export default function CustomCommandsPage() {
     setMsg("");
 
     try {
+      const policy = { ...(policyRaw || {}) };
+      const triggerDelay = Math.max(1, Number(triggerDeleteDelaySec || 5));
+      const responseDelay = Math.max(1, Number(responseDeleteDelaySec || 10));
+
+      if (triggerDeleteMode === "off") {
+        policy.deleteMode = "off";
+        policy.deleteTriggerMessage = false;
+        policy.hideCommandUsage = false;
+        policy.deleteDelaySec = 0;
+      } else if (triggerDeleteMode === "instant") {
+        policy.deleteMode = "instant";
+        policy.deleteTriggerMessage = true;
+        policy.hideCommandUsage = true;
+        policy.deleteDelaySec = 0;
+      } else {
+        policy.deleteMode = "timer";
+        policy.deleteTriggerMessage = true;
+        policy.hideCommandUsage = true;
+        policy.deleteDelaySec = triggerDelay;
+      }
+
+      if (responseDeleteMode === "off") {
+        policy.responseDeleteMode = "off";
+        policy.responseDeleteSec = 0;
+        policy.deleteBotResponses = false;
+      } else {
+        policy.responseDeleteMode = "timer";
+        policy.responseDeleteSec = responseDelay;
+        policy.deleteBotResponses = true;
+      }
+
+      const actionsWithPolicy = draft.actions.map(draftToApiAction);
+      actionsWithPolicy.unshift({ type: "__POLICY", config: policy });
+
       const payload = {
         guildId,
         name: cleanName,
@@ -285,7 +443,7 @@ export default function CustomCommandsPage() {
         roleRequired: draft.roleRequired || null,
         cooldownSec: Number(draft.cooldownSec || 0),
         costCoins: Number(draft.costCoins || 0),
-        actions: draft.actions.map(draftToApiAction),
+        actions: actionsWithPolicy,
         createdBy: "dashboard"
       };
 
@@ -417,11 +575,56 @@ export default function CustomCommandsPage() {
               />
             </div>
 
+            <div style={deletePanelStyle}>
+              <div style={subTitle}>Auto-delete</div>
+
+              <div style={twoCol}>
+                <div>
+                  <div style={miniLabel}>Command usage message</div>
+                  <select value={triggerDeleteMode} onChange={(e) => setTriggerDeleteMode(e.target.value as 'off' | 'instant' | 'timer')} style={inputStyle}>
+                    <option value='off'>Off</option>
+                    <option value='instant'>Instant delete</option>
+                    <option value='timer'>Delete on timer</option>
+                  </select>
+                </div>
+                <div>
+                  {triggerDeleteMode === 'timer' ? (
+                    <>
+                      <div style={miniLabel}>Delay seconds</div>
+                      <input value={triggerDeleteDelaySec} onChange={(e) => setTriggerDeleteDelaySec(e.target.value)} style={inputStyle} placeholder='5' />
+                    </>
+                  ) : (
+                    <div style={hintStyle}>Controls whether the member command message is removed.</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={twoCol}>
+                <div>
+                  <div style={miniLabel}>Bot response messages</div>
+                  <select value={responseDeleteMode} onChange={(e) => setResponseDeleteMode(e.target.value as 'off' | 'timer')} style={inputStyle}>
+                    <option value='off'>Off</option>
+                    <option value='timer'>Delete on timer</option>
+                  </select>
+                </div>
+                <div>
+                  {responseDeleteMode === 'timer' ? (
+                    <>
+                      <div style={miniLabel}>Delay seconds</div>
+                      <input value={responseDeleteDelaySec} onChange={(e) => setResponseDeleteDelaySec(e.target.value)} style={inputStyle} placeholder='10' />
+                    </>
+                  ) : (
+                    <div style={hintStyle}>Keeps bot output visible permanently.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <details style={{ marginTop: 12 }}>
               <summary style={summaryStyle}>Advanced options and permissions</summary>
-              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <select value={draft.roleRequired} onChange={(e) => updateDraft("roleRequired", e.target.value)} style={inputStyle}>
-                  <option value="">No required role</option>
+              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <select value={draft.roleRequired} onChange={(e) => updateDraft('roleRequired', e.target.value)} style={inputStyle}>
+                  <option value=''>No required role</option>
                   {roles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
@@ -429,14 +632,14 @@ export default function CustomCommandsPage() {
                   ))}
                 </select>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <input value={draft.cooldownSec} onChange={(e) => updateDraft("cooldownSec", e.target.value)} placeholder="Cooldown sec" style={inputStyle} />
-                  <input value={draft.costCoins} onChange={(e) => updateDraft("costCoins", e.target.value)} placeholder="Coin cost" style={inputStyle} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <input value={draft.cooldownSec} onChange={(e) => updateDraft('cooldownSec', e.target.value)} placeholder='Cooldown sec' style={inputStyle} />
+                  <input value={draft.costCoins} onChange={(e) => updateDraft('costCoins', e.target.value)} placeholder='Coin cost' style={inputStyle} />
                 </div>
 
-                <label><input type="checkbox" checked={draft.enabled} onChange={(e) => updateDraft("enabled", e.target.checked)} /> enabled</label>
-                <label><input type="checkbox" checked={draft.staffOnly} onChange={(e) => updateDraft("staffOnly", e.target.checked)} /> staff only</label>
-                <label><input type="checkbox" checked={draft.hideFromHelp} onChange={(e) => updateDraft("hideFromHelp", e.target.checked)} /> hide from help</label>
+                <label><input type='checkbox' checked={draft.enabled} onChange={(e) => updateDraft('enabled', e.target.checked)} /> enabled</label>
+                <label><input type='checkbox' checked={draft.staffOnly} onChange={(e) => updateDraft('staffOnly', e.target.checked)} /> staff only</label>
+                <label><input type='checkbox' checked={draft.hideFromHelp} onChange={(e) => updateDraft('hideFromHelp', e.target.checked)} /> hide from help</label>
               </div>
             </details>
 
@@ -640,4 +843,27 @@ const twoCol: CSSProperties = {
   gridTemplateColumns: "1fr 1fr",
   gap: 10,
   marginTop: 8
+};
+
+const deletePanelStyle: CSSProperties = {
+  gridColumn: "1 / -1",
+  borderTop: "1px solid rgba(255,0,0,0.2)",
+  marginTop: 8,
+  paddingTop: 10,
+  display: "grid",
+  gap: 8
+};
+
+const miniLabel: CSSProperties = {
+  marginBottom: 6,
+  fontSize: 11,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#ffbdbd"
+};
+
+const hintStyle: CSSProperties = {
+  paddingTop: 12,
+  color: "#ff9d9d",
+  fontSize: 12
 };
