@@ -22,6 +22,7 @@ type GamesConfig = {
   pokemon: {
     enabled: boolean;
     privateOnly: boolean;
+    guildAllowed: boolean;
     battleEnabled: boolean;
     tradingEnabled: boolean;
     intervalMinutes: number;
@@ -41,7 +42,7 @@ const EMPTY: GamesConfig = {
   active: true,
   rareDrop: { enabled: false, intervalMinutes: 20, maxActive: 2, announceChannelId: "" },
   catDrop: { enabled: false, intervalMinutes: 20, maxActive: 2, announceChannelId: "" },
-  pokemon: { enabled: false, privateOnly: true, battleEnabled: true, tradingEnabled: true, intervalMinutes: 20, maxActive: 2, spawnChannelIds: [] },
+  pokemon: { enabled: false, privateOnly: true, guildAllowed: false, battleEnabled: true, tradingEnabled: true, intervalMinutes: 20, maxActive: 2, spawnChannelIds: [] },
   progression: { enabled: true, achievementsEnabled: true, xpPerMessageMin: 5, xpPerMessageMax: 15, levelUpChannelId: "" }
 };
 
@@ -169,14 +170,22 @@ export default function GamesClient() {
           </section>
 
           <section style={cardStyle}>
-            <h3 style={titleStyle}>Pokemon (Private Feature)</h3>
+            <h3 style={titleStyle}>Pokemon (Private Engine)</h3>
             <div style={{ marginBottom: 8, color: "#ffb5b5", fontSize: 13 }}>
-              Pokemon catch/battle/trading is private-only and non-monetized. Allowed only in your scoped private guild list.
+              Keep this private and non-monetized. Use the toggle below to allow Pokemon only in this selected guild.
             </div>
-            <label><input type="checkbox" checked={cfg.pokemon.enabled} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, enabled: e.target.checked } }))} /> Enabled</label>
+            <label><input type="checkbox" checked={cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, guildAllowed: e.target.checked } }))} /> Allow Pokemon in this guild</label>
+            {!cfg.pokemon.guildAllowed ? (
+              <div style={{ marginTop: 8, color: "#ff9a9a", fontSize: 12, fontWeight: 700 }}>
+                Pokemon is blocked for this guild until you enable "Allow Pokemon in this guild".
+              </div>
+            ) : null}
+            <div style={{ marginTop: 8 }}>
+              <label><input type="checkbox" checked={cfg.pokemon.enabled} disabled={!cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, enabled: e.target.checked } }))} /> Pokemon engine enabled</label>
+            </div>
             <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-              <label><input type="checkbox" checked={cfg.pokemon.battleEnabled} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, battleEnabled: e.target.checked } }))} /> Battle enabled</label>
-              <label><input type="checkbox" checked={cfg.pokemon.tradingEnabled} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, tradingEnabled: e.target.checked } }))} /> Trading enabled</label>
+              <label><input type="checkbox" checked={cfg.pokemon.battleEnabled} disabled={!cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, battleEnabled: e.target.checked } }))} /> Battle enabled</label>
+              <label><input type="checkbox" checked={cfg.pokemon.tradingEnabled} disabled={!cfg.pokemon.guildAllowed} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, tradingEnabled: e.target.checked } }))} /> Trading enabled</label>
             </div>
             <div style={grid2}>
               <input style={inputStyle} value={cfg.pokemon.intervalMinutes} onChange={(e) => setCfg((p) => ({ ...p, pokemon: { ...p.pokemon, intervalMinutes: Number(e.target.value || 0) } }))} placeholder="Interval minutes" />

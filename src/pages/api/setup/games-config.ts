@@ -34,6 +34,7 @@ type GamesConfig = {
   pokemon: {
     enabled: boolean;
     privateOnly: boolean;
+    guildAllowed: boolean;
     stage2Enabled: boolean;
     battleEnabled: boolean;
     tradingEnabled: boolean;
@@ -102,6 +103,7 @@ const DEFAULT_CONFIG: GamesConfig = {
   pokemon: {
     enabled: false,
     privateOnly: true,
+    guildAllowed: false,
     stage2Enabled: true,
     battleEnabled: true,
     tradingEnabled: true,
@@ -210,7 +212,7 @@ function parseGuildList(raw: string): Set<string> {
   );
 }
 
-function pokemonAllowedGuild(guildId: string): boolean {
+function inOwnerGuildScope(guildId: string): boolean {
   const explicit = parseGuildList(String(process.env.POKEMON_ALLOWED_GUILD_IDS || ""));
   const privateList = parseGuildList(String(process.env.PRIVATE_GUILD_IDS || ""));
   const merged = new Set<string>([...explicit, ...privateList]);
@@ -218,8 +220,12 @@ function pokemonAllowedGuild(guildId: string): boolean {
   return merged.has(String(guildId || "").trim());
 }
 
+function pokemonAllowedGuild(config: GamesConfig, guildId: string): boolean {
+  return inOwnerGuildScope(guildId) && !!config?.pokemon?.guildAllowed;
+}
+
 function enforcePokemonPolicy(config: GamesConfig, guildId: string): { config: GamesConfig; allowed: boolean } {
-  const allowed = pokemonAllowedGuild(guildId);
+  const allowed = pokemonAllowedGuild(config, guildId);
   const next: GamesConfig = {
     ...config,
     pokemon: {
@@ -266,7 +272,8 @@ function merge(current: GamesConfig, patch: any): GamesConfig {
       ...current.pokemon,
       ...(p.pokemon || {}),
       enabled: toBool(p?.pokemon?.enabled, current.pokemon.enabled),
-      privateOnly: toBool(p?.pokemon?.privateOnly, current.pokemon.privateOnly),
+      privateOnly: true,
+      guildAllowed: toBool(p?.pokemon?.guildAllowed, current.pokemon.guildAllowed),
       stage2Enabled: toBool(p?.pokemon?.stage2Enabled, current.pokemon.stage2Enabled),
       battleEnabled: toBool(p?.pokemon?.battleEnabled, current.pokemon.battleEnabled),
       tradingEnabled: toBool(p?.pokemon?.tradingEnabled, current.pokemon.tradingEnabled),
@@ -326,7 +333,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
 
   const store = loadStore();
-  const current = { ...DEFAULT_CONFIG, ...(store[guildId] || {}) };
+  const current = merge(DEFAULT_CONFIG, store[guildId] || {});
 
   if (req.method === "GET") {
     const enforced = enforcePokemonPolicy(current, guildId);
