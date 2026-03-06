@@ -13,8 +13,13 @@ const LINKS = [
   { href: "/dashboard/tts", label: "TTS" },
   { href: "/dashboard/economy", label: "Economy" },
   { href: "/dashboard/games", label: "Games" },
+  { href: "/dashboard/pokemon-stage2", label: "Pokemon" },
+  { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
+  { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
   { href: "/dashboard/heist", label: "Heist" },
   { href: "/dashboard/gta-ops", label: "GTA Ops" },
+  { href: "/dashboard/panels", label: "Panel Deploy" },
+  { href: "/dashboard/panel", label: "Master Panel" },
   { href: "/dashboard/security", label: "Security" },
   { href: "/dashboard/system-health", label: "System Health" },
   { href: "/dashboard/vip", label: "VIP" }

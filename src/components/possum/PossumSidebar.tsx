@@ -37,6 +37,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/range", label: "Range" },
   { href: "/dashboard/truthdare", label: "Truth Dare" },
   { href: "/dashboard/pokemon-stage2", label: "Pokemon Stage2" },
+  { href: "/dashboard/pokemon-battle", label: "Pokemon Battle" },
+  { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
   { href: "/dashboard/event-reactor", label: "Event Reactor" },
   { href: "/dashboard/governance", label: "Governance" },
   { href: "/dashboard/security", label: "Security" },

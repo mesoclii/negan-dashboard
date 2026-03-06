@@ -1,125 +1,100 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type PrestigeCfg = {
-  active: boolean;
-  achievementsEnabled: boolean;
-  badgePanelEnabled: boolean;
+  enabled: boolean;
+  maxLevel: number;
   announceChannelId: string;
-  notes: string;
+  roleRewards: Record<string, string>;
 };
 
-type Channel = { id: string; name: string; type?: number | string };
-
-const EMPTY: PrestigeCfg = {
-  active: true,
-  achievementsEnabled: true,
-  badgePanelEnabled: false,
+const DEFAULT_PRESTIGE: PrestigeCfg = {
+  enabled: true,
+  maxLevel: 50,
   announceChannelId: "",
-  notes: "",
+  roleRewards: {},
 };
 
-function getGuildId() {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const id = (q || s).trim();
-  if (id) localStorage.setItem("activeGuildId", id);
-  return id;
-}
-
-const box: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)" };
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1200 };
+const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };
 
+function roleRewardsToText(value: Record<string, string>) {
+  return Object.entries(value || {}).map(([level, roleId]) => `${level}:${roleId}`).join("\n");
+}
+
+function textToRoleRewards(text: string) {
+  return text.split(/\n+/).reduce<Record<string, string>>((out, line) => {
+    const [level, roleId] = line.split(":").map((part) => String(part || "").trim());
+    if (level && roleId) out[level] = roleId;
+    return out;
+  }, {});
+}
+
 export default function PrestigePage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<PrestigeCfg>(EMPTY);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    channels,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<PrestigeCfg>("prestige", DEFAULT_PRESTIGE);
 
-  useEffect(() => setGuildId(getGuildId()), []);
-
-  useEffect(() => {
-    if (!guildId) { setLoading(false); return; }
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const [progRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/progression-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-        ]);
-        const p = await progRes.json().catch(() => ({}));
-        const g = await gdRes.json().catch(() => ({}));
-        setCfg({
-          active: !!p?.config?.active,
-          achievementsEnabled: !!p?.config?.achievements?.enabled,
-          badgePanelEnabled: !!p?.config?.badges?.panelEnabled,
-          announceChannelId: String(p?.config?.achievements?.announceChannelId || ""),
-          notes: String(p?.config?.notes || ""),
-        });
-        setChannels((Array.isArray(g?.channels) ? g.channels : []).filter((c: any) => Number(c?.type) === 0));
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load prestige config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      const patch = {
-        active: cfg.active,
-        achievements: { enabled: cfg.achievementsEnabled, announceChannelId: cfg.announceChannelId },
-        badges: { panelEnabled: cfg.badgePanelEnabled },
-        notes: cfg.notes,
-      };
-      const r = await fetch("/api/setup/progression-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      setMsg("Prestige/Progression config saved.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const textChannels = channels.filter((c) => Number(c?.type) === 0 || String(c?.type || "").toLowerCase().includes("text"));
 
   if (!guildId) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
-    <div style={{ color: "#ffd0d0", padding: 18, maxWidth: 1200 }}>
+    <div style={shell}>
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Prestige Engine</h1>
-      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
-      {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
+      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
+      {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
 
-      {loading ? <div>Loading...</div> : (
-        <div style={{ display: "grid", gap: 12 }}>
-          <section style={box}>
-            <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))} /> Progression Active</label>
-            <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <label><input type="checkbox" checked={cfg.achievementsEnabled} onChange={(e) => setCfg((p) => ({ ...p, achievementsEnabled: e.target.checked }))} /> Achievements Enabled</label>
-              <label><input type="checkbox" checked={cfg.badgePanelEnabled} onChange={(e) => setCfg((p) => ({ ...p, badgePanelEnabled: e.target.checked }))} /> Badge Panel Enabled</label>
-            </div>
-            <div style={{ marginTop: 10 }}><div>Achievements Announce Channel</div><select style={input} value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}><option value="">Select channel</option>{channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-            <div style={{ marginTop: 10 }}><div>Notes</div><textarea style={{ ...input, minHeight: 100 }} value={cfg.notes} onChange={(e) => setCfg((p) => ({ ...p, notes: e.target.value }))} /></div>
+      {loading ? <div style={card}>Loading...</div> : (
+        <>
+          <EngineInsights summary={summary} details={details} />
+
+          <section style={{ ...card, marginTop: 12 }}>
+            <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Prestige Enabled</label>
           </section>
 
-          <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+          <section style={card}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>Required Max Level</div>
+                <input style={input} type="number" min={1} value={cfg.maxLevel} onChange={(e) => setCfg((p) => ({ ...p, maxLevel: Number(e.target.value || 0) }))} />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Announce Channel</div>
+                <select style={input} value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ marginBottom: 6 }}>Role Rewards (one per line, `prestige:roleId`)</div>
+            <textarea
+              style={{ ...input, minHeight: 120, fontFamily: "monospace" }}
+              value={roleRewardsToText(cfg.roleRewards)}
+              onChange={(e) => setCfg((p) => ({ ...p, roleRewards: textToRoleRewards(e.target.value) }))}
+            />
+          </section>
+
+          <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
             {saving ? "Saving..." : "Save Prestige"}
           </button>
-        </div>
+        </>
       )}
     </div>
   );

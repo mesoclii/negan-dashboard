@@ -1,115 +1,109 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type Channel = { id: string; name: string; type?: number | string };
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type TruthDareCfg = {
   enabled: boolean;
   channelId: string;
   truthPool: string;
   darePool: string;
+  minBet: number;
+  maxBet: number;
+  generatedEnabled: boolean;
 };
 
-const EMPTY: TruthDareCfg = {
-  enabled: false,
+const DEFAULT_CONFIG: TruthDareCfg = {
+  enabled: true,
   channelId: "",
   truthPool: "",
   darePool: "",
+  minBet: 0,
+  maxBet: 50000,
+  generatedEnabled: true,
 };
 
-function getGuildId() {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const id = (q || s).trim();
-  if (id) localStorage.setItem("activeGuildId", id);
-  return id;
-}
-
-const box: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)" };
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1200 };
+const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };
 
 export default function TruthDareEnginePage() {
-  const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<TruthDareCfg>(EMPTY);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    channels,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<TruthDareCfg>("truthDare", DEFAULT_CONFIG);
 
-  useEffect(() => setGuildId(getGuildId()), []);
+  const textChannels = channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text"));
 
-  useEffect(() => {
-    if (!guildId) { setLoading(false); return; }
-    (async () => {
-      setLoading(true);
-      setMsg("");
-      try {
-        const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/fun-modes-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-        ]);
-        const cfgJson = await cfgRes.json().catch(() => ({}));
-        const gdJson = await gdRes.json().catch(() => ({}));
-        setCfg({ ...EMPTY, ...(cfgJson?.config?.truthDare || {}) });
-        setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: any) => Number(c?.type) === 0));
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load Truth/Dare config.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [guildId]);
-
-  async function save() {
-    if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-    try {
-      const r = await fetch("/api/setup/fun-modes-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: { truthDare: cfg } }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      setCfg({ ...EMPTY, ...(j?.config?.truthDare || cfg) });
-      setMsg("Truth/Dare engine config saved.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!guildId) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+  if (!guildId) return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
-    <div style={{ color: "#ffd0d0", padding: 18, maxWidth: 1200 }}>
-      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Truth Dare Engine</h1>
-      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
-      {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
+    <div style={shell}>
+      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Truth Or Dare Engine</h1>
+      <div style={{ color: "#ff9999", marginTop: 6 }}>Guild: {guildName || guildId}</div>
+      <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
+        Live prompt pools, bet limits, generated prompt gate, and channel lock all save straight into the bot runtime config.
+      </div>
+      {message ? <div style={{ marginTop: 8, color: "#ffd27a" }}>{message}</div> : null}
 
-      {loading ? <div>Loading...</div> : (
-        <div style={{ display: "grid", gap: 12 }}>
-          <section style={box}>
-            <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Enabled</label>
-            <div style={{ marginTop: 10 }}><div>Channel</div><select style={input} value={cfg.channelId || ""} onChange={(e) => setCfg((p) => ({ ...p, channelId: e.target.value }))}><option value="">Select channel</option>{channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-            <div style={{ marginTop: 10 }}>
-              <div>Truth Pool (one per line)</div>
-              <textarea style={{ ...input, minHeight: 120 }} value={cfg.truthPool} onChange={(e) => setCfg((p) => ({ ...p, truthPool: e.target.value }))} />
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <div>Dare Pool (one per line)</div>
-              <textarea style={{ ...input, minHeight: 120 }} value={cfg.darePool} onChange={(e) => setCfg((p) => ({ ...p, darePool: e.target.value }))} />
+      {loading ? (
+        <div style={{ ...card, marginTop: 12 }}>Loading truth or dare...</div>
+      ) : (
+        <>
+          <EngineInsights summary={summary} details={details} />
+
+          <section style={{ ...card, marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Enabled</label>
+              <label><input type="checkbox" checked={cfg.generatedEnabled} onChange={(e) => setCfg((p) => ({ ...p, generatedEnabled: e.target.checked }))} /> Generated Prompts Enabled</label>
             </div>
           </section>
 
-          <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-            {saving ? "Saving..." : "Save Truth/Dare"}
-          </button>
-        </div>
+          <section style={card}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>Locked Channel</div>
+                <select style={input} value={cfg.channelId || ""} onChange={(e) => setCfg((p) => ({ ...p, channelId: e.target.value }))}>
+                  <option value="">Any text channel</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Minimum Bet</div>
+                <input style={input} type="number" min={0} value={cfg.minBet} onChange={(e) => setCfg((p) => ({ ...p, minBet: Number(e.target.value || 0) }))} />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Maximum Bet</div>
+                <input style={input} type="number" min={0} value={cfg.maxBet} onChange={(e) => setCfg((p) => ({ ...p, maxBet: Number(e.target.value || 0) }))} />
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ marginBottom: 6 }}>Truth Pool (one prompt per line)</div>
+            <textarea style={{ ...input, minHeight: 150 }} value={cfg.truthPool} onChange={(e) => setCfg((p) => ({ ...p, truthPool: e.target.value }))} />
+          </section>
+
+          <section style={card}>
+            <div style={{ marginBottom: 6 }}>Dare Pool (one prompt per line)</div>
+            <textarea style={{ ...input, minHeight: 150 }} value={cfg.darePool} onChange={(e) => setCfg((p) => ({ ...p, darePool: e.target.value }))} />
+          </section>
+
+          <div style={{ ...card, display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+              {saving ? "Saving..." : "Save Truth Or Dare"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
