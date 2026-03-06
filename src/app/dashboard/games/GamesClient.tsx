@@ -130,11 +130,11 @@ export default function GamesClient() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>Games Control</div>
-          <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildId}</div>
+          <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Link href={`/dashboard/games/fun-modes?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Fun Modes</Link>
-          <Link href={`/dashboard/games/achievements?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Achievements</Link>
+          <Link href={`/dashboard/games/fun-modes?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Game Engines</Link>
+          <Link href={`/dashboard/achievements?guildId=${encodeURIComponent(guildId)}`} style={{ ...inputStyle, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Achievements</Link>
           <button onClick={saveAll} disabled={saving} style={{ ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 900 }}>
             {saving ? "Saving..." : "Save All"}
           </button>

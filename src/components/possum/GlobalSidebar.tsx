@@ -5,10 +5,16 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/access", label: "Access" },
-  { href: "/dashboard/ai", label: "AI" },
+  { href: "/dashboard/automations", label: "Automations" },
+  { href: "/dashboard/commands", label: "Command Studio" },
+  { href: "/dashboard/tickets", label: "Tickets" },
+  { href: "/dashboard/selfroles", label: "Selfroles" },
+  { href: "/dashboard/invite-tracker", label: "Invite Tracker" },
+  { href: "/dashboard/tts", label: "TTS" },
   { href: "/dashboard/economy", label: "Economy" },
+  { href: "/dashboard/games", label: "Games" },
   { href: "/dashboard/heist", label: "Heist" },
+  { href: "/dashboard/gta-ops", label: "GTA Ops" },
   { href: "/dashboard/security", label: "Security" },
   { href: "/dashboard/system-health", label: "System Health" },
   { href: "/dashboard/vip", label: "VIP" }

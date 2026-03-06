@@ -1,55 +1,93 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type?: number | string };
-type BadgeRole = { badge: string; roleId: string };
+
+type AchRewards = {
+  giveRole: boolean;
+  giveRoleId: string;
+  removeRole: boolean;
+  removeRoleId: string;
+  giveXp: boolean;
+  xpAmount: number;
+  giveCoins: boolean;
+  coinAmount: number;
+};
+
+type AchSettings = {
+  dontTrackProgress: boolean;
+  setColor: string;
+  sendThread: boolean;
+};
+
+type AchievementRow = {
+  id: string;
+  name: string;
+  description: string;
+  source: string;
+  tier: string;
+  flavor: string;
+  action: string;
+  count: number;
+  enabled: boolean;
+  overrideAnnouncement: boolean;
+  announcementMessage: string;
+  rewards: AchRewards;
+  settings: AchSettings;
+};
 
 type AchievementsConfig = {
   active: boolean;
-  achievementsEnabled: boolean;
-  badgesEnabled: boolean;
-  prestigeEnabled: boolean;
-  archetypeRoleSync: boolean;
-  xpCurve: "slow" | "normal" | "fast" | string;
-  levelMilestones: number[];
-  badgeRoleMap: BadgeRole[];
   announceChannelId: string;
+  announcementTemplate: string;
+  commands: {
+    achievements: boolean;
+    achievementsadmin: boolean;
+    achpanel: boolean;
+    badge: boolean;
+  };
+  catalog: AchievementRow[];
 };
 
-const EMPTY: AchievementsConfig = {
+type TabKey = "achievements" | "configuration" | "commands";
+
+const EMPTY_CFG: AchievementsConfig = {
   active: true,
-  achievementsEnabled: true,
-  badgesEnabled: true,
-  prestigeEnabled: false,
-  archetypeRoleSync: true,
-  xpCurve: "normal",
-  levelMilestones: [5, 10, 20, 35, 50],
-  badgeRoleMap: [],
-  announceChannelId: ""
+  announceChannelId: "",
+  announcementTemplate: "{{user}} unlocked {{achievement}}",
+  commands: {
+    achievements: true,
+    achievementsadmin: true,
+    achpanel: true,
+    badge: true
+  },
+  catalog: []
 };
 
 function getGuildId() {
   if (typeof window === "undefined") return "";
-  const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
-  const fromStore = localStorage.getItem("activeGuildId") || "";
+  const sp = new URLSearchParams(window.location.search);
+  const fromUrl = sp.get("guildId") || sp.get("guildid") || "";
+  const fromStore = localStorage.getItem("activeGuildId") || localStorage.getItem("activeGuildid") || "";
   const gid = (fromUrl || fromStore).trim();
-  if (gid) localStorage.setItem("activeGuildId", gid);
+  if (gid) {
+    localStorage.setItem("activeGuildId", gid);
+    localStorage.setItem("activeGuildid", gid);
+  }
   return gid;
 }
 
-function parseMilestones(text: string): number[] {
-  return [...new Set(
-    text
-      .split(",")
-      .map((x) => Number(x.trim()))
-      .filter((n) => Number.isFinite(n) && n > 0)
-      .map((n) => Math.floor(n))
-  )].sort((a, b) => a - b).slice(0, 50);
-}
-
-const inputStyle: React.CSSProperties = {
+const shell: CSSProperties = { maxWidth: 1320, color: "#ffcaca" };
+const card: CSSProperties = {
+  border: "1px solid rgba(255,0,0,.34)",
+  borderRadius: 12,
+  background: "rgba(72,0,0,.14)",
+  padding: 14
+};
+const input: CSSProperties = {
   width: "100%",
   background: "#070707",
   border: "1px solid rgba(255,0,0,.45)",
@@ -58,26 +96,47 @@ const inputStyle: React.CSSProperties = {
   padding: "10px 12px"
 };
 
-const cardStyle: React.CSSProperties = {
-  border: "1px solid rgba(255,0,0,.35)",
-  borderRadius: 12,
-  padding: 14,
-  background: "rgba(90,0,0,.10)"
-};
+function tierColor(tier: string) {
+  const t = String(tier || "").toLowerCase();
+  if (t.includes("mythic")) return "#f97316";
+  if (t.includes("diamond")) return "#22d3ee";
+  if (t.includes("gold")) return "#fbbf24";
+  if (t.includes("silver")) return "#cbd5e1";
+  if (t.includes("bronze")) return "#d97706";
+  return "#a78bfa";
+}
 
-const titleStyle: React.CSSProperties = {
-  margin: "0 0 10px",
-  color: "#ffdada",
-  letterSpacing: "0.10em",
-  textTransform: "uppercase"
-};
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        border: active ? "1px solid rgba(255,0,0,.7)" : "1px solid rgba(255,0,0,.25)",
+        borderRadius: 8,
+        background: active ? "rgba(255,0,0,.18)" : "rgba(0,0,0,.35)",
+        color: active ? "#fff" : "#fda4af",
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        fontSize: 11,
+        padding: "8px 10px",
+        cursor: "pointer"
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function AchievementsClient() {
   const [guildId, setGuildId] = useState("");
+  const [cfg, setCfg] = useState<AchievementsConfig>(EMPTY_CFG);
+  const [base, setBase] = useState<AchievementsConfig>(EMPTY_CFG);
   const [roles, setRoles] = useState<Role[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [cfg, setCfg] = useState<AchievementsConfig>(EMPTY);
-  const [milestonesText, setMilestonesText] = useState("5,10,20,35,50");
+  const [tab, setTab] = useState<TabKey>("achievements");
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -89,52 +148,74 @@ export default function AchievementsClient() {
       setLoading(false);
       return;
     }
-
     (async () => {
-      setLoading(true);
-      setMsg("");
       try {
+        setLoading(true);
+        setMsg("");
         const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/achievements-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
+          fetch(`/api/setup/achievements-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" })
         ]);
         const cfgJson = await cfgRes.json().catch(() => ({}));
         const gdJson = await gdRes.json().catch(() => ({}));
 
-        const merged = { ...EMPTY, ...(cfgJson?.config || {}) };
-        setCfg(merged);
-        setMilestonesText((Array.isArray(merged.levelMilestones) ? merged.levelMilestones : []).join(","));
+        const merged: AchievementsConfig = {
+          ...EMPTY_CFG,
+          ...(cfgJson?.config || {}),
+          commands: {
+            ...EMPTY_CFG.commands,
+            ...((cfgJson?.config?.commands || {}) as AchievementsConfig["commands"])
+          },
+          catalog: Array.isArray(cfgJson?.config?.catalog) ? cfgJson.config.catalog : []
+        };
 
+        setCfg(merged);
+        setBase(JSON.parse(JSON.stringify(merged)));
         setRoles((Array.isArray(gdJson?.roles) ? gdJson.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
         setChannels((Array.isArray(gdJson?.channels) ? gdJson.channels : []).filter((c: Channel) => Number(c.type) === 0 || Number(c.type) === 5));
+        if (merged.catalog.length) setSelectedId(merged.catalog[0].id);
       } catch (e: any) {
-        setMsg(e?.message || "Failed loading achievements config.");
+        setMsg(e?.message || "Failed loading achievements.");
       } finally {
         setLoading(false);
       }
     })();
   }, [guildId]);
 
-  const roleNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const r of roles) map[r.id] = r.name;
-    return map;
-  }, [roles]);
+  const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(base), [cfg, base]);
 
-  function addBadgeRole() {
-    setCfg((p) => ({ ...p, badgeRoleMap: [...(p.badgeRoleMap || []), { badge: "", roleId: "" }] }));
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cfg.catalog;
+    return cfg.catalog.filter((a) =>
+      String(a.name || "").toLowerCase().includes(q) ||
+      String(a.description || "").toLowerCase().includes(q) ||
+      String(a.action || "").toLowerCase().includes(q) ||
+      String(a.id || "").toLowerCase().includes(q)
+    );
+  }, [search, cfg.catalog]);
+
+  const selected = useMemo(() => cfg.catalog.find((x) => x.id === selectedId) || null, [cfg.catalog, selectedId]);
+
+  function updateCatalogRow(id: string, patch: Partial<AchievementRow>) {
+    setCfg((prev) => ({
+      ...prev,
+      catalog: prev.catalog.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    }));
   }
 
-  function removeBadgeRole(i: number) {
-    setCfg((p) => ({ ...p, badgeRoleMap: p.badgeRoleMap.filter((_, idx) => idx !== i) }));
+  function updateReward(id: string, patch: Partial<AchRewards>) {
+    setCfg((prev) => ({
+      ...prev,
+      catalog: prev.catalog.map((row) => (row.id === id ? { ...row, rewards: { ...row.rewards, ...patch } } : row))
+    }));
   }
 
-  function updateBadgeRole(i: number, patch: Partial<BadgeRole>) {
-    setCfg((p) => {
-      const next = [...p.badgeRoleMap];
-      next[i] = { ...next[i], ...patch };
-      return { ...p, badgeRoleMap: next };
-    });
+  function updateSettings(id: string, patch: Partial<AchSettings>) {
+    setCfg((prev) => ({
+      ...prev,
+      catalog: prev.catalog.map((row) => (row.id === id ? { ...row, settings: { ...row.settings, ...patch } } : row))
+    }));
   }
 
   async function saveAll() {
@@ -142,22 +223,25 @@ export default function AchievementsClient() {
     setSaving(true);
     setMsg("");
     try {
-      const patch: AchievementsConfig = {
-        ...cfg,
-        levelMilestones: parseMilestones(milestonesText)
-      };
-
       const r = await fetch("/api/setup/achievements-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch })
+        body: JSON.stringify({ guildId, patch: cfg })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
-      const merged = { ...EMPTY, ...(j?.config || patch) };
+      const merged: AchievementsConfig = {
+        ...EMPTY_CFG,
+        ...(j?.config || cfg),
+        commands: {
+          ...EMPTY_CFG.commands,
+          ...((j?.config?.commands || cfg.commands) as AchievementsConfig["commands"])
+        },
+        catalog: Array.isArray(j?.config?.catalog) ? j.config.catalog : cfg.catalog
+      };
       setCfg(merged);
-      setMilestonesText((Array.isArray(merged.levelMilestones) ? merged.levelMilestones : []).join(","));
-      setMsg("Achievements settings saved.");
+      setBase(JSON.parse(JSON.stringify(merged)));
+      setMsg("Achievements saved.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
@@ -165,94 +249,235 @@ export default function AchievementsClient() {
     }
   }
 
-  if (!guildId) return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+  if (!guildId && !loading) return <div style={{ color: "#ff6b6b", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
-    <div style={{ maxWidth: 1280, color: "#ffcaca" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>Achievements Engine</div>
-          <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildId}</div>
+    <div style={shell}>
+      <div style={{ ...card, marginBottom: 12, position: "sticky", top: 8, zIndex: 20, backdropFilter: "blur(4px)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>Achievements</div>
+            <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>
+              <input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))} /> Active
+            </label>
+            <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 900, border: dirty ? "1px solid #f59e0b" : "1px solid #64748b", color: dirty ? "#fcd34d" : "#cbd5e1" }}>
+              {dirty ? "UNSAVED" : "SAVED"}
+            </span>
+            <button onClick={saveAll} disabled={saving || !dirty} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, padding: "8px 12px" }}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
-        <button onClick={saveAll} disabled={saving} style={{ ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-          {saving ? "Saving..." : "Save All"}
-        </button>
+        {msg ? <div style={{ marginTop: 8, color: "#fcd34d", fontSize: 12 }}>{msg}</div> : null}
       </div>
 
-      {msg ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{msg}</div> : null}
-      {loading ? <div>Loading...</div> : null}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <TabButton active={tab === "achievements"} onClick={() => setTab("achievements")}>Achievements</TabButton>
+        <TabButton active={tab === "configuration"} onClick={() => setTab("configuration")}>Configuration</TabButton>
+        <TabButton active={tab === "commands"} onClick={() => setTab("commands")}>Commands</TabButton>
+      </div>
 
-      {!loading ? (
-        <div style={{ display: "grid", gap: 12 }}>
-          <section style={cardStyle}>
-            <h3 style={titleStyle}>Core Toggles</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(240px,1fr))", gap: 10 }}>
-              <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((p) => ({ ...p, active: e.target.checked }))} /> Engine active</label>
-              <label><input type="checkbox" checked={cfg.achievementsEnabled} onChange={(e) => setCfg((p) => ({ ...p, achievementsEnabled: e.target.checked }))} /> Achievements enabled</label>
-              <label><input type="checkbox" checked={cfg.badgesEnabled} onChange={(e) => setCfg((p) => ({ ...p, badgesEnabled: e.target.checked }))} /> Badges enabled</label>
-              <label><input type="checkbox" checked={cfg.prestigeEnabled} onChange={(e) => setCfg((p) => ({ ...p, prestigeEnabled: e.target.checked }))} /> Prestige enabled</label>
-              <label><input type="checkbox" checked={cfg.archetypeRoleSync} onChange={(e) => setCfg((p) => ({ ...p, archetypeRoleSync: e.target.checked }))} /> Archetype role sync</label>
-            </div>
-          </section>
+      {loading ? <div style={{ color: "#ffd1d1", padding: 14 }}>Loading...</div> : null}
 
-          <section style={cardStyle}>
-            <h3 style={titleStyle}>Progression Curve</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div>
-                <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>XP Curve</div>
-                <select value={cfg.xpCurve || "normal"} onChange={(e) => setCfg((p) => ({ ...p, xpCurve: e.target.value }))} style={inputStyle}>
-                  <option value="slow">Slow</option>
-                  <option value="normal">Normal</option>
-                  <option value="fast">Fast</option>
-                </select>
+      {!loading && tab === "achievements" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 12 }}>
+          <section style={card}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(240px,1fr))", gap: 10, marginBottom: 12 }}>
+              <div style={{ border: "1px dashed rgba(255,0,0,.4)", borderRadius: 10, padding: 12 }}>
+                <div style={{ color: "#fff", fontWeight: 800 }}>Single Achievement</div>
+                <div style={{ color: "#fca5a5", fontSize: 12 }}>A one-time achievement with fixed criteria.</div>
               </div>
-              <div>
-                <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Announce Channel</div>
-                <select value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))} style={inputStyle}>
-                  <option value="">None</option>
-                  {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
-                </select>
+              <div style={{ border: "1px dashed rgba(255,0,0,.4)", borderRadius: 10, padding: 12 }}>
+                <div style={{ color: "#fff", fontWeight: 800 }}>Timed Achievement</div>
+                <div style={{ color: "#fca5a5", fontSize: 12 }}>Track limited-time event criteria in Carol set.</div>
               </div>
             </div>
 
-            <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Level Milestones (comma-separated)</div>
-              <input value={milestonesText} onChange={(e) => setMilestonesText(e.target.value)} style={inputStyle} placeholder="5,10,20,35,50" />
+            <div style={{ marginBottom: 10 }}>
+              <input style={input} placeholder="Search for an achievement" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(180px,1fr))", gap: 10 }}>
+              {filtered.map((a) => {
+                const active = selectedId === a.id;
+                const color = tierColor(a.tier);
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => setSelectedId(a.id)}
+                    style={{
+                      textAlign: "left",
+                      border: active ? "1px solid rgba(255,0,0,.75)" : "1px solid rgba(255,0,0,.24)",
+                      borderRadius: 10,
+                      background: "rgba(0,0,0,.28)",
+                      color: "#ffdada",
+                      padding: 10,
+                      cursor: "pointer"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 22, height: 22, borderRadius: 999, background: color, display: "inline-block" }} />
+                      <input
+                        type="checkbox"
+                        checked={a.enabled}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          updateCatalogRow(a.id, { enabled: e.target.checked });
+                        }}
+                      />
+                    </div>
+                    <div style={{ marginTop: 8, color: "#fff", fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                    <div style={{ color: "#fca5a5", fontSize: 11, marginTop: 4, minHeight: 28 }}>{a.description || "No description"}</div>
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#fde68a" }}>{a.action} ? {a.count}</div>
+                    <div style={{ marginTop: 8, height: 4, borderRadius: 999, background: "rgba(255,255,255,.15)" }}>
+                      <div style={{ width: "8%", height: "100%", borderRadius: 999, background: color }} />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </section>
 
-          <section style={cardStyle}>
-            <h3 style={titleStyle}>Badge Role Mapping</h3>
-            <div style={{ display: "grid", gap: 8 }}>
-              {cfg.badgeRoleMap.map((row, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr auto", gap: 8 }}>
-                  <input
-                    value={row.badge || ""}
-                    onChange={(e) => updateBadgeRole(i, { badge: e.target.value })}
-                    style={inputStyle}
-                    placeholder="Badge name"
-                  />
-                  <select value={row.roleId || ""} onChange={(e) => updateBadgeRole(i, { roleId: e.target.value })} style={inputStyle}>
-                    <option value="">No role</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
-                  </select>
-                  <button onClick={() => removeBadgeRole(i)} style={{ ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 800 }}>Remove</button>
+          <section style={card}>
+            {!selected ? <div style={{ color: "#ffb4b4" }}>Select an achievement.</div> : (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ color: "#fff", fontWeight: 900, fontSize: 18 }}>{selected.name}</div>
+                  <div style={{ color: "#fca5a5", fontSize: 12, fontWeight: 700 }}>ID: {selected.id}</div>
                 </div>
-              ))}
-            </div>
 
-            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={addBadgeRole} style={{ ...inputStyle, width: "auto", cursor: "pointer", fontWeight: 800 }}>+ Add Badge Role</button>
-              <div style={{ fontSize: 12, color: "#ffb0b0" }}>
-                {cfg.badgeRoleMap.length} mapping(s)
+                <div>
+                  <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 6 }}>Action</div>
+                  <select style={input} value={selected.action} onChange={(e) => updateCatalogRow(selected.id, { action: e.target.value })}>
+                    {[
+                      "manual",
+                      "messages",
+                      "messagecount",
+                      "invites",
+                      "coins_earned",
+                      "store_purchases",
+                      "heistwins",
+                      "catwins",
+                      "pokemon_caught_total",
+                      "voice_session_180",
+                      "crew_raid_wins",
+                      "xp_level"
+                    ].map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 6 }}>Count</div>
+                  <input type="number" style={input} value={selected.count} onChange={(e) => updateCatalogRow(selected.id, { count: Number(e.target.value || 1) })} />
+                </div>
+
+                <label style={{ fontSize: 12, color: "#ffd1d1" }}>
+                  <input type="checkbox" checked={selected.overrideAnnouncement} onChange={(e) => updateCatalogRow(selected.id, { overrideAnnouncement: e.target.checked })} /> Override announcement message
+                </label>
+
+                <textarea
+                  style={{ ...input, minHeight: 70 }}
+                  value={selected.announcementMessage || ""}
+                  onChange={(e) => updateCatalogRow(selected.id, { announcementMessage: e.target.value })}
+                  placeholder="Custom achievement announcement message"
+                />
+
+                <div style={{ borderTop: "1px solid rgba(255,0,0,.22)", paddingTop: 10 }}>
+                  <div style={{ color: "#fff", fontWeight: 800, marginBottom: 8 }}>Rewards</div>
+                  <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.rewards.giveRole} onChange={(e) => updateReward(selected.id, { giveRole: e.target.checked })} /> Give a role for achieving</label>
+                  {selected.rewards.giveRole ? (
+                    <select style={input} value={selected.rewards.giveRoleId || ""} onChange={(e) => updateReward(selected.id, { giveRoleId: e.target.value })}>
+                      <option value="">Select role</option>
+                      {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                    </select>
+                  ) : null}
+
+                  <label style={{ display: "block", marginTop: 8, marginBottom: 6 }}><input type="checkbox" checked={selected.rewards.removeRole} onChange={(e) => updateReward(selected.id, { removeRole: e.target.checked })} /> Remove a role for achieving</label>
+                  {selected.rewards.removeRole ? (
+                    <select style={input} value={selected.rewards.removeRoleId || ""} onChange={(e) => updateReward(selected.id, { removeRoleId: e.target.value })}>
+                      <option value="">Select role</option>
+                      {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                    </select>
+                  ) : null}
+
+                  <label style={{ display: "block", marginTop: 8 }}><input type="checkbox" checked={selected.rewards.giveXp} onChange={(e) => updateReward(selected.id, { giveXp: e.target.checked })} /> Give XP for achieving</label>
+                  {selected.rewards.giveXp ? (
+                    <input type="number" style={{ ...input, marginTop: 6 }} value={selected.rewards.xpAmount || 0} onChange={(e) => updateReward(selected.id, { xpAmount: Number(e.target.value || 0) })} />
+                  ) : null}
+
+                  <label style={{ display: "block", marginTop: 8 }}><input type="checkbox" checked={selected.rewards.giveCoins} onChange={(e) => updateReward(selected.id, { giveCoins: e.target.checked })} /> Give coins for achieving</label>
+                  {selected.rewards.giveCoins ? (
+                    <input type="number" style={{ ...input, marginTop: 6 }} value={selected.rewards.coinAmount || 0} onChange={(e) => updateReward(selected.id, { coinAmount: Number(e.target.value || 0) })} />
+                  ) : null}
+                </div>
+
+                <div style={{ borderTop: "1px solid rgba(255,0,0,.22)", paddingTop: 10 }}>
+                  <div style={{ color: "#fff", fontWeight: 800, marginBottom: 8 }}>Settings</div>
+                  <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.settings.dontTrackProgress} onChange={(e) => updateSettings(selected.id, { dontTrackProgress: e.target.checked })} /> Don't track progress</label>
+                  <label style={{ display: "block", marginBottom: 6 }}><input type="checkbox" checked={selected.settings.sendThread} onChange={(e) => updateSettings(selected.id, { sendThread: e.target.checked })} /> Send thread</label>
+                  <input style={input} value={selected.settings.setColor || ""} onChange={(e) => updateSettings(selected.id, { setColor: e.target.value })} placeholder="Card color override (optional)" />
+                </div>
               </div>
-            </div>
-
-            <div style={{ marginTop: 8, fontSize: 12, color: "#ff9e9e" }}>
-              Active role targets: {cfg.badgeRoleMap.filter((x) => !!x.roleId).map((x) => roleNameById[x.roleId] || x.roleId).join(", ") || "none"}
-            </div>
+            )}
           </section>
         </div>
+      ) : null}
+
+      {!loading && tab === "configuration" ? (
+        <section style={card}>
+          <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>General</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Announcement Channel</div>
+              <select style={input} value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}>
+                <option value="">Select channel</option>
+                {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Default Unlock Message</div>
+              <textarea style={{ ...input, minHeight: 80 }} value={cfg.announcementTemplate || ""} onChange={(e) => setCfg((p) => ({ ...p, announcementTemplate: e.target.value }))} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, border: "1px solid rgba(255,0,0,.5)", borderRadius: 10, padding: 12 }}>
+            <div style={{ color: "#fff", fontWeight: 800 }}>Reset Progress</div>
+            <div style={{ color: "#fca5a5", fontSize: 12, marginTop: 6 }}>
+              Use `/achievementsadmin reset` to reset live Carol progress. This button only resets local dashboard filters.
+            </div>
+            <button onClick={() => { setSearch(""); setMsg("Local filters reset. Use /achievementsadmin reset for runtime progress reset."); }} style={{ ...input, width: "auto", marginTop: 8, cursor: "pointer", fontWeight: 800 }}>
+              Reset Progress
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && tab === "commands" ? (
+        <section style={card}>
+          <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>Command Toggles</h3>
+          <div style={{ display: "grid", gap: 8 }}>
+            {([
+              ["achievements", "Display all achievement progress"],
+              ["achievementsadmin", "Staff achievement management"],
+              ["achpanel", "Achievement panel command"],
+              ["badge", "Member badge card display"]
+            ] as Array<[keyof AchievementsConfig["commands"], string]>).map(([key, desc]) => (
+              <div key={key} style={{ border: "1px solid rgba(255,0,0,.22)", borderRadius: 8, padding: "10px 12px", background: "rgba(0,0,0,.28)", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 8 }}>
+                <div>
+                  <div style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>/ {key}</div>
+                  <div style={{ color: "#fca5a5", fontSize: 12 }}>{desc}</div>
+                </div>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
+                  <input type="checkbox" checked={cfg.commands[key]} onChange={(e) => setCfg((p) => ({ ...p, commands: { ...p.commands, [key]: e.target.checked } }))} />
+                  {cfg.commands[key] ? "ON" : "OFF"}
+                </label>
+              </div>
+            ))}
+          </div>
+        </section>
       ) : null}
     </div>
   );

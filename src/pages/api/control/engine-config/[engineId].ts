@@ -1,75 +1,109 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { readEngineConfig, writeEngineConfig } from "@/lib/configStore";
+import {
+  readGuildIdFromRequest,
+  isWriteBlockedForGuild,
+  stockLockError,
+} from "@/lib/guildPolicy";
 
+const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
-function readToken(req: NextApiRequest): string {
-  const auth = req.headers.authorization || "";
-  const bearer = Array.isArray(auth) ? auth[0] : auth;
-  const xDash = req.headers["x-dashboard-token"];
-  const xApi = req.headers["x-api-key"];
-
-  return String(
-    (Array.isArray(xDash) ? xDash[0] : xDash) ||
-      (Array.isArray(xApi) ? xApi[0] : xApi) ||
-      bearer.replace(/^Bearer\s+/i, "") ||
-      ""
-  ).trim();
+function sanitizeEngineId(raw: unknown) {
+  return String(raw || "").trim().replace(/[^a-zA-Z0-9._-]/g, "");
 }
 
-function requireAuth(req: NextApiRequest, res: NextApiResponse): boolean {
-  if (!DASHBOARD_TOKEN) return true;
-  if (readToken(req) === DASHBOARD_TOKEN) return true;
-  res.status(401).json({ success: false, error: "Unauthorized" });
-  return false;
+function headersWithAuth(json = false) {
+  const headers: Record<string, string> = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
+  return headers;
 }
 
-function readGuildId(req: NextApiRequest): string {
-  const q = Array.isArray(req.query.guildId) ? req.query.guildId[0] : req.query.guildId;
-  const b = req.body && typeof req.body === "object" ? (req.body as any).guildId : "";
-  return String(q || b || "").trim();
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return !!input && typeof input === "object" && !Array.isArray(input);
 }
 
-function isSnowflake(value: string): boolean {
-  return /^\d{16,20}$/.test(String(value || "").trim());
+async function readJsonSafe(response: Response) {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { success: false, error: text || "Invalid upstream JSON" };
+  }
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!requireAuth(req, res)) return;
+function normalizeConfigPayload(body: unknown): Record<string, unknown> | null {
+  if (!isRecord(body)) return null;
 
-  const engineIdRaw = Array.isArray(req.query.engineId) ? req.query.engineId[0] : req.query.engineId;
-  const engineId = String(engineIdRaw || "").trim();
-  const guildId = readGuildId(req);
-
-  if (!engineId) return res.status(400).json({ success: false, error: "Missing engineId" });
-  if (!isSnowflake(guildId)) return res.status(400).json({ success: false, error: "Missing or invalid guildId" });
-
-  if (req.method === "GET") {
-    const config = readEngineConfig(guildId, engineId);
-    return res.status(200).json({ success: true, guildId, engineId, config });
+  if (isRecord(body.config) && !Array.isArray(body.config)) {
+    return body.config;
   }
 
-  if (req.method === "POST") {
-    try {
-      const payload = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
-      const cfg = (payload.config ?? payload) as Record<string, unknown>;
-      if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) {
+  if (isRecord(body.patch) && !Array.isArray(body.patch)) {
+    return body.patch;
+  }
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (key === "guildId" || key === "engine") continue;
+    result[key] = value;
+  }
+  return result;
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    const engine = sanitizeEngineId(
+      Array.isArray(req.query.engineId) ? req.query.engineId[0] : req.query.engineId
+    );
+    const guildId = readGuildIdFromRequest(req);
+
+    if (!engine) {
+      return res.status(400).json({ success: false, error: "Missing or invalid engineId" });
+    }
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: "Missing or invalid guildId" });
+    }
+
+    if (req.method === "GET") {
+      const upstream = await fetch(
+        `${BOT_API}/engine-config?${new URLSearchParams({ guildId, engine }).toString()}`,
+        { headers: headersWithAuth(false), cache: "no-store" }
+      );
+
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json(data);
+    }
+
+    if (req.method === "POST" || req.method === "PUT") {
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
+
+      const config = normalizeConfigPayload(req.body);
+      if (!isRecord(config)) {
         return res.status(400).json({ success: false, error: "Invalid config payload" });
       }
 
-      const { guildId: _g, ...cleanConfig } = cfg as any;
-      writeEngineConfig(guildId, engineId, cleanConfig);
-
-      return res.status(200).json({
-        success: true,
-        guildId,
-        engineId,
-        config: cleanConfig
+      const upstream = await fetch(`${BOT_API}/engine-config`, {
+        method: req.method,
+        headers: headersWithAuth(true),
+        body: JSON.stringify({
+          guildId,
+          engine,
+          config,
+        }),
       });
-    } catch (err: any) {
-      return res.status(400).json({ success: false, error: err?.message || "Bad JSON" });
-    }
-  }
 
-  return res.status(405).json({ success: false, error: "Method not allowed" });
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json(data);
+    }
+
+    return res.status(405).json({ success: false, error: "Method not allowed" });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    return res.status(500).json({ success: false, error: "Engine config proxy failed" });
+  }
 }

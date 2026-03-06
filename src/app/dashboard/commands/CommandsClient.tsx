@@ -268,6 +268,9 @@ export default function CustomCommandsPage() {
   const [triggerDeleteDelaySec, setTriggerDeleteDelaySec] = useState("5");
   const [responseDeleteMode, setResponseDeleteMode] = useState<"off" | "timer">("off");
   const [responseDeleteDelaySec, setResponseDeleteDelaySec] = useState("10");
+  const [trueHidden, setTrueHidden] = useState(false);
+  const [mentionRoleByAction, setMentionRoleByAction] = useState<Record<string, string>>({});
+  const [mentionChannelByAction, setMentionChannelByAction] = useState<Record<string, string>>({});
 
   const filteredCommands = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -316,6 +319,9 @@ export default function CustomCommandsPage() {
       setTriggerDeleteDelaySec("5");
       setResponseDeleteMode("off");
       setResponseDeleteDelaySec("10");
+      setTrueHidden(false);
+      setMentionRoleByAction({});
+      setMentionChannelByAction({});
       return;
     }
     const cmd = commands.find((c) => c.id === selectedId);
@@ -335,6 +341,11 @@ export default function CustomCommandsPage() {
       policy?.responseDeleteSec,
       policy?.responseDeleteAfterSec
     ], 10) || 10));
+    setTrueHidden(
+      resolveTriggerDeleteMode(policy, cmd) === "instant" &&
+      resolveResponseDeleteMode(policy, cmd) === "timer" &&
+      firstNumber([policy?.responseDeleteSec, policy?.responseDeleteAfterSec], 10) <= 1
+    );
 
     setDraft({
       id: cmd.id,
@@ -348,6 +359,8 @@ export default function CustomCommandsPage() {
       costCoins: String(cmd.costCoins ?? 0),
       actions: Array.isArray(actions) ? actions.map(apiActionToDraft) : []
     });
+    setMentionRoleByAction({});
+    setMentionChannelByAction({});
   }, [selectedId, commands]);
 
   function updateDraft<K extends keyof CommandDraft>(key: K, value: CommandDraft[K]) {
@@ -381,6 +394,36 @@ export default function CustomCommandsPage() {
       arr[next] = tmp;
       return { ...prev, actions: arr };
     });
+  }
+
+  function appendRoleMentionToAction(actionId: string, roleId: string) {
+    const rid = String(roleId || "").trim();
+    if (!rid) return;
+    const token = `<@&${rid}>`;
+    setDraft((prev) => ({
+      ...prev,
+      actions: prev.actions.map((a) => {
+        if (a.id !== actionId) return a;
+        const body = String(a.content || "").trim();
+        const nextContent = body.includes(token) ? body : (body ? `${body} ${token}` : token);
+        return { ...a, content: nextContent };
+      })
+    }));
+  }
+
+  function appendChannelMentionToAction(actionId: string, channelId: string) {
+    const cid = String(channelId || "").trim();
+    if (!cid) return;
+    const token = `<#${cid}>`;
+    setDraft((prev) => ({
+      ...prev,
+      actions: prev.actions.map((a) => {
+        if (a.id !== actionId) return a;
+        const body = String(a.content || "").trim();
+        const nextContent = body.includes(token) ? body : (body ? `${body} ${token}` : token);
+        return { ...a, content: nextContent };
+      })
+    }));
   }
 
   async function saveCommand() {
@@ -427,6 +470,16 @@ export default function CustomCommandsPage() {
       } else {
         policy.responseDeleteMode = "timer";
         policy.responseDeleteSec = responseDelay;
+        policy.deleteBotResponses = true;
+      }
+
+      if (trueHidden) {
+        policy.deleteMode = "instant";
+        policy.deleteTriggerMessage = true;
+        policy.hideCommandUsage = true;
+        policy.deleteDelaySec = 0;
+        policy.responseDeleteMode = "timer";
+        policy.responseDeleteSec = 1;
         policy.deleteBotResponses = true;
       }
 
@@ -507,7 +560,7 @@ export default function CustomCommandsPage() {
   return (
     <div style={{ color: "#ff6b6b", maxWidth: 1400 }}>
       <h1 style={h1Style}>Command Studio</h1>
-      <p style={{ marginTop: 0 }}>Guild: {guildId}</p>
+      <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
       {msg ? <p style={{ color: "#ffb3b3" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
 
@@ -581,7 +634,7 @@ export default function CustomCommandsPage() {
               <div style={twoCol}>
                 <div>
                   <div style={miniLabel}>Command usage message</div>
-                  <select value={triggerDeleteMode} onChange={(e) => setTriggerDeleteMode(e.target.value as 'off' | 'instant' | 'timer')} style={inputStyle}>
+                  <select value={triggerDeleteMode} onChange={(e) => { setTriggerDeleteMode(e.target.value as 'off' | 'instant' | 'timer'); setTrueHidden(false); }} style={inputStyle}>
                     <option value='off'>Off</option>
                     <option value='instant'>Instant delete</option>
                     <option value='timer'>Delete on timer</option>
@@ -591,7 +644,7 @@ export default function CustomCommandsPage() {
                   {triggerDeleteMode === 'timer' ? (
                     <>
                       <div style={miniLabel}>Delay seconds</div>
-                      <input value={triggerDeleteDelaySec} onChange={(e) => setTriggerDeleteDelaySec(e.target.value)} style={inputStyle} placeholder='5' />
+                      <input value={triggerDeleteDelaySec} onChange={(e) => { setTriggerDeleteDelaySec(e.target.value); setTrueHidden(false); }} style={inputStyle} placeholder='5' />
                     </>
                   ) : (
                     <div style={hintStyle}>Controls whether the member command message is removed.</div>
@@ -602,7 +655,7 @@ export default function CustomCommandsPage() {
               <div style={twoCol}>
                 <div>
                   <div style={miniLabel}>Bot response messages</div>
-                  <select value={responseDeleteMode} onChange={(e) => setResponseDeleteMode(e.target.value as 'off' | 'timer')} style={inputStyle}>
+                  <select value={responseDeleteMode} onChange={(e) => { setResponseDeleteMode(e.target.value as 'off' | 'timer'); setTrueHidden(false); }} style={inputStyle}>
                     <option value='off'>Off</option>
                     <option value='timer'>Delete on timer</option>
                   </select>
@@ -611,13 +664,30 @@ export default function CustomCommandsPage() {
                   {responseDeleteMode === 'timer' ? (
                     <>
                       <div style={miniLabel}>Delay seconds</div>
-                      <input value={responseDeleteDelaySec} onChange={(e) => setResponseDeleteDelaySec(e.target.value)} style={inputStyle} placeholder='10' />
+                      <input value={responseDeleteDelaySec} onChange={(e) => { setResponseDeleteDelaySec(e.target.value); setTrueHidden(false); }} style={inputStyle} placeholder='10' />
                     </>
                   ) : (
                     <div style={hintStyle}>Keeps bot output visible permanently.</div>
                   )}
                 </div>
               </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, color: "#ffbdbd" }}>
+                <input
+                  type="checkbox"
+                  checked={trueHidden}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setTrueHidden(on);
+                    if (on) {
+                      setTriggerDeleteMode("instant");
+                      setTriggerDeleteDelaySec("0");
+                      setResponseDeleteMode("timer");
+                      setResponseDeleteDelaySec("1");
+                    }
+                  }}
+                />
+                True hidden: remove trigger instantly and auto-delete bot output in ~1s.
+              </label>
             </div>
 
             <details style={{ marginTop: 12 }}>
@@ -668,27 +738,136 @@ export default function CustomCommandsPage() {
                   </div>
 
                   {(a.type === "SEND_MESSAGE") && (
-                    <div style={twoCol}>
-                      <select value={a.channelId} onChange={(e) => updateAction(a.id, { channelId: e.target.value })} style={inputStyle}>
-                        <option value="">Select channel</option>
-                        {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
-                      </select>
-                      <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="Message to send" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <div style={twoCol}>
+                        <select value={a.channelId} onChange={(e) => updateAction(a.id, { channelId: e.target.value })} style={inputStyle}>
+                          <option value="">Select channel</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="Message to send" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionRoleByAction[a.id] || ""}
+                          onChange={(e) => setMentionRoleByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select role to tag</option>
+                          {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendRoleMentionToAction(a.id, mentionRoleByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionRoleByAction[a.id]}
+                        >
+                          Tag Role
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionChannelByAction[a.id] || ""}
+                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select channel to tag</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendChannelMentionToAction(a.id, mentionChannelByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionChannelByAction[a.id]}
+                        >
+                          Tag Channel
+                        </button>
+                      </div>
+                      <div style={hintStyle}>Inserts mention tokens: <code>&lt;@&amp;ROLE_ID&gt;</code> and <code>&lt;#CHANNEL_ID&gt;</code></div>
                     </div>
                   )}
 
                   {(a.type === "REPLY") && (
-                    <div style={twoCol}>
-                      <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="Reply text" style={{ ...inputStyle, fontFamily: "inherit" }} />
-                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <input type="checkbox" checked={a.ephemeral} onChange={(e) => updateAction(a.id, { ephemeral: e.target.checked })} />
-                        ephemeral (slash context)
-                      </label>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <div style={twoCol}>
+                        <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="Reply text" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <input type="checkbox" checked={a.ephemeral} onChange={(e) => updateAction(a.id, { ephemeral: e.target.checked })} />
+                          ephemeral (slash context)
+                        </label>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionRoleByAction[a.id] || ""}
+                          onChange={(e) => setMentionRoleByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select role to tag</option>
+                          {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendRoleMentionToAction(a.id, mentionRoleByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionRoleByAction[a.id]}
+                        >
+                          Tag Role
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionChannelByAction[a.id] || ""}
+                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select channel to tag</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendChannelMentionToAction(a.id, mentionChannelByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionChannelByAction[a.id]}
+                        >
+                          Tag Channel
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   {(a.type === "DM") && (
-                    <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="DM text" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <textarea rows={3} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="DM text" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionRoleByAction[a.id] || ""}
+                          onChange={(e) => setMentionRoleByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select role to tag</option>
+                          {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendRoleMentionToAction(a.id, mentionRoleByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionRoleByAction[a.id]}
+                        >
+                          Tag Role
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionChannelByAction[a.id] || ""}
+                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select channel to tag</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendChannelMentionToAction(a.id, mentionChannelByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionChannelByAction[a.id]}
+                        >
+                          Tag Channel
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   {(a.type === "ADD_ROLE" || a.type === "REMOVE_ROLE") && (

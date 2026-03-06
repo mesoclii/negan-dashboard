@@ -206,7 +206,7 @@ export default function OnboardingBuilderPage() {
   return (
     <div style={shell}>
       <h1 style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}>Onboarding Builder</h1>
-      <p>Guild: {guildId}</p>
+      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       {loading ? <p>Loading...</p> : (
         <>

@@ -333,7 +333,7 @@ export default function RolesClient() {
         Selfrole Button Studio
       </h1>
       <p style={{ marginTop: 0, color: "#ff8a8a" }}>
-        Guild: {guildId} | Engine entity: selfroles only (separate from economy/store/giveaways)
+        Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId} | Engine entity: selfroles only (separate from economy/store/giveaways)
       </p>
 
       <div style={card}>

@@ -1,23 +1,49 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { readStore, appendAudit } from "@/lib/setupStore";
+import { PRIMARY_BASELINE_GUILD_ID } from "@/lib/guildPolicy";
+
+type GenericObject = Record<string, unknown>;
 
 function gid(req: NextApiRequest) {
   return String(req.query.guildId || req.body?.guildId || "").trim();
 }
 
-function pick(file: string, guildId: string, fallback: any = {}) {
-  const store = readStore(file);
-  return store?.[guildId] ?? fallback;
+function getObj(value: unknown): GenericObject {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as GenericObject) : {};
 }
 
-function toBool(v: any, d = false) {
+function pick(file: string, guildId: string, fallback: GenericObject = {}): GenericObject {
+  const store = getObj(readStore(file));
+  const value = store[guildId];
+  return getObj(value) || fallback;
+}
+
+function toBool(v: unknown, d = false) {
   return typeof v === "boolean" ? v : d;
 }
 
+function getNested(obj: GenericObject, key: string): GenericObject {
+  return getObj(obj[key]);
+}
+
 function deriveFeatures(guildId: string) {
+  if (guildId && guildId !== PRIMARY_BASELINE_GUILD_ID) {
+    return {
+      onboardingEnabled: true,
+      verificationEnabled: true,
+      heistEnabled: true,
+      rareDropEnabled: true,
+      pokemonEnabled: true,
+      aiEnabled: true,
+      ttsEnabled: true,
+      birthdayEnabled: true,
+      economyEnabled: true,
+      governanceEnabled: true,
+    };
+  }
+
   const mod = pick("moderator-config.json", guildId, {});
   const wg = pick("welcome-goodbye-config.json", guildId, {});
-  const tickets = pick("tickets-config.json", guildId, {});
   const tts = pick("tts-config.json", guildId, {});
   const gov = pick("governance-config.json", guildId, {});
   const games = pick("games-config.json", guildId, {});
@@ -31,48 +57,44 @@ function deriveFeatures(guildId: string) {
   const onboardingFlow = pick("onboarding-flow-config.json", guildId, {});
   const secPolicy = pick("security-policy-config.json", guildId, {});
 
-  const securityEnabled =
-    toBool(mod.active) ||
-    toBool(onboardingFlow.active) ||
-    toBool(wg.active) ||
-    toBool(secPolicy.active);
+  const gamesRareDrop = getNested(games, "rareDrop");
+  const gamesPokemon = getNested(games, "pokemon");
+  const birthday = getNested(radioBirthday, "birthday");
 
   const onboardingEnabled = toBool(onboardingFlow.onboardingEnabled, toBool(onboardingFlow.active));
   const verificationEnabled = toBool(onboardingFlow.verificationEnabled, false);
-  const lockdownEnabled = toBool(secPolicy.lockdown?.enabled, false);
-  const raidEnabled = toBool(secPolicy.raid?.enabled, false);
 
   const economyEnabled =
     toBool(gives.active) ||
     toBool(leaderboard.active) ||
     toBool(prog.active) ||
-    toBool(radioBirthday.birthday?.enabled, false);
+    toBool(birthday.enabled, false);
+
+  const governanceEnabled =
+    toBool(gov.active) ||
+    toBool(secPolicy.active) ||
+    toBool(mod.active) ||
+    toBool(wg.active);
 
   const features = {
-    coreEnabled: true,
-    securityEnabled,
     onboardingEnabled,
     verificationEnabled,
-    lockdownEnabled,
-    raidEnabled,
-    giveawaysEnabled: toBool(gives.active),
-    economyEnabled,
     heistEnabled: toBool(heist.active),
-    ticketsEnabled: toBool(tickets.active),
-    pokemonEnabled: toBool(games.pokemon?.enabled, false),
-    pokemonPrivateOnly: toBool(games.pokemon?.privateOnly, true),
+    rareDropEnabled: toBool(gamesRareDrop.enabled, false),
+    pokemonEnabled: toBool(gamesPokemon.enabled, false),
     aiEnabled: toBool(aiPricing.active) || toBool(aiPersona.active),
     ttsEnabled: toBool(tts.active),
-    birthdayEnabled: toBool(radioBirthday.birthday?.enabled, false),
-    governanceEnabled: toBool(gov.active),
-    rareDropEnabled: toBool(games.rareDrop?.enabled, false),
-    catDropEnabled: toBool(games.catDrop?.enabled, false),
-    crewEnabled: toBool(gov.crew?.enabled, false),
-    contractsEnabled: toBool(gov.contracts?.enabled, false),
-    progressionEnabled: toBool(games.progression?.enabled, toBool(prog.active)),
+    birthdayEnabled: toBool(birthday.enabled, false),
+    economyEnabled,
+    governanceEnabled,
   };
 
   return features;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -108,8 +130,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         upstreamStatus: upstream.status,
         upstream: data
       });
-    } catch (e: any) {
-      return res.status(500).json({ success: false, error: e?.message || "sync failed", guildId, features });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, error: getErrorMessage(err, "sync failed"), guildId, features });
     }
   }
 

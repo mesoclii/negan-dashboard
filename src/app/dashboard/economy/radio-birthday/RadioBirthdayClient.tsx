@@ -170,7 +170,7 @@ export default function RadioBirthdayPage() {
             <h1 style={{ margin: 0, color: "#ff4747", letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Radio / Birthday Engine
             </h1>
-            <div style={{ marginTop: 6, color: "#ff9c9c", fontSize: 13 }}>Guild: {guildId}</div>
+            <div style={{ marginTop: 6, color: "#ff9c9c", fontSize: 13 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
             <div style={{ marginTop: 3, color: "#ffb5b5", fontSize: 12 }}>
               Radio is the birthday engine surface. Config is saved here as one engine entity.
             </div>

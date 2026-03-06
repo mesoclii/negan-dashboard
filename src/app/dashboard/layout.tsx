@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import PossumSidebar from "@/components/possum/PossumSidebar";
 import DashboardAccessGate from "@/components/possum/DashboardAccessGate";
+import GuildNameBootstrap from "@/components/possum/GuildNameBootstrap";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         <main className="min-w-0 flex-1">
+          <GuildNameBootstrap />
           <header className="sticky top-0 z-20 border-b possum-divider bg-black/75 backdrop-blur">
             <div className="flex items-center justify-between px-5 py-4">
               <div>

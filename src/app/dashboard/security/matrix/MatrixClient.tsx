@@ -117,7 +117,7 @@ export default function SecurityMatrixPage() {
       <h1 style={{ margin: "0 0 8px", color: "#ff4f4f", letterSpacing: "0.12em", textTransform: "uppercase" }}>
         Security Matrix
       </h1>
-      <div style={{ marginBottom: 14, color: "#ff8d8d" }}>Guild: {guildId}</div>
+      <div style={{ marginBottom: 14, color: "#ff8d8d" }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
 
       {msg ? (
         <div style={{ marginBottom: 12, padding: 10, border: "1px solid #7a0000", borderRadius: 8, background: "#180000" }}>

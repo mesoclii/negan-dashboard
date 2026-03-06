@@ -242,7 +242,7 @@ export default function SecurityCommandsPage() {
         </button>
       </div>
       <div style={{ marginBottom: 12 }}>
-        Guild: {guildId} {msg ? `• ${msg}` : ""}
+        Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId} {msg ? `• ${msg}` : ""}
       </div>
 
       {loading ? (

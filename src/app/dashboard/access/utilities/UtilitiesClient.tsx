@@ -247,7 +247,7 @@ export default function UtilitiesPage() {
   return (
     <div style={{ color: "#ff5c5c", padding: 20, maxWidth: 1300 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.14em", textTransform: "uppercase" }}>Engine Runtime Studio</h1>
-      <p style={{ marginTop: -4, opacity: 0.9 }}>Guild: {guildId}</p>
+      <p style={{ marginTop: -4, opacity: 0.9 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       {loading ? <p>Loading...</p> : (
         <>

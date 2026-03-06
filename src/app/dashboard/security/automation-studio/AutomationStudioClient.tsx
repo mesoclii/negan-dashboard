@@ -239,8 +239,8 @@ export default function AutomationStudioPage() {
 
   return (
     <div style={shell}>
-      <h1 style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}>Automation Studio</h1>
-      <p>Guild: {guildId}</p>
+      <h1 style={{ textTransform: "uppercase", letterSpacing: "0.14em" }}>Security Rule Studio</h1>
+      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       {loading ? <p>Loading...</p> : (
         <>

@@ -8,7 +8,7 @@ export const PRIMARY_BASELINE_GUILD_ID = String(
 ).trim();
 
 export const STOCK_LOCK_NON_PRIMARY = ["1", "true", "yes", "on", "enabled"].includes(
-  String(process.env.STOCK_LOCK_NON_PRIMARY || "true").trim().toLowerCase()
+  String(process.env.STOCK_LOCK_NON_PRIMARY || "false").trim().toLowerCase()
 );
 
 export function readGuildIdFromRequest(req: NextApiRequest): string {

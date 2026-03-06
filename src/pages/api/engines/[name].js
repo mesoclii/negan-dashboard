@@ -4,6 +4,11 @@ import path from "path";
 const ENGINES_PATH = process.env.ENGINES_PATH || path.join(process.cwd(), "engines");
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
+function debugEnabled() {
+  const raw = String(process.env.ENGINE_SOURCE_ROUTE_ENABLED || "").trim().toLowerCase();
+  return ["1", "true", "yes", "on", "enabled"].includes(raw);
+}
+
 function readToken(req) {
   const auth = req.headers.authorization || "";
   const bearer = Array.isArray(auth) ? auth[0] : auth;
@@ -18,8 +23,12 @@ function readToken(req) {
 }
 
 export default function handler(req, res) {
-  if (process.env.NODE_ENV === "production") {
-    return res.status(404).json({ success: false, error: "Not found" });
+  if (!debugEnabled()) {
+    return res.status(404).json({ success: false, error: "Not available" });
+  }
+
+  if (req.method !== "GET") {
+    return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
   if (DASHBOARD_TOKEN && readToken(req) !== DASHBOARD_TOKEN) {

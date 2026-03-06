@@ -179,7 +179,7 @@ export default function AiPricingPage() {
         <button style={btn} disabled={saving} onClick={saveAll}>{saving ? "Saving..." : "Save AI Pricing"}</button>
       </div>
 
-      <p>Guild: {guildId}</p>
+      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
 

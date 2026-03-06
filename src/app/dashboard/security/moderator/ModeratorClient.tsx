@@ -258,7 +258,7 @@ export default function ModeratorPage() {
         </button>
       </div>
       <div style={{ marginBottom: 14, color: msg ? "#ffb3b3" : "#ff8080" }}>
-        Guild: {guildId} {msg ? `• ${msg}` : ""}
+        Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId} {msg ? `• ${msg}` : ""}
       </div>
 
       {loading ? (

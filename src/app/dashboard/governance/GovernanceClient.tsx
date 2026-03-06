@@ -300,14 +300,14 @@ export default function GovernancePage() {
   return (
     <div style={wrap}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <h1 style={{ margin: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Governance Studio</h1>
+        <h1 style={{ margin: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Governance Control</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={btn} disabled={saving} onClick={() => saveAll()}>{saving ? "Saving..." : "Save Governance"}</button>
           <button style={{ ...btn, borderColor: "#a11515", color: "#ffb2b2" }} disabled={saving} onClick={hardDisable}>Hard Disable</button>
         </div>
       </div>
 
-      <p>Guild: {guildId}</p>
+      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
 
@@ -319,7 +319,7 @@ export default function GovernancePage() {
         </label>
         <label>
           <input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} />
-          Studio Active
+          Governance Active
         </label>
       </div>
 

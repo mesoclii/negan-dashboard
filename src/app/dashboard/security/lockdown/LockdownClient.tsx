@@ -68,7 +68,7 @@ export default function LockdownPage() {
         Lockdown
         <StatusPill on={!!cfg.enabled} />
       </h1>
-      <p style={{ marginTop: 0 }}>Guild: {guildId}</p>
+      <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       <div style={styles.card}>
         <label><input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} /> Engine enabled</label><br />

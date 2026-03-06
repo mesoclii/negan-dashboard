@@ -1,9 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import {
   readGuildIdFromRequest,
+  PRIMARY_BASELINE_GUILD_ID,
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
+import {
+  CANONICAL_FEATURE_KEYS,
+  normalizeFeaturePatch,
+  resolveCanonicalFeatureKey,
+  withLegacyFeatureAliases,
+} from "@/lib/dashboard/featureKeys";
 
 const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
@@ -15,6 +22,15 @@ function headersWithAuth(json = false) {
   return headers;
 }
 
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return !!input && typeof input === "object" && !Array.isArray(input);
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 async function readJsonSafe(response: Response) {
   const text = await response.text();
   try {
@@ -22,6 +38,21 @@ async function readJsonSafe(response: Response) {
   } catch {
     return { success: false, error: text || "Invalid upstream JSON" };
   }
+}
+
+function applyNonPrimaryDefaultFeatures(
+  guildId: string,
+  upstreamFeatures: unknown,
+  normalized: Record<string, boolean>
+): Record<string, boolean> {
+  if (!guildId || guildId === PRIMARY_BASELINE_GUILD_ID) return normalized;
+  const allCanonicalOff = CANONICAL_FEATURE_KEYS.every((key) => normalized[key] === false);
+  if (!allCanonicalOff) return normalized;
+
+  const next = { ...normalized };
+  for (const key of CANONICAL_FEATURE_KEYS) next[key] = true;
+  next.securityEnabled = true;
+  return next;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -39,6 +70,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
 
       const data = await readJsonSafe(upstream);
+      if (isRecord(data) && isRecord(data.features)) {
+        const normalized = withLegacyFeatureAliases(data.features);
+        data.features = applyNonPrimaryDefaultFeatures(guildId, data.features, normalized);
+      }
       return res.status(upstream.status).json(data);
     }
 
@@ -50,22 +85,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json(stockLockError(guildId));
       }
 
-      const body = { ...(req.body || {}), guildId };
+      const rawBody = isRecord(req.body) ? { ...req.body } : {};
+      const ignored: string[] = [];
+      let payload: Record<string, unknown> = { ...rawBody, guildId };
+
+      if (isRecord(rawBody.features)) {
+        const normalized = normalizeFeaturePatch(rawBody.features);
+        ignored.push(...normalized.ignoredKeys);
+        if (Object.keys(normalized.patch).length === 0) {
+          return res.status(200).json({ success: true, guildId, ignoredFeatureKeys: Array.from(new Set(ignored)) });
+        }
+        payload = { guildId, features: normalized.patch };
+      } else {
+        const rawKey =
+          typeof rawBody.featureKey === "string"
+            ? rawBody.featureKey
+            : typeof rawBody.feature === "string"
+              ? rawBody.feature
+              : typeof rawBody.key === "string"
+                ? rawBody.key
+                : "";
+
+        if (rawKey) {
+          const canonical = resolveCanonicalFeatureKey(rawKey);
+          if (!canonical || typeof rawBody.enabled !== "boolean") {
+            ignored.push(rawKey);
+            return res.status(200).json({ success: true, guildId, ignoredFeatureKeys: Array.from(new Set(ignored)) });
+          }
+          payload = { guildId, features: { [canonical]: rawBody.enabled } };
+        }
+      }
+
       const upstream = await fetch(`${BOT_API}/guild-features`, {
         method: "POST",
         headers: headersWithAuth(true),
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
       const data = await readJsonSafe(upstream);
+      if (isRecord(data) && ignored.length > 0) {
+        data.ignoredFeatureKeys = Array.from(new Set(ignored));
+      }
       return res.status(upstream.status).json(data);
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return res.status(500).json({
       success: false,
-      error: err?.message || "Bot API unreachable",
+      error: getErrorMessage(err, "Bot API unreachable"),
     });
   }
 }

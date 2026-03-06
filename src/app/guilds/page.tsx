@@ -89,8 +89,9 @@ export default function GuildsPage() {
     });
   }, [guilds, policy.primaryGuildId]);
 
-  function openGuild(guildId: string) {
+  function openGuild(guildId: string, guildName: string) {
     localStorage.setItem("activeGuildId", guildId);
+    localStorage.setItem("activeGuildName", guildName || guildId);
     window.location.href = `/dashboard?guildId=${encodeURIComponent(guildId)}`;
   }
 
@@ -112,7 +113,7 @@ export default function GuildsPage() {
           return (
             <button
               key={g.id}
-              onClick={() => openGuild(g.id)}
+              onClick={() => openGuild(g.id, g.name)}
               style={{
                 textAlign: "left",
                 border: "1px solid #6f0000",

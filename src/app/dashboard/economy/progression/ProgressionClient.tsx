@@ -260,7 +260,7 @@ export default function ProgressionPage() {
   return (
     <div style={{ color: "#ff4d4d", padding: 20, maxWidth: 1220 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Economy - Progression</h1>
-      <p>Guild: {guildId}</p>
+      <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
 
       {loading ? <p>Loading...</p> : (
         <>

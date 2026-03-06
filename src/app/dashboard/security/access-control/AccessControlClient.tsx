@@ -136,7 +136,7 @@ export default function AccessControlClient() {
         <h1 style={{ marginTop: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
           Dashboard Access Control
         </h1>
-        <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildId}</div>
+        <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
         <div style={{ color: "#ffb5b5", fontSize: 12 }}>
           Controls who can open dashboard pages. This is role-based and user-list based, no hardcoded IDs in code.
         </div>

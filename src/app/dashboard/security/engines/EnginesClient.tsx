@@ -153,7 +153,7 @@ export default function SecurityEnginesPage() {
       <h1 style={{ margin: "0 0 8px", color: "#ff4f4f", letterSpacing: "0.12em", textTransform: "uppercase" }}>
         Security Engines
       </h1>
-      <div style={{ marginBottom: 10, color: "#ff8d8d" }}>Guild: {guildId}</div>
+      <div style={{ marginBottom: 10, color: "#ff8d8d" }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
       <div style={{ marginBottom: 14, color: "#ffb1b1" }}>
         Editable engines enabled: <b>{enabledCount}/{editable.length}</b>
       </div>

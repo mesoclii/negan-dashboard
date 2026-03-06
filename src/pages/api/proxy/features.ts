@@ -4,6 +4,11 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
+import {
+  normalizeFeaturePatch,
+  resolveCanonicalFeatureKey,
+  withLegacyFeatureAliases,
+} from "@/lib/dashboard/featureKeys";
 
 const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
@@ -12,6 +17,15 @@ function authHeaders() {
   const headers: Record<string, string> = {};
   if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
   return headers;
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return !!input && typeof input === "object" && !Array.isArray(input);
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -25,6 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const url = `${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`;
       const r = await fetch(url, { method: "GET", headers: authHeaders() });
       const data = await r.json().catch(() => ({}));
+      if (isRecord(data) && isRecord(data.features)) {
+        data.features = withLegacyFeatureAliases(data.features);
+      }
       return res.status(r.status).json(data);
     }
 
@@ -33,19 +50,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(403).json(stockLockError(guildId));
       }
 
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const hasBulk = body.features && typeof body.features === "object" && !Array.isArray(body.features);
+      const body = isRecord(req.body) ? req.body : {};
+      const hasBulk = isRecord(body.features);
 
-      const endpoint = hasBulk ? "/guild-features" : "/api/features/update";
-      const url = `${BOT_API}${endpoint}`;
+      if (hasBulk) {
+        const normalized = normalizeFeaturePatch(body.features);
+        if (Object.keys(normalized.patch).length === 0) {
+          return res.status(200).json({ success: true, guildId, ignoredFeatureKeys: normalized.ignoredKeys });
+        }
 
-      const r = await fetch(url, {
+        const r = await fetch(`${BOT_API}/guild-features`, {
+          method: "POST",
+          headers: {
+            ...authHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ guildId, features: normalized.patch }),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (isRecord(data) && normalized.ignoredKeys.length > 0) {
+          data.ignoredFeatureKeys = normalized.ignoredKeys;
+        }
+        return res.status(r.status).json(data);
+      }
+
+      const rawKey =
+        typeof body.featureKey === "string"
+          ? body.featureKey
+          : typeof body.feature === "string"
+            ? body.feature
+            : typeof body.key === "string"
+              ? body.key
+              : "";
+
+      const canonical = resolveCanonicalFeatureKey(rawKey);
+      const enabled = typeof body.enabled === "boolean" ? body.enabled : null;
+
+      if (!canonical || enabled === null) {
+        return res.status(200).json({ success: true, guildId, ignoredFeatureKeys: rawKey ? [rawKey] : [] });
+      }
+
+      const r = await fetch(`${BOT_API}/api/features/update`, {
         method: "POST",
         headers: {
           ...authHeaders(),
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...body, guildId }),
+        body: JSON.stringify({ guildId, featureKey: canonical, key: canonical, feature: canonical, enabled }),
       });
 
       const data = await r.json().catch(() => ({}));
@@ -53,10 +105,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return res.status(500).json({
       success: false,
-      error: err?.message || "Feature proxy failed",
+      error: getErrorMessage(err, "Feature proxy failed"),
     });
   }
 }

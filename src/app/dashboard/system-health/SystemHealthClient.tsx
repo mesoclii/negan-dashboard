@@ -33,6 +33,7 @@ const input: React.CSSProperties = {
 
 export default function SystemHealthPage() {
   const [guildId, setGuildId] = useState("");
+  const [guildName, setGuildName] = useState("");
   const [msg, setMsg] = useState("");
 
   const [runtime, setRuntime] = useState<any>(null);
@@ -44,12 +45,13 @@ export default function SystemHealthPage() {
 
   async function loadAll(gid: string) {
     if (!gid) return;
-    const [r1, r2, r3, r4, r5] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
       fetch(`/api/setup/runtime-safety-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
       fetch(`/api/setup/audit-log-feed?kind=${encodeURIComponent(logKind)}&lines=200`).then((r) => r.json()),
-      fetch(`/api/setup/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] }))
+      fetch(`/api/setup/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] })),
+      fetch(`/api/bot/guild-data?guildId=${gid}`).then((r) => r.json()).catch(() => ({}))
     ]);
     setRuntime(r1?.config || null);
     setAuditCfg(r2?.config || null);
@@ -57,6 +59,9 @@ export default function SystemHealthPage() {
     setLogLines(Array.isArray(r4?.lines) ? r4.lines : []);
     const snap = Array.isArray(r5?.snapshots) ? r5.snapshots : [];
     setSnapshots(snap);
+    const nextGuildName = String(r6?.guild?.name || "").trim();
+    setGuildName(nextGuildName);
+    if (nextGuildName && typeof window !== "undefined") localStorage.setItem("activeGuildName", nextGuildName);
   }
 
   useEffect(() => {
@@ -111,7 +116,7 @@ export default function SystemHealthPage() {
     <div style={{ padding: 18, color: "#ffd7d7" }}>
       <h1 style={{ marginTop: 0, color: "#ff4d4d", letterSpacing: "0.06em" }}>System Health + Ops</h1>
       <p style={{ opacity: 0.9 }}>
-        Guild: <b>{guildId || "(none)"}</b>
+        Guild: <b>{guildName || (typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId) || "(none)"}</b>
       </p>
       {msg && <div style={{ marginBottom: 10, color: "#ff8c8c" }}>{msg}</div>}
 
@@ -121,7 +126,7 @@ export default function SystemHealthPage() {
           <Link href={`/dashboard/ai/memory?guildId=${guildId}`}>AI Memory</Link>
           <Link href={`/dashboard/settings/event-routing?guildId=${guildId}`}>Event Routing</Link>
           <Link href={`/dashboard/economy/radio-birthday?guildId=${guildId}`}>Radio + Birthday</Link>
-          <Link href={`/dashboard/games/achievements?guildId=${guildId}`}>Achievements + Prestige</Link>
+          <Link href={`/dashboard/achievements?guildId=${guildId}`}>Achievements + Prestige</Link>
         </div>
       </div>
 

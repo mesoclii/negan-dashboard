@@ -383,7 +383,7 @@ export default function TicketsPage() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <Link href={`/dashboard/access?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#fff" }}>Back to Access</Link>
+            <Link href={`/dashboard?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#fff" }}>Back to Dashboard</Link>
             <button
               onClick={saveAll}
               disabled={saving}
