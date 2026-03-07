@@ -1,128 +1,218 @@
 "use client";
 
-
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type: number };
+type TicketTypeKey = "support" | "vip" | "drops";
+
+type TicketTypeConfig = {
+  enabled: boolean;
+  label: string;
+  shortPrefix: string;
+  panelButtonLabel: string;
+  panelButtonEmoji: string;
+  openCategoryId: string;
+  closedCategoryId: string;
+  transcriptChannelId: string;
+  logChannelId: string;
+  introTitle: string;
+  introMessage: string;
+};
 
 type TicketsConfig = {
   active: boolean;
-  panel: {
-    channelId: string;
-    categoryId: string;
-    transcriptChannelId: string;
-    staffRoleIds: string[];
-    openButtonLabel: string;
-    claimButtonLabel: string;
-    closeButtonLabel: string;
-    deleteButtonLabel: string;
-    welcomeMessageTemplate: string;
-    closeMessageTemplate: string;
-    pingStaffOnOpen: boolean;
-    lockOnClose: boolean;
-    allowUserClose: boolean;
-    requireReasonOnClose: boolean;
+  panelChannelId: string;
+  panelTitle: string;
+  panelDescription: string;
+  openCategoryId: string;
+  closedCategoryId: string;
+  transcriptLogId: string;
+  staffRoleIds: string[];
+  founderRoleIds: string[];
+  singleLogMode: boolean;
+  controls: {
+    claimLabel: string;
+    claimEmoji: string;
+    closeLabel: string;
+    closeEmoji: string;
+    reopenLabel: string;
+    reopenEmoji: string;
+    deleteLabel: string;
+    deleteEmoji: string;
   };
-  permissions: {
-    canClaimRoles: string[];
-    canCloseRoles: string[];
-    canDeleteRoles: string[];
-    canTranscriptRoles: string[];
-    userCanAddMembers: boolean;
-    userCanRenameTicket: boolean;
-  };
-  limits: {
-    maxOpenPerUser: number;
-    cooldownSeconds: number;
-    staleAutoArchiveHours: number;
-  };
-  notes: string;
+  types: Record<TicketTypeKey, TicketTypeConfig>;
 };
 
-const DEFAULT_CONFIG: TicketsConfig = {
-  active: true,
-  panel: {
-    channelId: "",
-    categoryId: "",
+const TYPE_ORDER: TicketTypeKey[] = ["support", "vip", "drops"];
+
+const card: CSSProperties = {
+  border: "1px solid #5f0000",
+  borderRadius: 12,
+  padding: 14,
+  background: "rgba(120,0,0,0.08)",
+  marginBottom: 12,
+};
+
+const input: CSSProperties = {
+  width: "100%",
+  background: "#0a0a0a",
+  color: "#ffd0d0",
+  border: "1px solid #7f0000",
+  borderRadius: 8,
+  padding: "10px 12px",
+};
+
+function emptyType(key: TicketTypeKey): TicketTypeConfig {
+  const label = key === "vip" ? "VIP" : key === "drops" ? "Drops" : "Support";
+  return {
+    enabled: true,
+    label,
+    shortPrefix: key,
+    panelButtonLabel: label,
+    panelButtonEmoji: "",
+    openCategoryId: "",
+    closedCategoryId: "",
     transcriptChannelId: "",
+    logChannelId: "",
+    introTitle: `${label} Ticket`,
+    introMessage:
+      key === "drops"
+        ? "Drops ticket opened. Post your platform/login details and drop selection."
+        : key === "vip"
+          ? "VIP desk opened. Share your request and staff will review."
+          : "Thanks for opening a support ticket. Please hold while staff reviews this.",
+  };
+}
+
+function defaultConfig(): TicketsConfig {
+  return {
+    active: true,
+    panelChannelId: "",
+    panelTitle: "Support Tickets",
+    panelDescription: "Choose a ticket type below.",
+    openCategoryId: "",
+    closedCategoryId: "",
+    transcriptLogId: "",
     staffRoleIds: [],
-    openButtonLabel: "Open Ticket",
-    claimButtonLabel: "Claim",
-    closeButtonLabel: "Close",
-    deleteButtonLabel: "Delete",
-    welcomeMessageTemplate: "Ticket opened by <@{{userId}}>.",
-    closeMessageTemplate: "Ticket closed by <@{{actorId}}>.",
-    pingStaffOnOpen: true,
-    lockOnClose: true,
-    allowUserClose: true,
-    requireReasonOnClose: false
-  },
-  permissions: {
-    canClaimRoles: [],
-    canCloseRoles: [],
-    canDeleteRoles: [],
-    canTranscriptRoles: [],
-    userCanAddMembers: false,
-    userCanRenameTicket: false
-  },
-  limits: {
-    maxOpenPerUser: 1,
-    cooldownSeconds: 0,
-    staleAutoArchiveHours: 24
-  },
-  notes: ""
-};
-
-function cloneDefaults(): TicketsConfig {
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    founderRoleIds: [],
+    singleLogMode: true,
+    controls: {
+      claimLabel: "Claim",
+      claimEmoji: "",
+      closeLabel: "Close",
+      closeEmoji: "",
+      reopenLabel: "Reopen",
+      reopenEmoji: "",
+      deleteLabel: "Delete",
+      deleteEmoji: "",
+    },
+    types: {
+      support: emptyType("support"),
+      vip: emptyType("vip"),
+      drops: emptyType("drops"),
+    },
+  };
 }
 
-function isObj(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
+function getGuildId() {
+  if (typeof window === "undefined") return "";
+  const query = new URLSearchParams(window.location.search);
+  const guildId = String(query.get("guildId") || localStorage.getItem("activeGuildId") || "").trim();
+  if (guildId) localStorage.setItem("activeGuildId", guildId);
+  return guildId;
 }
 
-function mergeDeep<T>(base: T, incoming: unknown): T {
-  if (!isObj(base) || !isObj(incoming)) return (incoming as T) ?? base;
-  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-  for (const key of Object.keys(incoming)) {
-    const nextVal = (incoming as Record<string, unknown>)[key];
-    if (nextVal === undefined) continue;
-    const prevVal = out[key];
-    if (isObj(prevVal) && isObj(nextVal)) out[key] = mergeDeep(prevVal, nextVal);
-    else out[key] = nextVal;
+function emojiToInput(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value) {
+    const anyEmoji = value as { id?: unknown; name?: unknown; animated?: unknown };
+    const id = String(anyEmoji.id || "").trim();
+    const name = String(anyEmoji.name || "emoji").trim();
+    if (!id) return name;
+    return `<${anyEmoji.animated ? "a" : ""}:${name}:${id}>`;
   }
-  return out as T;
+  return "";
 }
 
-function toggleId(arr: string[], id: string): string[] {
-  return arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
+function normalizeConfig(inputValue: any): TicketsConfig {
+  const base = defaultConfig();
+  const input = inputValue && typeof inputValue === "object" ? inputValue : {};
+  const controls = input.controls && typeof input.controls === "object" ? input.controls : {};
+  const types = input.types && typeof input.types === "object" ? input.types : {};
+
+  return {
+    active: input.active !== false,
+    panelChannelId: String(input.panelChannelId || ""),
+    panelTitle: String(input.panelTitle || base.panelTitle),
+    panelDescription: String(input.panelDescription || base.panelDescription),
+    openCategoryId: String(input.openCategoryId || ""),
+    closedCategoryId: String(input.closedCategoryId || ""),
+    transcriptLogId: String(input.transcriptLogId || ""),
+    staffRoleIds: Array.isArray(input.staffRoleIds) ? input.staffRoleIds.map((value: unknown) => String(value || "")) : [],
+    founderRoleIds: Array.isArray(input.founderRoleIds) ? input.founderRoleIds.map((value: unknown) => String(value || "")) : [],
+    singleLogMode: input.singleLogMode !== false,
+    controls: {
+      claimLabel: String(controls.claimLabel || base.controls.claimLabel),
+      claimEmoji: emojiToInput(controls.claimEmoji),
+      closeLabel: String(controls.closeLabel || base.controls.closeLabel),
+      closeEmoji: emojiToInput(controls.closeEmoji),
+      reopenLabel: String(controls.reopenLabel || base.controls.reopenLabel),
+      reopenEmoji: emojiToInput(controls.reopenEmoji),
+      deleteLabel: String(controls.deleteLabel || base.controls.deleteLabel),
+      deleteEmoji: emojiToInput(controls.deleteEmoji),
+    },
+    types: {
+      support: {
+        ...base.types.support,
+        ...(types.support || {}),
+        panelButtonEmoji: emojiToInput(types.support?.panelButtonEmoji),
+      },
+      vip: {
+        ...base.types.vip,
+        ...(types.vip || {}),
+        panelButtonEmoji: emojiToInput(types.vip?.panelButtonEmoji),
+      },
+      drops: {
+        ...base.types.drops,
+        ...(types.drops || {}),
+        panelButtonEmoji: emojiToInput(types.drops?.panelButtonEmoji),
+      },
+    },
+  };
+}
+
+function toggleId(list: string[], id: string): string[] {
+  return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
 }
 
 function RolePicker({
   label,
   roles,
   selected,
-  onChange
+  onChange,
 }: {
   label: string;
   roles: Role[];
   selected: string[];
-  onChange: (v: string[]) => void;
+  onChange: (next: string[]) => void;
 }) {
   return (
     <details style={{ border: "1px solid #5f0000", borderRadius: 10, padding: 10, marginTop: 8 }}>
-      <summary style={{ cursor: "pointer", color: "#ffd0d0" }}>{label} ({selected.length})</summary>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, maxHeight: 170, overflowY: "auto" }}>
-        {roles.map((r) => {
-          const on = selected.includes(r.id);
+      <summary style={{ cursor: "pointer", color: "#ffd0d0" }}>
+        {label} ({selected.length})
+      </summary>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, maxHeight: 180, overflowY: "auto" }}>
+        {roles.map((role) => {
+          const on = selected.includes(role.id);
           return (
             <button
-              key={r.id}
+              key={role.id}
               type="button"
-              onClick={() => onChange(toggleId(selected, r.id))}
+              onClick={() => onChange(toggleId(selected, role.id))}
               style={{
                 borderRadius: 999,
                 border: on ? "1px solid #ff4a4a" : "1px solid #553030",
@@ -130,10 +220,10 @@ function RolePicker({
                 background: on ? "rgba(255,0,0,0.20)" : "rgba(255,255,255,0.03)",
                 color: on ? "#fff" : "#ffb7b7",
                 cursor: "pointer",
-                fontSize: 12
+                fontSize: 12,
               }}
             >
-              {r.name}
+              {role.name}
             </button>
           );
         })}
@@ -142,25 +232,20 @@ function RolePicker({
   );
 }
 
-export default function TicketsPage() {
+export default function TicketsClient() {
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [cfg, setCfg] = useState<TicketsConfig>(cloneDefaults());
+  const [cfg, setCfg] = useState<TicketsConfig>(defaultConfig());
+  const [orig, setOrig] = useState<TicketsConfig>(defaultConfig());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deploying, setDeploying] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fromUrl = new URLSearchParams(window.location.search).get("guildId") || "";
-    const fromStore = localStorage.getItem("activeGuildId") || "";
-    const gid = (fromUrl || fromStore).trim();
-    if (gid) {
-      localStorage.setItem("activeGuildId", gid);
-      setGuildId(gid);
-    }
+    setGuildId(getGuildId());
   }, []);
 
   useEffect(() => {
@@ -174,42 +259,56 @@ export default function TicketsPage() {
         setLoading(true);
         setMsg("");
 
-        const [gRes, tRes] = await Promise.all([
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/setup/tickets-config?guildId=${encodeURIComponent(guildId)}`)
+        const [guildRes, ticketRes] = await Promise.all([
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/setup/tickets-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
         ]);
 
-        const gData = await gRes.json();
-        const tData = await tRes.json();
+        const guildJson = await guildRes.json().catch(() => ({}));
+        const ticketJson = await ticketRes.json().catch(() => ({}));
+        if (!guildRes.ok || guildJson?.success === false) {
+          throw new Error(guildJson?.error || "Failed to load guild data.");
+        }
+        if (!ticketRes.ok || ticketJson?.success === false) {
+          throw new Error(ticketJson?.error || "Failed to load tickets config.");
+        }
 
-        setGuildName(gData?.guild?.name || guildId);
-        setRoles((Array.isArray(gData?.roles) ? gData.roles : []).sort((a: Role, b: Role) => Number(b.position || 0) - Number(a.position || 0)));
-        setChannels(Array.isArray(gData?.channels) ? gData.channels : []);
-        setCfg(mergeDeep(cloneDefaults(), tData?.config || {}));
+        const roleList: Role[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
+        roleList.sort((a, b) => Number(b.position || 0) - Number(a.position || 0));
+
+        const loaded = normalizeConfig(ticketJson?.config);
+
+        setGuildName(String(guildJson?.guild?.name || guildId));
+        setRoles(roleList);
+        setChannels(Array.isArray(guildJson?.channels) ? guildJson.channels : []);
+        setCfg(loaded);
+        setOrig(loaded);
       } catch {
-        setMsg("Failed to load tickets config.");
+        setMsg("Failed to load live tickets engine config.");
       } finally {
         setLoading(false);
       }
     })();
   }, [guildId]);
 
-  const textChannels = useMemo(() => channels.filter((c) => c.type === 0 || c.type === 5), [channels]);
-  const categories = useMemo(() => channels.filter((c) => c.type === 4), [channels]);
+  const textChannels = useMemo(
+    () => channels.filter((channel) => channel.type === 0 || channel.type === 5),
+    [channels]
+  );
+  const categories = useMemo(() => channels.filter((channel) => channel.type === 4), [channels]);
+  const dirty = useMemo(() => JSON.stringify(cfg) !== JSON.stringify(orig), [cfg, orig]);
 
-  async function silentPost(url: string, body: any): Promise<boolean> {
-    try {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!r.ok) return false;
-      const j = await r.json().catch(() => ({}));
-      return j?.success !== false;
-    } catch {
-      return false;
-    }
+  function setType(key: TicketTypeKey, patch: Partial<TicketTypeConfig>) {
+    setCfg((prev) => ({
+      ...prev,
+      types: {
+        ...prev.types,
+        [key]: {
+          ...prev.types[key],
+          ...patch,
+        },
+      },
+    }));
   }
 
   async function saveAll() {
@@ -218,35 +317,54 @@ export default function TicketsPage() {
       setSaving(true);
       setMsg("");
 
-      const saveRes = await fetch("/api/setup/tickets-config", {
+      const res = await fetch("/api/setup/tickets-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, config: cfg })
+        body: JSON.stringify({ guildId, config: cfg }),
       });
-      const saveJson = await saveRes.json();
-      if (!saveRes.ok || saveJson?.success === false) throw new Error(saveJson?.error || "Save failed");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.error || `Save failed (${res.status})`);
+      }
 
-      const synced = await silentPost("/api/bot/dashboard-config", {
-        guildId,
-        patch: {
-          features: { ticketsEnabled: cfg.active }
-        }
-      });
-
-      setMsg(
-        synced
-          ? "Saved Tickets. Support ticket config is isolated from onboarding/verification flows."
-          : "Saved Tickets."
-      );
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
+      const next = normalizeConfig(json?.config);
+      setCfg(next);
+      setOrig(next);
+      setMsg("Saved tickets engine to the live bot config for this guild.");
+    } catch (error: any) {
+      setMsg(error?.message || "Save failed.");
     } finally {
       setSaving(false);
     }
   }
 
-  const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.08)", marginBottom: 12 };
-  const input: React.CSSProperties = { width: "100%", background: "#0a0a0a", color: "#ffd0d0", border: "1px solid #7f0000", borderRadius: 8, padding: "10px 12px" };
+  async function deployPanel() {
+    if (!guildId) return;
+    try {
+      setDeploying(true);
+      setMsg("");
+
+      const res = await fetch("/api/setup/runtime-engine-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "tickets",
+          action: "deployPanel",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.error || `Deploy failed (${res.status})`);
+      }
+
+      setMsg(`Ticket panel deployed to <#${json?.result?.channelId || json?.channelId || cfg.panelChannelId}>.`);
+    } catch (error: any) {
+      setMsg(error?.message || "Deploy failed.");
+    } finally {
+      setDeploying(false);
+    }
+  }
 
   if (!guildId) {
     return (
@@ -257,20 +375,31 @@ export default function TicketsPage() {
   }
 
   return (
-    <div style={{ color: "#ff5c5c", padding: 18, maxWidth: 1200 }}>
+    <div style={{ color: "#ff5c5c", padding: 18, maxWidth: 1400 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Tickets Control</h1>
           <div style={{ color: "#ff9f9f", marginTop: 6 }}>Guild: {guildName || guildId}</div>
-          <div style={{ color: "#ffb0b0", marginTop: 4, fontSize: 12 }}>Support tickets are isolated from onboarding ticket flows.</div>
+          <div style={{ color: "#ffb0b0", marginTop: 4, fontSize: 12 }}>
+            Each guild now carries its own live ticket engine config, per-type intro copy, and button emoji mapping.
+          </div>
         </div>
-        <button
-          onClick={saveAll}
-          disabled={saving || loading}
-          style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
-        >
-          {saving ? "Saving..." : "Save Tickets"}
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={deployPanel}
+            disabled={deploying || loading}
+            style={{ border: "1px solid #ff3636", background: "#120000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+          >
+            {deploying ? "Deploying..." : "Deploy Panel"}
+          </button>
+          <button
+            onClick={saveAll}
+            disabled={saving || loading}
+            style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+          >
+            {saving ? "Saving..." : "Save Tickets"}
+          </button>
+        </div>
       </div>
 
       {msg ? <div style={{ marginTop: 10, color: "#ffd3d3" }}>{msg}</div> : null}
@@ -281,116 +410,233 @@ export default function TicketsPage() {
         <div style={{ marginTop: 16 }}>
           <div style={card}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Engine State</h3>
-            <label>
-              <input
-                type="checkbox"
-                checked={cfg.active}
-                onChange={(e) => setCfg({ ...cfg, active: e.target.checked })}
-                style={{ marginRight: 8 }}
-              />
-              Tickets Engine Enabled
-            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cfg.active}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, active: event.target.checked }))}
+                  style={{ marginRight: 8 }}
+                />
+                Tickets Engine Enabled
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={cfg.singleLogMode}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, singleLogMode: event.target.checked }))}
+                  style={{ marginRight: 8 }}
+                />
+                Unified transcript mode
+              </label>
+            </div>
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Routing</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Global Routing</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               <div>
                 <div>Panel Channel</div>
-                <select style={input} value={cfg.panel.channelId} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, channelId: e.target.value } })}>
+                <select style={input} value={cfg.panelChannelId} onChange={(event) => setCfg((prev) => ({ ...prev, panelChannelId: event.target.value }))}>
                   <option value="">Select channel</option>
-                  {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <div>Ticket Category</div>
-                <select style={input} value={cfg.panel.categoryId} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, categoryId: e.target.value } })}>
+                <div>Default Open Category</div>
+                <select style={input} value={cfg.openCategoryId} onChange={(event) => setCfg((prev) => ({ ...prev, openCategoryId: event.target.value }))}>
                   <option value="">Select category</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {categories.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <div>Transcript Channel</div>
-                <select style={input} value={cfg.panel.transcriptChannelId} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, transcriptChannelId: e.target.value } })}>
-                  <option value="">Select channel</option>
-                  {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                <div>Default Closed Category</div>
+                <select style={input} value={cfg.closedCategoryId} onChange={(event) => setCfg((prev) => ({ ...prev, closedCategoryId: event.target.value }))}>
+                  <option value="">Select category</option>
+                  {categories.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+              <div>
+                <div>Panel Title</div>
+                <input style={input} value={cfg.panelTitle} onChange={(event) => setCfg((prev) => ({ ...prev, panelTitle: event.target.value }))} />
+              </div>
+              <div>
+                <div>Default Transcript Channel</div>
+                <select style={input} value={cfg.transcriptLogId} onChange={(event) => setCfg((prev) => ({ ...prev, transcriptLogId: event.target.value }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>Panel Description</div>
+            <textarea
+              style={{ ...input, minHeight: 90 }}
+              value={cfg.panelDescription}
+              onChange={(event) => setCfg((prev) => ({ ...prev, panelDescription: event.target.value }))}
+            />
+
             <RolePicker
-              label="Staff Roles (can see/handle tickets)"
+              label="Staff Roles"
               roles={roles}
-              selected={cfg.panel.staffRoleIds}
-              onChange={(v) => setCfg({ ...cfg, panel: { ...cfg.panel, staffRoleIds: v } })}
+              selected={cfg.staffRoleIds}
+              onChange={(next) => setCfg((prev) => ({ ...prev, staffRoleIds: next }))}
+            />
+            <RolePicker
+              label="Founder / Escalation Roles"
+              roles={roles}
+              selected={cfg.founderRoleIds}
+              onChange={(next) => setCfg((prev) => ({ ...prev, founderRoleIds: next }))}
             />
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Buttons + Templates</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-              <input style={input} value={cfg.panel.openButtonLabel} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, openButtonLabel: e.target.value } })} placeholder="Open label" />
-              <input style={input} value={cfg.panel.claimButtonLabel} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, claimButtonLabel: e.target.value } })} placeholder="Claim label" />
-              <input style={input} value={cfg.panel.closeButtonLabel} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, closeButtonLabel: e.target.value } })} placeholder="Close label" />
-              <input style={input} value={cfg.panel.deleteButtonLabel} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, deleteButtonLabel: e.target.value } })} placeholder="Delete label" />
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Control Buttons</h3>
+            <div style={{ color: "#ffb0b0", marginBottom: 10, fontSize: 12 }}>
+              Emoji fields accept unicode or custom Discord emoji like <code>{`<a:name:123456789012345678>`}</code>.
             </div>
-
-            <div style={{ marginTop: 10 }}>Welcome Message Template</div>
-            <textarea style={{ ...input, minHeight: 90 }} value={cfg.panel.welcomeMessageTemplate} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, welcomeMessageTemplate: e.target.value } })} />
-
-            <div style={{ marginTop: 10 }}>Close Message Template</div>
-            <textarea style={{ ...input, minHeight: 90 }} value={cfg.panel.closeMessageTemplate} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, closeMessageTemplate: e.target.value } })} />
-
-            <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-              <label><input type="checkbox" checked={cfg.panel.pingStaffOnOpen} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, pingStaffOnOpen: e.target.checked } })} /> Ping staff on open</label>
-              <label><input type="checkbox" checked={cfg.panel.lockOnClose} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, lockOnClose: e.target.checked } })} /> Lock on close</label>
-              <label><input type="checkbox" checked={cfg.panel.allowUserClose} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, allowUserClose: e.target.checked } })} /> Users can close</label>
-              <label><input type="checkbox" checked={cfg.panel.requireReasonOnClose} onChange={(e) => setCfg({ ...cfg, panel: { ...cfg.panel, requireReasonOnClose: e.target.checked } })} /> Require close reason</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 1fr 180px", gap: 10 }}>
+              <input style={input} value={cfg.controls.claimLabel} placeholder="Claim label" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, claimLabel: event.target.value } }))} />
+              <input style={input} value={cfg.controls.claimEmoji} placeholder="Claim emoji" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, claimEmoji: event.target.value } }))} />
+              <input style={input} value={cfg.controls.closeLabel} placeholder="Close label" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, closeLabel: event.target.value } }))} />
+              <input style={input} value={cfg.controls.closeEmoji} placeholder="Close emoji" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, closeEmoji: event.target.value } }))} />
+              <input style={input} value={cfg.controls.reopenLabel} placeholder="Reopen label" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, reopenLabel: event.target.value } }))} />
+              <input style={input} value={cfg.controls.reopenEmoji} placeholder="Reopen emoji" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, reopenEmoji: event.target.value } }))} />
+              <input style={input} value={cfg.controls.deleteLabel} placeholder="Delete label" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, deleteLabel: event.target.value } }))} />
+              <input style={input} value={cfg.controls.deleteEmoji} placeholder="Delete emoji" onChange={(event) => setCfg((prev) => ({ ...prev, controls: { ...prev.controls, deleteEmoji: event.target.value } }))} />
             </div>
           </div>
 
-          <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Permissions</h3>
-            <RolePicker label="Can Claim" roles={roles} selected={cfg.permissions.canClaimRoles} onChange={(v) => setCfg({ ...cfg, permissions: { ...cfg.permissions, canClaimRoles: v } })} />
-            <RolePicker label="Can Close" roles={roles} selected={cfg.permissions.canCloseRoles} onChange={(v) => setCfg({ ...cfg, permissions: { ...cfg.permissions, canCloseRoles: v } })} />
-            <RolePicker label="Can Delete" roles={roles} selected={cfg.permissions.canDeleteRoles} onChange={(v) => setCfg({ ...cfg, permissions: { ...cfg.permissions, canDeleteRoles: v } })} />
-            <RolePicker label="Can Read Transcripts" roles={roles} selected={cfg.permissions.canTranscriptRoles} onChange={(v) => setCfg({ ...cfg, permissions: { ...cfg.permissions, canTranscriptRoles: v } })} />
-            <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <label><input type="checkbox" checked={cfg.permissions.userCanAddMembers} onChange={(e) => setCfg({ ...cfg, permissions: { ...cfg.permissions, userCanAddMembers: e.target.checked } })} /> Users can add members</label>
-              <label><input type="checkbox" checked={cfg.permissions.userCanRenameTicket} onChange={(e) => setCfg({ ...cfg, permissions: { ...cfg.permissions, userCanRenameTicket: e.target.checked } })} /> Users can rename ticket</label>
-            </div>
-          </div>
+          {TYPE_ORDER.map((key) => {
+            const typeCfg = cfg.types[key];
+            return (
+              <div key={key} style={card}>
+                <h3 style={{ marginTop: 0, color: "#ff4444" }}>{typeCfg.label || key.toUpperCase()} Flow</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 180px", gap: 10 }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={typeCfg.enabled}
+                      onChange={(event) => setType(key, { enabled: event.target.checked })}
+                      style={{ marginRight: 8 }}
+                    />
+                    Type Enabled
+                  </label>
+                  <div>
+                    <div>Type Label</div>
+                    <input style={input} value={typeCfg.label} onChange={(event) => setType(key, { label: event.target.value })} />
+                  </div>
+                  <div>
+                    <div>Short Prefix</div>
+                    <input style={input} value={typeCfg.shortPrefix} onChange={(event) => setType(key, { shortPrefix: event.target.value })} />
+                  </div>
+                  <div>
+                    <div>Button Emoji</div>
+                    <input style={input} value={typeCfg.panelButtonEmoji} onChange={(event) => setType(key, { panelButtonEmoji: event.target.value })} />
+                  </div>
+                </div>
 
-          <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Limits</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <div>
-                <div>Max Open Per User</div>
-                <input type="number" style={input} value={cfg.limits.maxOpenPerUser} onChange={(e) => setCfg({ ...cfg, limits: { ...cfg.limits, maxOpenPerUser: Math.max(1, Number(e.target.value || 1)) } })} />
-              </div>
-              <div>
-                <div>Cooldown Seconds</div>
-                <input type="number" style={input} value={cfg.limits.cooldownSeconds} onChange={(e) => setCfg({ ...cfg, limits: { ...cfg.limits, cooldownSeconds: Math.max(0, Number(e.target.value || 0)) } })} />
-              </div>
-              <div>
-                <div>Auto Archive Hours</div>
-                <input type="number" style={input} value={cfg.limits.staleAutoArchiveHours} onChange={(e) => setCfg({ ...cfg, limits: { ...cfg.limits, staleAutoArchiveHours: Math.max(1, Number(e.target.value || 1)) } })} />
-              </div>
-            </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div>
+                    <div>Panel Button Label</div>
+                    <input style={input} value={typeCfg.panelButtonLabel} onChange={(event) => setType(key, { panelButtonLabel: event.target.value })} />
+                  </div>
+                  <div>
+                    <div>Open Category</div>
+                    <select style={input} value={typeCfg.openCategoryId} onChange={(event) => setType(key, { openCategoryId: event.target.value })}>
+                      <option value="">Use default / select category</option>
+                      {categories.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div>Closed Category</div>
+                    <select style={input} value={typeCfg.closedCategoryId} onChange={(event) => setType(key, { closedCategoryId: event.target.value })}>
+                      <option value="">Use default / select category</option>
+                      {categories.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div>Transcript Channel</div>
+                    <select style={input} value={typeCfg.transcriptChannelId} onChange={(event) => setType(key, { transcriptChannelId: event.target.value })}>
+                      <option value="">Use default / select channel</option>
+                      {textChannels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          #{channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            <div style={{ marginTop: 10 }}>Notes</div>
-            <textarea style={{ ...input, minHeight: 90 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
-          </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div>
+                    <div>Operational Log Channel</div>
+                    <select style={input} value={typeCfg.logChannelId} onChange={(event) => setType(key, { logChannelId: event.target.value })}>
+                      <option value="">Optional</option>
+                      {textChannels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          #{channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div>Ticket Intro Title</div>
+                    <input style={input} value={typeCfg.introTitle} onChange={(event) => setType(key, { introTitle: event.target.value })} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10 }}>Intro Message</div>
+                <textarea
+                  style={{ ...input, minHeight: 110 }}
+                  value={typeCfg.introMessage}
+                  onChange={(event) => setType(key, { introMessage: event.target.value })}
+                />
+              </div>
+            );
+          })}
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <Link href={`/dashboard?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#fff" }}>Back to Dashboard</Link>
-            <button
-              onClick={saveAll}
-              disabled={saving}
-              style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
-            >
-              {saving ? "Saving..." : "Save Tickets"}
-            </button>
+            <Link href={`/dashboard?guildId=${encodeURIComponent(guildId)}`} style={{ color: "#fff" }}>
+              Back to Dashboard
+            </Link>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: dirty ? "#ffd27a" : "#9effb8", fontSize: 12 }}>{dirty ? "DIRTY" : "READY"}</span>
+              <button
+                onClick={saveAll}
+                disabled={saving}
+                style={{ border: "1px solid #ff3636", background: "#190000", color: "#fff", borderRadius: 10, padding: "10px 14px", fontWeight: 800, cursor: "pointer" }}
+              >
+                {saving ? "Saving..." : "Save Tickets"}
+              </button>
+            </div>
           </div>
         </div>
       )}
