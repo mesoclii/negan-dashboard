@@ -64,5 +64,5 @@ export function parseDashboardGuildIds(): string[] {
     .map((v) => v.trim())
     .filter((v) => /^\d{16,20}$/.test(v));
 
-  return [...new Set(ids)];
+  return [...new Set([...ids, ...EDITABLE_BASELINE_GUILD_IDS])];
 }

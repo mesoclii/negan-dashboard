@@ -112,7 +112,11 @@ export default function GuildsPage() {
           }
         }
 
-        const res = await fetch("/api/bot/guilds", { cache: "no-store" });
+        const params = new URLSearchParams();
+        const actorUserId = readStoredDashboardUserId();
+        if (actorUserId) params.set("userId", actorUserId);
+
+        const res = await fetch(`/api/bot/guilds${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" });
         const text = await res.text();
 
         let json: any = {};

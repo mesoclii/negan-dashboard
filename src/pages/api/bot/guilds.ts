@@ -1,24 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders } from "@/lib/botApi";
-
-function parseGuildIds(): string[] {
-  const raw =
-    process.env.DASHBOARD_GUILD_IDS ||
-    process.env.GUILD_IDS ||
-    process.env.PRIMARY_GUILD_ID ||
-    "";
-
-  const ids = String(raw)
-    .split(",")
-    .map((v) => v.trim())
-    .filter((v) => /^\d{16,20}$/.test(v));
-
-  return [...new Set(ids)];
-}
+import { parseDashboardGuildIds } from "@/lib/guildPolicy";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const guildIds = parseGuildIds();
+    const guildIds = parseDashboardGuildIds();
     if (!guildIds.length) {
       return res.status(200).json({ success: true, guilds: [], unavailable: [] });
     }
