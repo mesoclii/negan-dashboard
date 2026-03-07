@@ -29,12 +29,12 @@ const GAMES_BASELINE_FEATURES: Record<string, boolean> = {
   heistEnabled: true,
   rareDropEnabled: true,
   pokemonEnabled: true,
-  aiEnabled: false,
+  aiEnabled: true,
   ttsEnabled: true,
-  birthdayEnabled: false,
+  birthdayEnabled: true,
   economyEnabled: true,
-  governanceEnabled: true,
-  securityEnabled: true,
+  governanceEnabled: false,
+  securityEnabled: false,
 };
 
 function enrichDashboardFeatures(configInput: unknown, guildId: string) {

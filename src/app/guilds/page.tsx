@@ -139,7 +139,7 @@ export default function GuildsPage() {
     <div style={{ color: "#ff5252", padding: 24 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-        Saviors = full baseline. Alexandria = public games baseline. Other guilds = stock off by default.
+        Saviors = full baseline. Alexandria = all non-security features on. Other guilds = stock off by default.
       </p>
       {loading ? <p>Loading...</p> : null}
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
@@ -151,7 +151,7 @@ export default function GuildsPage() {
           const badge = isPrimary
             ? "PRIMARY BASELINE (ALL ON)"
             : isGamesBaseline
-              ? "PUBLIC GAMES BASELINE (ENGINES ON)"
+              ? "PUBLIC BASELINE (SECURITY OFF)"
               : "STOCK DEFAULT (STARTS OFF)";
           const kind = isPrimary ? "primary" : isGamesBaseline ? "games" : "stock";
 

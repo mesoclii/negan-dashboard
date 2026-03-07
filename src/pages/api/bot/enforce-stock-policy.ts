@@ -26,11 +26,11 @@ const PUBLIC_GAMES_FEATURE_BASE = {
   heistEnabled: true,
   rareDropEnabled: true,
   pokemonEnabled: true,
-  aiEnabled: false,
+  aiEnabled: true,
   ttsEnabled: true,
-  birthdayEnabled: false,
+  birthdayEnabled: true,
   economyEnabled: true,
-  governanceEnabled: true,
+  governanceEnabled: false,
 };
 
 const BLANK = {
@@ -105,6 +105,12 @@ async function enforcePublicGamesBaseline(req: NextApiRequest, guildId: string) 
   const steps: Array<Record<string, any>> = [];
 
   const enginePatches = [
+    ["preOnboarding", { autoBanOnBlacklistRejoin: false, autoBanOnRefusalRole: false, refusalRoleId: null, enforcementChannelId: null, contactUser: "", banDmTemplate: "" }],
+    ["onboarding", { enabled: false, sendWelcomeDm: false, welcomeMessageTemplate: "", welcomeChannelId: null, mainChatChannelId: null, rulesChannelId: null, idChannelId: null, ticketCategoryId: null, transcriptChannelId: null, logChannelId: null, verifiedRoleId: null, declineRoleId: null, staffRoleIds: [], removeOnVerifyRoleIds: [], dmTemplate: "", panelTitle: "", panelDescription: "", panelFooter: "", gateAnnouncementTemplate: "", idPanelTitle: "", idPanelDescription: "", idPanelContent: "", postVerifyTemplate: "" }],
+    ["verification", { enabled: false, autoKickOnDecline: false, autoKickOnTimeout: false, declineKickReason: "", timeoutKickReason: "", declineReplyTemplate: "", declineAction: "kick" }],
+    ["lockdown", { enabled: false, autoEscalation: false, exemptRoleIds: [], exemptChannelIds: [] }],
+    ["raid", { enabled: false, autoEscalate: false, exemptRoleIds: [], exemptChannelIds: [] }],
+    ["giveaways", { enabled: true }],
     ["tts", { enabled: true }],
     ["crew", { enabled: true, allowPublicRecruitment: true }],
     ["dominion", { enabled: true, seasonsEnabled: true }],
