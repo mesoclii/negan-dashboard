@@ -1,63 +1,49 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { BOT_API, buildBotApiHeaders } from "@/lib/botApi";
-import { parseDashboardGuildIds } from "@/lib/guildPolicy";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 import { FALLBACK_GUILD_NAMES } from "@/lib/dashboardOwner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const guildIds = parseDashboardGuildIds();
-    if (!guildIds.length) {
-      return res.status(200).json({ success: true, guilds: [], unavailable: [] });
+    const params = new URLSearchParams();
+    const userId = String(req.query.userId || req.query.uid || "").trim();
+    if (userId) params.set("userId", userId);
+
+    const upstream = await fetch(`${BOT_API}/guilds${params.toString() ? `?${params.toString()}` : ""}`, {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    });
+
+    const data = await readJsonSafe(upstream);
+    const incoming = Array.isArray(data?.guilds) ? data.guilds : [];
+    const guilds = new Map<string, { id: string; name: string; icon: string | null; botPresent?: boolean }>();
+
+    for (const guild of incoming) {
+      const id = String(guild?.id || "").trim();
+      if (!id) continue;
+      guilds.set(id, {
+        id,
+        name: String(guild?.name || id),
+        icon: guild?.icon || null,
+        botPresent: guild?.botPresent !== false,
+      });
     }
 
-    const guilds: Array<{ id: string; name: string; icon: string | null }> = [];
-    const unavailable: Array<{ guildId: string; status: number }> = [];
-
-    const pushFallbackGuild = (guildId: string) => {
-      guilds.push({
-        id: guildId,
-        name: FALLBACK_GUILD_NAMES[guildId] || guildId,
-        icon: null,
-      });
-    };
-
-    for (const guildId of guildIds) {
-      try {
-        const r = await fetch(
-          `${BOT_API}/guild-data?guildId=${encodeURIComponent(guildId)}`,
-          { headers: buildBotApiHeaders(req), cache: "no-store" }
-        );
-
-        if (!r.ok) {
-          unavailable.push({ guildId, status: r.status });
-          pushFallbackGuild(guildId);
-          continue;
-        }
-
-        const data = await r.json();
-        if (data?.guild?.id) {
-          guilds.push({
-            id: data.guild.id,
-            name: data.guild.name || guildId,
-            icon: data.guild.icon || null
-          });
-        } else {
-          unavailable.push({ guildId, status: 502 });
-          pushFallbackGuild(guildId);
-        }
-      } catch {
-        unavailable.push({ guildId, status: 0 });
-        pushFallbackGuild(guildId);
+    for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
+      if (!guilds.has(guildId)) {
+        guilds.set(guildId, {
+          id: guildId,
+          name: guildName,
+          icon: null,
+          botPresent: false,
+        });
       }
     }
 
-    const uniq = new Map<string, { id: string; name: string; icon: string | null }>();
-    for (const g of guilds) uniq.set(g.id, g);
-
-    return res.status(200).json({
-      success: true,
-      guilds: [...uniq.values()],
-      unavailable
+    return res.status(upstream.ok ? 200 : upstream.status).json({
+      success: upstream.ok && data?.success !== false,
+      guilds: [...guilds.values()],
+      inviteUrl: typeof data?.inviteUrl === "string" ? data.inviteUrl : null,
+      error: data?.error || null,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || "Internal error" });

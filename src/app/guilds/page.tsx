@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { FALLBACK_GUILD_NAMES, MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
-type Guild = { id: string; name: string; icon?: string | null };
+type Guild = {
+  id: string;
+  name: string;
+  icon?: string | null;
+  botPresent?: boolean;
+  memberCount?: number | null;
+  accessReason?: string | null;
+};
 
 type PolicyState = {
   primaryGuildId: string;
@@ -65,10 +72,11 @@ export default function GuildsPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionKey, setActionKey] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
   const [policy, setPolicy] = useState<PolicyState>({
     primaryGuildId: "1431799056211906582",
     gamesBaselineGuildId: "1336178965202599936",
-    stockLockNonPrimary: true,
+    stockLockNonPrimary: false,
   });
 
   useEffect(() => {
@@ -136,9 +144,10 @@ export default function GuildsPage() {
         for (const guild of list) {
           merged.set(String(guild.id), guild);
         }
+        setInviteUrl(typeof json?.inviteUrl === "string" ? json.inviteUrl : "");
         for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
           if (!merged.has(guildId)) {
-            merged.set(guildId, { id: guildId, name: guildName, icon: null });
+            merged.set(guildId, { id: guildId, name: guildName, icon: null, botPresent: false });
           }
         }
         setGuilds([...merged.values()]);
@@ -214,10 +223,54 @@ export default function GuildsPage() {
     <div style={{ color: "#ff5252", padding: 24 }}>
       <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
       <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-        Saviors = full baseline. Alexandria = all non-security features on. Other guilds = stock off by default.
+        Saviors = full baseline. Alexandria = public baseline. Other guilds start stock off, but stay fully editable.
       </p>
       {loading ? <p>Loading...</p> : null}
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
+      {inviteUrl ? (
+        <div
+          style={{
+            marginBottom: 12,
+            maxWidth: 1040,
+            border: "1px solid #6f0000",
+            borderRadius: 12,
+            background: "rgba(120,0,0,0.08)",
+            padding: 14,
+            color: "#ffd7d7",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 900 }}>Add Negan To Another Server</div>
+            <div style={{ fontSize: 12, opacity: 0.76 }}>
+              Live guilds appear here automatically once the bot joins. External admin-owned guild discovery still needs Discord OAuth.
+            </div>
+          </div>
+          <a
+            href={inviteUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              border: "1px solid #7a0000",
+              color: "#fff0f0",
+              textDecoration: "none",
+              background: "rgba(140,0,0,0.32)",
+            }}
+          >
+            Invite Bot
+          </a>
+        </div>
+      ) : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12, maxWidth: 1040 }}>
         {byPrimary.map((g) => {
@@ -245,6 +298,13 @@ export default function GuildsPage() {
             >
               <div style={{ fontWeight: 900, marginBottom: 4 }}>{g.name}</div>
               <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {g.id}</div>
+              <div style={{ fontSize: 12, opacity: 0.72 }}>
+                {g.botPresent === false
+                  ? "Bot not detected in this guild yet."
+                  : g.memberCount
+                    ? `${g.memberCount} members`
+                    : "Bot connected"}
+              </div>
 
               <div
                 style={{
@@ -286,42 +346,53 @@ export default function GuildsPage() {
                 {!isPrimary ? (
                   <button
                     onClick={() => applyGuildMode(g.id, g.name, "stock")}
-                    disabled={actionKey === `${g.id}:stock` || (policy.stockLockNonPrimary && !isGamesBaseline)}
+                    disabled={actionKey === `${g.id}:stock`}
                     style={{
                       borderRadius: 999,
                       padding: "6px 12px",
                       fontSize: 12,
                       fontWeight: 800,
-                      cursor:
-                        actionKey === `${g.id}:stock` || (policy.stockLockNonPrimary && !isGamesBaseline)
-                          ? "not-allowed"
-                          : "pointer",
-                      opacity: policy.stockLockNonPrimary && !isGamesBaseline ? 0.6 : 1,
+                      cursor: actionKey === `${g.id}:stock` ? "wait" : "pointer",
+                      opacity: 1,
                       ...actionButtonStyle("muted"),
                     }}
-                    title={
-                      policy.stockLockNonPrimary && !isGamesBaseline
-                        ? "This guild is stock-locked."
-                        : "Reset this guild to stock off."
-                    }
+                    title="Reset this guild to stock off."
                   >
                     {actionKey === `${g.id}:stock` ? "Turning Off..." : "Turn Off"}
                   </button>
                 ) : null}
 
-                <button
-                  onClick={() => openGuild(g.id, g.name)}
-                  style={{
-                    borderRadius: 999,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    ...actionButtonStyle("open"),
-                  }}
-                >
-                  Open
-                </button>
+                {g.botPresent === false && inviteUrl ? (
+                  <a
+                    href={inviteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textDecoration: "none",
+                      ...actionButtonStyle("open"),
+                    }}
+                  >
+                    Invite
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => openGuild(g.id, g.name)}
+                    style={{
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      ...actionButtonStyle("open"),
+                    }}
+                  >
+                    Open
+                  </button>
+                )}
               </div>
             </div>
           );

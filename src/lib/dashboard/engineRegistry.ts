@@ -20,6 +20,8 @@ export type EngineDef = {
 export const SAVIORS_GUILD_ID = "1431799056211906582";
 
 export const ENGINE_REGISTRY: EngineDef[] = [
+  { id: "bot-personalizer", label: "Bot Personalizer", description: "Per-guild bot identity, avatar, and backstory", group: "Access", route: "/dashboard/bot-personalizer" },
+  { id: "bot-masters", label: "Bot Masters", description: "Dashboard role/user access per guild", group: "Access", route: "/dashboard/bot-masters" },
   { id: "onboarding", label: "Onboarding", description: "Welcome + ticket-driven join flow", group: "Security", route: "/dashboard/security/onboarding", featureKey: "onboardingEnabled" },
   { id: "verification", label: "Verification", description: "ID/verification workflows", group: "Security", route: "/dashboard/security/verification", featureKey: "verificationEnabled" },
   { id: "lockdown", label: "Lockdown", description: "Emergency channel/server controls", group: "Security", route: "/dashboard/security/lockdown", notes: "Engine-config controlled" },

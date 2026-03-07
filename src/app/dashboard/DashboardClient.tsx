@@ -349,6 +349,8 @@ const pokemonTradeController: ToggleController = {
 };
 
 const CARDS: Card[] = [
+  { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild bot naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/ai", title: "AI", description: "Persona/AI message handling and pricing.", toggle: featureController("aiEnabled") },
   { href: "/dashboard/automations", title: "Automations", description: "Bot automation list, limits, and runtime state.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },

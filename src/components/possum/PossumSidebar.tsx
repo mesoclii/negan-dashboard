@@ -10,6 +10,8 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
+  { href: "/dashboard/bot-masters", label: "Bot Masters" },
   { href: "/dashboard/ai", label: "AI" },
   { href: "/dashboard/automations", label: "Automations" },
   { href: "/dashboard/automations/studio", label: "Automation Studio" },

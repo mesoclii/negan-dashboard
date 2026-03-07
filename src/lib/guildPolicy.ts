@@ -13,9 +13,7 @@ export const GAMES_BASELINE_GUILD_ID = String(
     "1336178965202599936"
 ).trim();
 
-export const STOCK_LOCK_NON_PRIMARY = ["1", "true", "yes", "on", "enabled"].includes(
-  String(process.env.STOCK_LOCK_NON_PRIMARY || "false").trim().toLowerCase()
-);
+export const STOCK_LOCK_NON_PRIMARY = false;
 
 export const EDITABLE_BASELINE_GUILD_IDS = Array.from(
   new Set(
@@ -30,9 +28,8 @@ export function readGuildIdFromRequest(req: NextApiRequest): string {
 }
 
 export function isWriteBlockedForGuild(guildId: string): boolean {
-  if (!STOCK_LOCK_NON_PRIMARY) return false;
-  if (!guildId) return false;
-  return !EDITABLE_BASELINE_GUILD_IDS.includes(guildId);
+  void guildId;
+  return false;
 }
 
 export function getGuildBaselineKind(guildId: string): "primary" | "games" | "stock" {
@@ -44,7 +41,7 @@ export function getGuildBaselineKind(guildId: string): "primary" | "games" | "st
 export function stockLockError(guildId: string) {
   return {
     success: false,
-    error: "This guild is stock-locked. Only the baseline guilds are editable.",
+    error: "Guild writes are unlocked.",
     guildId,
     primaryGuildId: PRIMARY_BASELINE_GUILD_ID,
     gamesBaselineGuildId: GAMES_BASELINE_GUILD_ID,

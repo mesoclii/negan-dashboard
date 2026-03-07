@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 type Role = { id: string; name: string; position?: number };
 
@@ -120,7 +121,7 @@ export default function AccessControlClient() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
       setCfg({ ...DEFAULT_CFG, ...(json?.config || cfg) });
-      setMsg("Saved access control policy.");
+      setMsg("Saved bot masters policy.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
@@ -134,11 +135,14 @@ export default function AccessControlClient() {
     <div style={{ maxWidth: 1220, color: "#ffd0d0" }}>
       <div style={card}>
         <h1 style={{ marginTop: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          Dashboard Access Control
+          Bot Masters
         </h1>
         <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
         <div style={{ color: "#ffb5b5", fontSize: 12 }}>
-          Controls who can open dashboard pages. This is role-based and user-list based, no hardcoded IDs in code.
+          Set which roles and users can manage the dashboard for this guild. The master owner override stays above everything.
+        </div>
+        <div style={{ color: "#ffd27a", fontSize: 12, marginTop: 8 }}>
+          Master owner override: {MASTER_OWNER_USER_ID}
         </div>
       </div>
 
@@ -175,7 +179,7 @@ export default function AccessControlClient() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
-                <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Admin dashboard roles</div>
+                <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Bot master roles</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 180, overflowY: "auto", padding: 8, border: "1px solid rgba(255,0,0,.28)", borderRadius: 8 }}>
                   {roles.map((r) => {
                     const selected = cfg.adminRoleIds.includes(r.id);
@@ -204,7 +208,7 @@ export default function AccessControlClient() {
                     style={input}
                     value={idsToCsv(cfg.adminRoleIds)}
                     onChange={(e) => setCfg((p) => ({ ...p, adminRoleIds: csvToIds(e.target.value) }))}
-                    placeholder="Admin role IDs (csv)"
+                    placeholder="Bot master role IDs (csv)"
                   />
                 </div>
               </div>
@@ -239,7 +243,7 @@ export default function AccessControlClient() {
                     style={input}
                     value={idsToCsv(cfg.staffRoleIds)}
                     onChange={(e) => setCfg((p) => ({ ...p, staffRoleIds: csvToIds(e.target.value) }))}
-                    placeholder="Staff role IDs (csv)"
+                    placeholder="Support access role IDs (csv)"
                   />
                 </div>
               </div>
@@ -288,7 +292,7 @@ export default function AccessControlClient() {
                 disabled={saving}
                 style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
               >
-                {saving ? "Saving..." : "Save Access Control"}
+                {saving ? "Saving..." : "Save Bot Masters"}
               </button>
             </div>
             {msg ? <div style={{ marginTop: 8, color: "#ffd27a", fontSize: 12 }}>{msg}</div> : null}
