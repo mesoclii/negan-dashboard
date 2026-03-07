@@ -68,6 +68,13 @@ function normalizePanelId(inputId: string, idx: number) {
   return cleaned || `panel_${idx + 1}`;
 }
 
+function shortSnowflake(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return "unknown";
+  if (text.length <= 8) return text;
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
 function emojiToInput(emoji: unknown): string {
   if (!emoji) return "";
   if (typeof emoji === "string") return emoji;
@@ -104,6 +111,53 @@ function isTextChannel(c: Channel): boolean {
   return t.includes("TEXT") || t === "0" || t === "5" || t.includes("ANNOUNCEMENT");
 }
 
+function mergeRoleOptions(roleList: Role[], loaded: Config): Role[] {
+  const byId = new Map<string, Role>();
+  for (const role of roleList) {
+    byId.set(String(role.id || "").trim(), role);
+  }
+
+  for (const panel of loaded.panels || []) {
+    for (const row of panel.roles || []) {
+      const roleId = String(row.id || "").trim();
+      if (!roleId || byId.has(roleId)) continue;
+      byId.set(roleId, {
+        id: roleId,
+        name: String(row.label || `Missing role ${shortSnowflake(roleId)}`).trim(),
+        managed: false,
+        position: -1,
+      });
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => {
+    const pa = Number(a?.position || 0);
+    const pb = Number(b?.position || 0);
+    if (pa !== pb) return pb - pa;
+    return String(a?.name || "").localeCompare(String(b?.name || ""));
+  });
+}
+
+function mergeChannelOptions(channelList: Channel[], loaded: Config): Channel[] {
+  const byId = new Map<string, Channel>();
+  for (const channel of channelList) {
+    byId.set(String(channel.id || "").trim(), channel);
+  }
+
+  const channelId = String(loaded.channelId || "").trim();
+  if (channelId && !byId.has(channelId)) {
+    byId.set(channelId, {
+      id: channelId,
+      name: `saved-channel-${shortSnowflake(channelId)}`,
+      type: "0",
+    });
+  }
+
+  return [...byId.values()].sort((a, b) =>
+    String(a?.name || "").localeCompare(String(b?.name || ""))
+  );
+}
+
 export default function RolesClient() {
   const [guildId, setGuildId] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
@@ -132,18 +186,9 @@ export default function RolesClient() {
 
         const guildJson = await guildRes.json().catch(() => ({}));
         const selfrolesJson = await selfrolesRes.json().catch(() => ({}));
-
-        const roleList: Role[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
-        const channelList: Channel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
-
-        roleList.sort((a, b) => {
-          const pa = Number(a?.position || 0);
-          const pb = Number(b?.position || 0);
-          if (pa !== pb) return pb - pa;
-          return String(a?.name || "").localeCompare(String(b?.name || ""));
-        });
-
-        const textChannels = channelList.filter(isTextChannel);
+        if (!selfrolesRes.ok || selfrolesJson?.success === false) {
+          throw new Error(selfrolesJson?.error || "Failed to load selfrole engine data.");
+        }
 
         const remoteCfg = selfrolesJson?.config || {};
         const loaded: Config = {
@@ -164,10 +209,28 @@ export default function RolesClient() {
             : [],
         };
 
-        setRoles(roleList);
-        setChannels(textChannels);
+        const guildName = String(guildJson?.guild?.name || "").trim();
+        if (guildName && typeof window !== "undefined") {
+          localStorage.setItem("activeGuildName", guildName);
+        }
+
+        const guildError =
+          !guildRes.ok || guildJson?.success === false
+            ? String(guildJson?.error || "Failed to load live guild roles/channels.")
+            : "";
+        const roleList: Role[] =
+          !guildError && Array.isArray(guildJson?.roles) ? guildJson.roles : [];
+        const channelList: Channel[] =
+          !guildError && Array.isArray(guildJson?.channels) ? guildJson.channels : [];
+        const textChannels = channelList.filter(isTextChannel);
+
+        setRoles(mergeRoleOptions(roleList, loaded));
+        setChannels(mergeChannelOptions(textChannels, loaded));
         setCfg(loaded);
         setOrig(loaded);
+        if (guildError) {
+          setMsg(`${guildError} Showing saved selfrole mappings until live guild data loads again.`);
+        }
       } catch (e: any) {
         setMsg(e?.message || "Failed to load roles/selfroles data.");
       } finally {

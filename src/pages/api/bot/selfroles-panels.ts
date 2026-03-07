@@ -28,6 +28,8 @@ function resolveStorePath(): string {
   const explicit = String(process.env.BOT_SELFROLES_FILE || "").trim();
   const candidates = [
     explicit,
+    path.resolve(process.cwd(), "../modules/data/selfroles.panels.json"),
+    path.resolve(process.cwd(), "../Negan Bot/modules/data/selfroles.panels.json"),
     path.resolve(process.cwd(), "../Negan-Bot/modules/data/selfroles.panels.json"),
     path.resolve(process.cwd(), "../negan-bot/modules/data/selfroles.panels.json"),
   ].filter(Boolean);
@@ -37,7 +39,7 @@ function resolveStorePath(): string {
       if (fs.existsSync(p)) return p;
     } catch {}
   }
-  return candidates[1] || candidates[0];
+  return candidates[1] || candidates[0] || path.resolve(process.cwd(), "selfroles.panels.json");
 }
 
 const STORE_PATH = resolveStorePath();
