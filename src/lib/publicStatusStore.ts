@@ -24,7 +24,7 @@ const STORE_PATH = path.join(process.cwd(), "data", "ui", "public-status.json");
 const DEFAULT_SERVICES: PublicStatusService[] = [
   { id: "bot-core", label: "Bot Core", summary: "Primary bot runtime and command router.", status: "online", updatedAt: "" },
   { id: "dashboard", label: "Dashboard", summary: "OAuth, guild selector, and dashboard APIs.", status: "online", updatedAt: "" },
-  { id: "bot-knowledge-base", label: "Bot Knowledge Base", summary: "Homemade adaptive AI and learned routing.", status: "online", updatedAt: "" },
+  { id: "possum-ai", label: "Possum AI", summary: "Homemade adaptive AI and learned routing.", status: "online", updatedAt: "" },
   { id: "persona-ai", label: "Persona Engine AI", summary: "Hosted persona model path and prompt routing.", status: "online", updatedAt: "" },
   { id: "tts", label: "TTS Engine", summary: "Speech routing and voice playback.", status: "online", updatedAt: "" },
   { id: "tickets", label: "Tickets", summary: "Panel flows, claim/close/reopen/delete, transcripts.", status: "online", updatedAt: "" },
@@ -115,4 +115,3 @@ export function writePublicStatus(patch: Partial<PublicStatusPayload>) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(next, null, 2), "utf8");
   return next;
 }
-

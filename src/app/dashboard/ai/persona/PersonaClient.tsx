@@ -99,8 +99,8 @@ export default function PersonaClient() {
         }
 
         setConfig(runtimeJson.config || config);
-        setPersonaEnabled(Boolean(dashJson?.config?.aiRuntime?.personaAiEnabled ?? dashJson?.config?.features?.personaAiEnabled ?? dashJson?.config?.features?.aiEnabled));
-        setAdaptiveEnabled(Boolean(dashJson?.config?.aiRuntime?.adaptiveAiEnabled ?? dashJson?.config?.features?.adaptiveAiEnabled ?? dashJson?.config?.features?.aiEnabled));
+        setPersonaEnabled(Boolean(dashJson?.config?.aiRuntime?.personaAiEnabled ?? dashJson?.config?.features?.personaAiEnabled));
+        setAdaptiveEnabled(Boolean(dashJson?.config?.aiRuntime?.adaptiveAiEnabled ?? dashJson?.config?.features?.adaptiveAiEnabled));
       } catch (err: any) {
         setMessage(err?.message || "Failed to load persona engine.");
       } finally {
@@ -124,7 +124,7 @@ export default function PersonaClient() {
             <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 880 }}>
               This is the local persona system backed by <code>modules/data/personas.json</code> and <code>engine/personaEngine.js</code>.
-              It is separate from the Bot Knowledge Base and the provider/pricing surface. Use this page to inspect the real persona roster and runtime mode.
+              It is separate from Possum AI and from the provider/pricing surface. Use this page to inspect the real persona roster and runtime mode.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -158,7 +158,7 @@ export default function PersonaClient() {
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{config.personaCount}</div>
             </div>
             <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Bot Knowledge Base</div>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Possum AI</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{adaptiveEnabled ? "Enabled" : "Disabled"}</div>
             </div>
           </section>
@@ -167,10 +167,10 @@ export default function PersonaClient() {
             <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
               Runtime Notes
             </div>
-            <div style={{ color: "#ffdada", fontWeight: 700 }}>The persona engine is separate from the Bot Knowledge Base.</div>
+            <div style={{ color: "#ffdada", fontWeight: 700 }}>Persona AI is separate from Possum AI.</div>
             <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>
               The persona roster uses its own trigger rules, persona-only channels, access lists, photos, and direct OpenAI calls from the persona engine.
-              The handcrafted Bot Knowledge Base runs separately on the non-persona path, and provider pricing, public catalog, and billing belong to the OpenAI platform page instead.
+              The handcrafted Possum AI runs separately on the non-persona path, and provider pricing, public catalog, and billing belong to the OpenAI platform page instead.
             </div>
           </section>
 

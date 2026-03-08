@@ -49,8 +49,8 @@ export default function LearningClient() {
     (async () => {
       const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(resolved.guildId)}`, { cache: "no-store" }).catch(() => null);
       const json = await res?.json().catch(() => ({}));
-      setAdaptiveEnabled(Boolean(json?.config?.aiRuntime?.adaptiveAiEnabled ?? json?.config?.features?.adaptiveAiEnabled ?? json?.config?.features?.aiEnabled));
-      setPersonaEnabled(Boolean(json?.config?.aiRuntime?.personaAiEnabled ?? json?.config?.features?.personaAiEnabled ?? json?.config?.features?.aiEnabled));
+      setAdaptiveEnabled(Boolean(json?.config?.aiRuntime?.adaptiveAiEnabled ?? json?.config?.features?.adaptiveAiEnabled));
+      setPersonaEnabled(Boolean(json?.config?.aiRuntime?.personaAiEnabled ?? json?.config?.features?.personaAiEnabled));
     })();
   }, []);
 
@@ -64,18 +64,18 @@ export default function LearningClient() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
             <h1 style={{ margin: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-              Bot Knowledge Base
+              Possum AI
             </h1>
             <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 900 }}>
               This is the handcrafted assistant path driven by runtime routing, learned tone and topic profiles, and
-              adaptive synthesis. It is the default non-persona reply pipeline now. The persona engine only claims
+              adaptive synthesis. It is the default non-persona reply pipeline now. Persona AI only claims
               messages that hit the persona routing rules instead of sharing the same ambient path.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link href={buildDashboardHref("/dashboard/ai/persona")} style={action}>
-              Open Persona Engine
+              Open Persona AI
             </Link>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function LearningClient() {
         </div>
         <div style={card}>
           <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Identity</div>
-          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Possum Bot Knowledge Base</div>
+          <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Possum AI Knowledge Base</div>
         </div>
       </section>
 
@@ -122,7 +122,7 @@ export default function LearningClient() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link href={buildDashboardHref("/dashboard/ai/persona")} style={action}>
-            Persona Engine
+            Persona AI
           </Link>
           <Link href={buildDashboardHref("/dashboard/ai/openai-platform")} style={action}>
             OpenAI Platform

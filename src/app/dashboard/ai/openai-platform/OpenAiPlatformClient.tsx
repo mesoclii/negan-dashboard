@@ -97,7 +97,7 @@ export default function OpenAiPlatformClient() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const [legacyAiEnabled, setLegacyAiEnabled] = useState(false);
+  const [personaRuntimeEnabled, setPersonaRuntimeEnabled] = useState(false);
   const [cfg, setCfg] = useState<AiPricingConfig>(DEFAULT_CFG);
 
   useEffect(() => {
@@ -121,7 +121,7 @@ export default function OpenAiPlatformClient() {
         const dJson = await dRes.json();
         const pJson = await pRes.json();
 
-        setLegacyAiEnabled(!!dJson?.config?.features?.aiEnabled);
+        setPersonaRuntimeEnabled(Boolean(dJson?.config?.aiRuntime?.personaAiEnabled ?? dJson?.config?.features?.personaAiEnabled));
 
         const incoming = pJson?.config || {};
         const next = { ...DEFAULT_CFG, ...incoming };
@@ -171,7 +171,7 @@ export default function OpenAiPlatformClient() {
 
       <p>Guild: {typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId}</p>
       <p style={{ color: "#ffb0b0" }}>
-        This page is the provider and pricing side of AI. It is separate from the Bot Knowledge Base and from the persona roster trigger system.
+        This page is the provider and pricing side of AI. It is separate from Possum AI and from the persona roster trigger system.
       </p>
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
@@ -179,7 +179,7 @@ export default function OpenAiPlatformClient() {
       <div style={box}>
         <h3 style={{ marginTop: 0 }}>Master</h3>
         <div style={{ color: "#ffbdbd", marginBottom: 10 }}>
-          Legacy AI fallback: <strong>{legacyAiEnabled ? "On" : "Off"}</strong>
+          Persona runtime: <strong>{personaRuntimeEnabled ? "Enabled" : "Disabled"}</strong>
         </div>
         <label style={{ marginRight: 16 }}>
           <input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} />

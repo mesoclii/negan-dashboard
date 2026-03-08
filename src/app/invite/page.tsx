@@ -61,7 +61,7 @@ export default function InvitePage() {
                 <br />
                 Cat Drop, Rare Spawn, Range, Truth Or Dare
                 <br />
-                Bot Knowledge Base
+                Possum AI
               </div>
             </div>
             <div style={card}>

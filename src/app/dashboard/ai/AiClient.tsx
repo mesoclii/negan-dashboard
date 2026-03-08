@@ -13,10 +13,8 @@ type GuildChannel = {
 type AiRuntimeConfig = {
   personaAiEnabled: boolean;
   adaptiveAiEnabled: boolean;
-  allowDualMode: boolean;
   personaOnlyChannelIds: string[];
   personaKeywordTriggers: string[];
-  legacyAiEnabled: boolean;
 };
 
 type Card = {
@@ -28,22 +26,22 @@ type Card = {
 
 const cards: Card[] = [
   {
-    title: "Bot Knowledge Base",
+    title: "Possum AI",
     href: "/dashboard/ai/learning",
-    description: "Handcrafted adaptive assistant, learning writes, routing, and synthesis.",
+    description: "Handcrafted adaptive assistant, bot knowledge base, learning writes, routing, and synthesis.",
     note: "This is the primary non-persona message path.",
   },
   {
-    title: "Persona Engine",
+    title: "Persona AI",
     href: "/dashboard/ai/persona",
     description: "LLM persona roster, access, triggers, photos, and /persona runtime.",
-    note: "This only handles persona-routed messages now.",
+    note: "This only handles persona-routed messages.",
   },
   {
     title: "OpenAI Platform",
     href: "/dashboard/ai/openai-platform",
     description: "Provider, model, and hosted platform surface.",
-    note: "Separated from the Bot Knowledge Base and the local persona roster.",
+    note: "Separated from Possum AI and the local persona roster.",
   },
   {
     title: "Memory + Context",
@@ -62,10 +60,8 @@ const cards: Card[] = [
 const DEFAULT_CONFIG: AiRuntimeConfig = {
   personaAiEnabled: false,
   adaptiveAiEnabled: false,
-  allowDualMode: false,
   personaOnlyChannelIds: [],
   personaKeywordTriggers: ["persona", "character", "backstory"],
-  legacyAiEnabled: false,
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
@@ -158,22 +154,22 @@ export default function AiClient() {
 
         const runtime = dashJson?.config?.aiRuntime || {};
         const nextConfig: AiRuntimeConfig = {
-          personaAiEnabled:
+          personaAiEnabled: Boolean(
             typeof runtime?.personaAiEnabled === "boolean"
               ? runtime.personaAiEnabled
-              : Boolean(dashJson?.config?.features?.aiEnabled),
-          adaptiveAiEnabled:
+              : dashJson?.config?.features?.personaAiEnabled
+          ),
+          adaptiveAiEnabled: Boolean(
             typeof runtime?.adaptiveAiEnabled === "boolean"
               ? runtime.adaptiveAiEnabled
-              : Boolean(dashJson?.config?.features?.aiEnabled),
-          allowDualMode: Boolean(runtime?.allowDualMode),
+              : dashJson?.config?.features?.adaptiveAiEnabled
+          ),
           personaOnlyChannelIds: Array.isArray(runtime?.personaOnlyChannelIds)
             ? runtime.personaOnlyChannelIds.filter(Boolean)
             : [],
           personaKeywordTriggers: Array.isArray(runtime?.personaKeywordTriggers) && runtime.personaKeywordTriggers.length
             ? runtime.personaKeywordTriggers.filter(Boolean)
             : DEFAULT_CONFIG.personaKeywordTriggers,
-          legacyAiEnabled: Boolean(dashJson?.config?.features?.aiEnabled),
         };
 
         setConfig(nextConfig);
@@ -247,9 +243,9 @@ export default function AiClient() {
         </h1>
         <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
         <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 900 }}>
-          The AI stack is now split by what it actually is. Bot Knowledge Base owns the adaptive homemade path. Persona Engine
-          owns the OpenAI persona roster. The old shared AI toggle is only a legacy fallback now, and these per-path controls
-          decide which handler can claim a message.
+          The AI stack is split by what it actually is. Possum AI owns the adaptive homemade path and knowledge base.
+          Persona AI owns the hosted persona roster. Persona-triggered messages stay on the persona path, and all other
+          eligible adaptive traffic stays on the Possum AI path.
         </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
@@ -260,7 +256,7 @@ export default function AiClient() {
         </div>
         <div style={{ color: "#ffbdbd", fontSize: 12 }}>
           `ai-core` and `ai-characters` are now treated as archived scaffolding, not live handlers. The active adaptive path is
-          the Possum Bot Knowledge Base runtime, and the active model path is the persona engine / OpenAI platform split.
+          the Possum AI runtime, and the active model path is the Persona AI / OpenAI platform split.
         </div>
       </section>
 
@@ -270,13 +266,13 @@ export default function AiClient() {
         <>
           <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
             <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Bot Knowledge Base</div>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Possum AI</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>
                 {config.adaptiveAiEnabled ? "Enabled" : "Disabled"}
               </div>
               <button
                 type="button"
-                onClick={() => void saveRuntime({ adaptiveAiEnabled: !config.adaptiveAiEnabled }, `Bot Knowledge Base ${config.adaptiveAiEnabled ? "disabled" : "enabled"}.`)}
+                onClick={() => void saveRuntime({ adaptiveAiEnabled: !config.adaptiveAiEnabled }, `Possum AI ${config.adaptiveAiEnabled ? "disabled" : "enabled"}.`)}
                 disabled={saving}
                 style={{ ...action, marginTop: 10 }}
               >
@@ -285,13 +281,13 @@ export default function AiClient() {
             </div>
 
             <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Persona Engine</div>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Persona AI</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>
                 {config.personaAiEnabled ? "Enabled" : "Disabled"}
               </div>
               <button
                 type="button"
-                onClick={() => void saveRuntime({ personaAiEnabled: !config.personaAiEnabled }, `Persona engine ${config.personaAiEnabled ? "disabled" : "enabled"}.`)}
+                onClick={() => void saveRuntime({ personaAiEnabled: !config.personaAiEnabled }, `Persona AI ${config.personaAiEnabled ? "disabled" : "enabled"}.`)}
                 disabled={saving}
                 style={{ ...action, marginTop: 10 }}
               >
@@ -300,27 +296,13 @@ export default function AiClient() {
             </div>
 
             <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Dual Mode</div>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Routing Lock</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>
-                {config.allowDualMode ? "Explicitly Allowed" : "Blocked"}
-              </div>
-              <button
-                type="button"
-                onClick={() => void saveRuntime({ allowDualMode: !config.allowDualMode }, `Dual mode ${config.allowDualMode ? "blocked" : "allowed"}.`)}
-                disabled={saving}
-                style={{ ...action, marginTop: 10 }}
-              >
-                {config.allowDualMode ? "Block Dual Mode" : "Allow Dual Mode"}
-              </button>
-            </div>
-
-            <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Legacy AI Master</div>
-              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>
-                {config.legacyAiEnabled ? "On" : "Off"}
+                Exclusive
               </div>
               <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 8 }}>
-                Compatibility fallback only. The two runtime toggles above now decide the real handler split.
+                Persona-triggered messages never fall through into Possum AI. The old shared AI master flag is no longer
+                the deciding route control.
               </div>
             </div>
           </section>

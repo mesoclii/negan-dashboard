@@ -75,10 +75,10 @@ const EXCLUDED_PUBLIC_ROUTE_SET = new Set([
 
 const STANDARD_MANUAL_FEATURES: FeatureCatalogEntry[] = [
   {
-    id: "bot-knowledge-base",
-    label: "Bot Knowledge Base",
+    id: "possum-ai",
+    label: "Possum AI",
     route: "/dashboard/ai/learning",
-    summary: "Homemade adaptive AI with learned tone, stored knowledge, and runtime reply routing."
+    summary: "Homemade adaptive AI and bot knowledge base with learned tone, stored knowledge, and runtime reply routing."
   }
 ];
 
@@ -103,4 +103,3 @@ export const OPENAI_PLATFORM_PRICE_CHART = [
   { id: "diamond", label: "Diamond", monthlyUsd: 9.19, yearlyUsd: 79.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
   { id: "platinum", label: "Platinum", monthlyUsd: 22.99, yearlyUsd: 199.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
 ] as const;
-

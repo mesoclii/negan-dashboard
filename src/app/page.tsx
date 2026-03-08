@@ -246,7 +246,7 @@ export default function Home() {
           {[
             {
               title: "Ready On Arrival",
-              body: "Tickets, selfroles, invite tracking, economy, contracts, crew, dominion, cat drops, rare spawns, range, truth or dare, and the Bot Knowledge Base start ready for setup.",
+              body: "Tickets, selfroles, invite tracking, economy, contracts, crew, dominion, cat drops, rare spawns, range, truth or dare, and Possum AI start ready for setup.",
             },
             {
               title: "Premium Off By Default",
