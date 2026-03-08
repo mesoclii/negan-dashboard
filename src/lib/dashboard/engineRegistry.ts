@@ -62,7 +62,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "panel-deploy", label: "Panel Deploy", description: "Panel deploy/status controls", group: "Automation", route: "/dashboard/panels" },
   { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
 
-  { id: "ai-core", label: "AI Control", description: "Split learning AI, persona engine, and provider controls", group: "AI", route: "/dashboard/ai" },
+  { id: "ai-core", label: "AI Control", description: "Split Bot Knowledge Base, persona engine, and provider controls", group: "AI", route: "/dashboard/ai" },
 
   { id: "blacklist", label: "Blacklist", description: "Blacklist controls", group: "Operations", route: "/dashboard/blacklist" },
   { id: "failsafe", label: "Failsafe", description: "Failsafe emergency controls", group: "Operations", route: "/dashboard/failsafe" },

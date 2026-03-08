@@ -37,11 +37,11 @@ const DEFAULT_CFG: AiPricingConfig = {
   publicCatalogEnabled: false,
   nsfwAllowed: false,
   plans: {
-    bronze: { enabled: true, monthlyUsd: 1.74, yearlyUsd: 14.99, includedMessages: 200, includedImages: 20, includedBackstory: 20 },
-    silver: { enabled: true, monthlyUsd: 3.49, yearlyUsd: 29.99, includedMessages: 500, includedImages: 50, includedBackstory: 50 },
-    gold: { enabled: true, monthlyUsd: 8.74, yearlyUsd: 74.99, includedMessages: 2500, includedImages: 200, includedBackstory: 200 },
-    platinum: { enabled: true, monthlyUsd: 34.99, yearlyUsd: 299.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
-    diamond: { enabled: true, monthlyUsd: 13.99, yearlyUsd: 119.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
+    bronze: { enabled: true, monthlyUsd: 1.15, yearlyUsd: 9.99, includedMessages: 200, includedImages: 20, includedBackstory: 20 },
+    silver: { enabled: true, monthlyUsd: 2.29, yearlyUsd: 19.99, includedMessages: 500, includedImages: 50, includedBackstory: 50 },
+    gold: { enabled: true, monthlyUsd: 5.79, yearlyUsd: 49.99, includedMessages: 2500, includedImages: 200, includedBackstory: 200 },
+    platinum: { enabled: true, monthlyUsd: 22.99, yearlyUsd: 199.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
+    diamond: { enabled: true, monthlyUsd: 9.19, yearlyUsd: 79.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
   },
   overage: { per1kTextTokensUsd: 0.02, perImageUsd: 0.05, per1kTtsCharsUsd: 0.01 },
   features: { writeEnabled: true, imagineEnabled: true, backstoryEnabled: true, charactersEnabled: true },
@@ -171,7 +171,7 @@ export default function OpenAiPlatformClient() {
 
       <p>Guild: {typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId}</p>
       <p style={{ color: "#ffb0b0" }}>
-        This page is the provider and pricing side of AI. It is separate from the homemade persona roster and trigger system.
+        This page is the provider and pricing side of AI. It is separate from the Bot Knowledge Base and from the persona roster trigger system.
       </p>
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}

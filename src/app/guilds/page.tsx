@@ -273,6 +273,16 @@ export default function GuildsPage() {
     });
   }, [guilds, policy.gamesBaselineGuildId, policy.primaryGuildId]);
 
+  const summary = useMemo(() => {
+    const installed = byPrimary.filter((guild) => guild.botPresent !== false).length;
+    const missing = byPrimary.filter((guild) => guild.botPresent === false && guild.manageable).length;
+    return {
+      installed,
+      missing,
+      total: byPrimary.length,
+    };
+  }, [byPrimary]);
+
   function openGuild(guildId: string, guildName: string) {
     localStorage.setItem("activeGuildId", guildId);
     localStorage.setItem("activeGuildName", guildName || guildId);
@@ -316,22 +326,33 @@ export default function GuildsPage() {
   }
 
   return (
-    <div style={{ color: "#ff5252", padding: 24 }}>
-      <h1 style={{ marginTop: 0, letterSpacing: "0.16em", textTransform: "uppercase" }}>Select Guild</h1>
-      <p style={{ letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.9 }}>
-        Saviors = full baseline. Alexandria = public baseline. Other guilds start stock off, but stay fully editable once the bot is installed.
+    <div
+      style={{
+        color: "#ff5252",
+        minHeight: "100vh",
+        padding: 24,
+        background:
+          "radial-gradient(circle at top, rgba(110,0,0,0.26) 0%, rgba(12,0,0,0.94) 32%, rgba(0,0,0,1) 100%)",
+      }}
+    >
+      <div style={{ maxWidth: 1420 }}>
+      <h1 style={{ marginTop: 0, marginBottom: 8, fontSize: "clamp(2.3rem, 6vw, 4.6rem)", letterSpacing: "0.16em", textTransform: "uppercase", lineHeight: 0.92 }}>
+        Select Guild
+      </h1>
+      <p style={{ letterSpacing: "0.10em", textTransform: "uppercase", opacity: 0.9, fontSize: 14, maxWidth: 1100 }}>
+        Saviors keeps the full original baseline. Alexandria stays public-ready with premium and Pokemon off. Other installed guilds now start on the standard ready baseline so owners only need to finish setup.
       </p>
       {loading ? <p>Loading...</p> : null}
       {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
 
       <div
         style={{
-          marginBottom: 12,
-          maxWidth: 1040,
+          marginBottom: 16,
+          maxWidth: 1340,
           border: "1px solid #6f0000",
-          borderRadius: 12,
-          background: "rgba(120,0,0,0.08)",
-          padding: 14,
+          borderRadius: 18,
+          background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.68))",
+          padding: 18,
           color: "#ffd7d7",
           display: "flex",
           justifyContent: "space-between",
@@ -341,20 +362,89 @@ export default function GuildsPage() {
         }}
       >
         <div>
-          <div style={{ fontWeight: 900 }}>
+          <div style={{ fontWeight: 900, fontSize: 24 }}>
             {oauthLoggedIn
               ? `Discord connected as ${oauthUser?.globalName || oauthUser?.username || oauthUser?.id}`
               : "Discord OAuth unlocks admin-owned guild discovery"}
           </div>
-          <div style={{ fontSize: 12, opacity: 0.76 }}>
+          <div style={{ fontSize: 14, opacity: 0.82, marginTop: 8, lineHeight: 1.6 }}>
             {oauthConfigured
               ? oauthLoggedIn
                 ? "Open Dashboard appears for guilds the bot is in. Add Bot appears for servers you manage that do not have Possum yet."
                 : "Login with Discord to see servers you manage, even if the bot is not installed there yet."
               : "Discord OAuth is not configured in the dashboard env yet, so only bot-installed guilds can be shown right now."}
           </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+            {[
+              `Installed ${summary.installed}`,
+              `Bot Missing ${summary.missing}`,
+              `Visible ${summary.total}`,
+            ].map((text) => (
+              <span
+                key={text}
+                style={{
+                  display: "inline-block",
+                  borderRadius: 999,
+                  padding: "4px 12px",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  border: "1px solid rgba(255,0,0,0.28)",
+                  background: "rgba(120,0,0,0.18)",
+                }}
+              >
+                {text}
+              </span>
+            ))}
+          </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            href="/"
+            style={{
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              textDecoration: "none",
+              ...actionButtonStyle("open"),
+            }}
+          >
+            Control Room
+          </a>
+          <a
+            href="/features"
+            style={{
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              textDecoration: "none",
+              ...actionButtonStyle("open"),
+            }}
+          >
+            Features
+          </a>
+          <a
+            href="/status"
+            style={{
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              textDecoration: "none",
+              ...actionButtonStyle("open"),
+            }}
+          >
+            Status
+          </a>
           {oauthConfigured && !oauthLoggedIn ? (
             <a
               href="/api/auth/discord/login"
@@ -413,11 +503,10 @@ export default function GuildsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12, maxWidth: 1040 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 16, maxWidth: 1340 }}>
         {byPrimary.map((g) => {
           const isPrimary = g.id === policy.primaryGuildId;
           const isGamesBaseline = g.id === policy.gamesBaselineGuildId;
-          const isEditableBaseline = isPrimary || isGamesBaseline;
           const canConfigureLive = g.botPresent !== false;
           const badge = isPrimary
             ? "PRIMARY BASELINE (ALL ON)"
@@ -425,7 +514,7 @@ export default function GuildsPage() {
               ? "PUBLIC BASELINE (SECURITY OFF)"
               : g.botPresent === false && g.manageable
                 ? "ADMIN GUILD (BOT MISSING)"
-                : "STOCK DEFAULT (STARTS OFF)";
+                : "STANDARD READY (PREMIUM OFF)";
           const kind = isPrimary
             ? "primary"
             : isGamesBaseline
@@ -442,18 +531,19 @@ export default function GuildsPage() {
               style={{
                 textAlign: "left",
                 border: "1px solid #6f0000",
-                borderRadius: 12,
-                background: "rgba(120,0,0,0.08)",
+                borderRadius: 18,
+                background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.72))",
                 color: "#ffd7d7",
-                padding: 14,
+                padding: 18,
+                minHeight: 250,
               }}
             >
               <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
+                    width: 58,
+                    height: 58,
+                    borderRadius: 16,
                     border: "1px solid rgba(255,0,0,0.28)",
                     background: iconUrl
                       ? `center / cover no-repeat url(${iconUrl})`
@@ -461,12 +551,12 @@ export default function GuildsPage() {
                   }}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, marginBottom: 4 }}>{g.name}</div>
+                  <div style={{ fontWeight: 900, marginBottom: 4, fontSize: 24 }}>{g.name}</div>
                   <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {g.id}</div>
                 </div>
               </div>
 
-              <div style={{ fontSize: 12, opacity: 0.72 }}>
+              <div style={{ fontSize: 13, opacity: 0.8, minHeight: 38, lineHeight: 1.55 }}>
                 {canConfigureLive
                   ? g.memberCount
                     ? `${g.memberCount} members`
@@ -481,7 +571,7 @@ export default function GuildsPage() {
                   marginTop: 10,
                   display: "inline-block",
                   borderRadius: 999,
-                  padding: "2px 10px",
+                  padding: "4px 12px",
                   fontSize: 11,
                   fontWeight: 900,
                   letterSpacing: "0.04em",
@@ -492,24 +582,26 @@ export default function GuildsPage() {
               </div>
 
               <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {canConfigureLive && isEditableBaseline ? (
+                {canConfigureLive ? (
                   <button
                     onClick={() => applyGuildMode(g.id, g.name, "builtIn")}
                     disabled={actionKey === `${g.id}:builtIn`}
                     style={{
                       borderRadius: 999,
-                      padding: "6px 12px",
+                      padding: "8px 14px",
                       fontSize: 12,
                       fontWeight: 800,
                       cursor: actionKey === `${g.id}:builtIn` ? "wait" : "pointer",
                       ...actionButtonStyle("accent"),
                     }}
-                  >
+                    >
                     {actionKey === `${g.id}:builtIn`
                       ? "Applying..."
                       : isPrimary
                         ? "Restore Baseline"
-                        : "Turn On Baseline"}
+                        : isGamesBaseline
+                          ? "Refresh Baseline"
+                          : "Turn On Baseline"}
                   </button>
                 ) : null}
 
@@ -519,7 +611,7 @@ export default function GuildsPage() {
                     disabled={actionKey === `${g.id}:stock`}
                     style={{
                       borderRadius: 999,
-                      padding: "6px 12px",
+                      padding: "8px 14px",
                       fontSize: 12,
                       fontWeight: 800,
                       cursor: actionKey === `${g.id}:stock` ? "wait" : "pointer",
@@ -536,7 +628,7 @@ export default function GuildsPage() {
                     onClick={() => openGuild(g.id, g.name)}
                     style={{
                       borderRadius: 999,
-                      padding: "6px 12px",
+                      padding: "8px 14px",
                       fontSize: 12,
                       fontWeight: 800,
                       cursor: "pointer",
@@ -552,7 +644,7 @@ export default function GuildsPage() {
                     rel="noreferrer"
                     style={{
                       borderRadius: 999,
-                      padding: "6px 12px",
+                      padding: "8px 14px",
                       fontSize: 12,
                       fontWeight: 800,
                       textDecoration: "none",
@@ -566,7 +658,7 @@ export default function GuildsPage() {
                     href="/api/auth/discord/login"
                     style={{
                       borderRadius: 999,
-                      padding: "6px 12px",
+                      padding: "8px 14px",
                       fontSize: 12,
                       fontWeight: 800,
                       textDecoration: "none",
@@ -580,6 +672,7 @@ export default function GuildsPage() {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

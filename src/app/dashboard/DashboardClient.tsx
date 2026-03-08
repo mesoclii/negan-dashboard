@@ -353,7 +353,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild bot naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/premium-features", title: "Premium Features", description: "See which public SaaS features are paid vs standard before you finalize billing.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/ai", title: "AI Control", description: "Split adaptive AI, persona engine, and OpenAI platform controls.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/ai", title: "AI Control", description: "Split Bot Knowledge Base, persona engine, and OpenAI platform controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations", title: "Automations", description: "Bot automation list, limits, and runtime state.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "Command Studio", description: "Custom command engine and command toggles.", goOnly: true, goLabel: "Go" },

@@ -21,11 +21,12 @@ function describeAction(guildId: string) {
   const kind = getGuildBaselineKind(guildId);
   if (kind === "primary") return "primary_all_features_on";
   if (kind === "games") return "public_games_baseline";
-  return "reset_to_stock";
+  return "standard_ready_baseline";
 }
 
 function resolveMode(guildId: string) {
-  return getGuildBaselineKind(guildId) === "stock" ? "stock" : "builtIn";
+  void guildId;
+  return "builtIn";
 }
 
 async function enforceGuildPolicy(req: NextApiRequest, guildId: string) {

@@ -36,8 +36,8 @@ const STORE_FILE = path.join(DATA_DIR, "ai-pricing-config.json");
 
 const DEFAULT_PLAN: Plan = {
   enabled: true,
-  monthlyUsd: 1.99,
-  yearlyUsd: 19.99,
+  monthlyUsd: 1.15,
+  yearlyUsd: 9.99,
   includedMessages: 1000,
   includedImages: 20,
   includedBackstory: 20,
@@ -48,11 +48,11 @@ const DEFAULT_CFG: AiPricingConfig = {
   publicCatalogEnabled: false,
   nsfwAllowed: false,
   plans: {
-    bronze: { ...DEFAULT_PLAN, monthlyUsd: 1.74, yearlyUsd: 14.99, includedMessages: 200, includedImages: 20, includedBackstory: 20 },
-    silver: { ...DEFAULT_PLAN, monthlyUsd: 3.49, yearlyUsd: 29.99, includedMessages: 500, includedImages: 50, includedBackstory: 50 },
-    gold: { ...DEFAULT_PLAN, monthlyUsd: 8.74, yearlyUsd: 74.99, includedMessages: 2500, includedImages: 200, includedBackstory: 200 },
-    platinum: { ...DEFAULT_PLAN, monthlyUsd: 34.99, yearlyUsd: 299.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
-    diamond: { ...DEFAULT_PLAN, monthlyUsd: 13.99, yearlyUsd: 119.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
+    bronze: { ...DEFAULT_PLAN, monthlyUsd: 1.15, yearlyUsd: 9.99, includedMessages: 200, includedImages: 20, includedBackstory: 20 },
+    silver: { ...DEFAULT_PLAN, monthlyUsd: 2.29, yearlyUsd: 19.99, includedMessages: 500, includedImages: 50, includedBackstory: 50 },
+    gold: { ...DEFAULT_PLAN, monthlyUsd: 5.79, yearlyUsd: 49.99, includedMessages: 2500, includedImages: 200, includedBackstory: 200 },
+    platinum: { ...DEFAULT_PLAN, monthlyUsd: 22.99, yearlyUsd: 199.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
+    diamond: { ...DEFAULT_PLAN, monthlyUsd: 9.19, yearlyUsd: 79.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
   },
   overage: {
     per1kTextTokensUsd: 0.02,

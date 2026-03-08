@@ -32,10 +32,10 @@ export function isWriteBlockedForGuild(guildId: string): boolean {
   return false;
 }
 
-export function getGuildBaselineKind(guildId: string): "primary" | "games" | "stock" {
+export function getGuildBaselineKind(guildId: string): "primary" | "games" | "standard" {
   if (guildId === PRIMARY_BASELINE_GUILD_ID) return "primary";
   if (guildId === GAMES_BASELINE_GUILD_ID) return "games";
-  return "stock";
+  return "standard";
 }
 
 export function stockLockError(guildId: string) {

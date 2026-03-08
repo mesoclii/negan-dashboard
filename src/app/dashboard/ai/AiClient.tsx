@@ -28,7 +28,7 @@ type Card = {
 
 const cards: Card[] = [
   {
-    title: "Learning AI",
+    title: "Bot Knowledge Base",
     href: "/dashboard/ai/learning",
     description: "Handcrafted adaptive assistant, learning writes, routing, and synthesis.",
     note: "This is the primary non-persona message path.",
@@ -43,7 +43,7 @@ const cards: Card[] = [
     title: "OpenAI Platform",
     href: "/dashboard/ai/openai-platform",
     description: "Provider, model, and hosted platform surface.",
-    note: "Separated from the learned assistant and the local persona roster.",
+    note: "Separated from the Bot Knowledge Base and the local persona roster.",
   },
   {
     title: "Memory + Context",
@@ -247,9 +247,9 @@ export default function AiClient() {
         </h1>
         <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
         <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 900 }}>
-          The AI stack is now split by what it actually is. Learning AI owns the adaptive homemade path. Persona Engine owns
-          the OpenAI persona roster. The old shared AI toggle is only a legacy fallback now, and these per-path controls decide
-          which handler can claim a message.
+          The AI stack is now split by what it actually is. Bot Knowledge Base owns the adaptive homemade path. Persona Engine
+          owns the OpenAI persona roster. The old shared AI toggle is only a legacy fallback now, and these per-path controls
+          decide which handler can claim a message.
         </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
@@ -260,7 +260,7 @@ export default function AiClient() {
         </div>
         <div style={{ color: "#ffbdbd", fontSize: 12 }}>
           `ai-core` and `ai-characters` are now treated as archived scaffolding, not live handlers. The active adaptive path is
-          the Possum learning runtime, and the active model path is the persona engine / OpenAI platform split.
+          the Possum Bot Knowledge Base runtime, and the active model path is the persona engine / OpenAI platform split.
         </div>
       </section>
 
@@ -270,13 +270,13 @@ export default function AiClient() {
         <>
           <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
             <div style={card}>
-              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Learning AI</div>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Bot Knowledge Base</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>
                 {config.adaptiveAiEnabled ? "Enabled" : "Disabled"}
               </div>
               <button
                 type="button"
-                onClick={() => void saveRuntime({ adaptiveAiEnabled: !config.adaptiveAiEnabled }, `Learning AI ${config.adaptiveAiEnabled ? "disabled" : "enabled"}.`)}
+                onClick={() => void saveRuntime({ adaptiveAiEnabled: !config.adaptiveAiEnabled }, `Bot Knowledge Base ${config.adaptiveAiEnabled ? "disabled" : "enabled"}.`)}
                 disabled={saving}
                 style={{ ...action, marginTop: 10 }}
               >
