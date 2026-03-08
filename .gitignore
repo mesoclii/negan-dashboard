@@ -1,6 +1,7 @@
 node_modules
 .next
 .env
+prisma/dashboard.db
 *.log
 *.tar.gz
 *.bak

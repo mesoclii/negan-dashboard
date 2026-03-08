@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import prisma from "@/lib/prisma";
 
 export const DASHBOARD_SESSION_COOKIE = "possum_dashboard_session";
 export const DASHBOARD_OAUTH_STATE_COOKIE = "possum_dashboard_oauth_state";
@@ -11,8 +12,10 @@ export type DashboardDiscordUser = {
 };
 
 export type DashboardSession = {
+  id?: string;
   user: DashboardDiscordUser;
   accessToken: string;
+  refreshToken?: string | null;
   expiresAt: number;
 };
 
@@ -40,13 +43,13 @@ export function isDashboardSessionConfigured() {
   return Boolean(String(process.env.SESSION_SECRET || "").trim());
 }
 
-export function createDashboardSessionValue(session: DashboardSession) {
-  const payload = Buffer.from(JSON.stringify(session), "utf8").toString("base64url");
+function buildSignedCookieValue(payloadValue: string) {
+  const payload = Buffer.from(payloadValue, "utf8").toString("base64url");
   const signature = sign(payload);
   return `${payload}.${signature}`;
 }
 
-export function readDashboardSessionValue(rawValue: string | undefined | null) {
+function parseSignedCookieValue(rawValue: string | undefined | null) {
   if (!rawValue) return null;
 
   const split = rawValue.split(".");
@@ -65,12 +68,78 @@ export function readDashboardSessionValue(rawValue: string | undefined | null) {
     return null;
   }
 
-  const json = Buffer.from(payload, "base64url").toString("utf8");
+  return Buffer.from(payload, "base64url").toString("utf8");
+}
+
+function readLegacyDashboardSession(rawValue: string | undefined | null) {
+  const json = parseSignedCookieValue(rawValue);
+  if (!json || json.startsWith("v2:")) return null;
   const session = safeJsonParse(json);
   if (!session) return null;
   if (!session.accessToken || !session.user?.id) return null;
   if (!Number.isFinite(session.expiresAt) || session.expiresAt <= Date.now()) return null;
   return session;
+}
+
+export async function createDashboardSessionValue(session: DashboardSession) {
+  const stored = await prisma.dashboardSession.create({
+    data: {
+      discordId: String(session.user.id),
+      username: String(session.user.username || "Discord User"),
+      globalName: session.user.globalName || null,
+      avatar: session.user.avatar || null,
+      accessToken: String(session.accessToken),
+      refreshToken: session.refreshToken || null,
+      expiresAt: new Date(session.expiresAt),
+    },
+  });
+
+  return buildSignedCookieValue(`v2:${stored.id}`);
+}
+
+export async function readDashboardSessionValue(rawValue: string | undefined | null) {
+  const payload = parseSignedCookieValue(rawValue);
+  if (!payload) return null;
+
+  if (!payload.startsWith("v2:")) {
+    return readLegacyDashboardSession(rawValue);
+  }
+
+  const sessionId = String(payload.slice(3) || "").trim();
+  if (!sessionId) return null;
+
+  const stored = await prisma.dashboardSession.findUnique({
+    where: { id: sessionId },
+  }).catch(() => null);
+
+  if (!stored) return null;
+  if (stored.expiresAt.getTime() <= Date.now()) {
+    await prisma.dashboardSession.delete({ where: { id: sessionId } }).catch(() => null);
+    return null;
+  }
+
+  return {
+    id: stored.id,
+    user: {
+      id: stored.discordId,
+      username: stored.username,
+      globalName: stored.globalName,
+      avatar: stored.avatar,
+    },
+    accessToken: stored.accessToken,
+    refreshToken: stored.refreshToken,
+    expiresAt: stored.expiresAt.getTime(),
+  } satisfies DashboardSession;
+}
+
+export async function destroyDashboardSession(rawValue: string | undefined | null) {
+  const payload = parseSignedCookieValue(rawValue);
+  if (!payload) return false;
+  if (!payload.startsWith("v2:")) return true;
+  const sessionId = String(payload.slice(3) || "").trim();
+  if (!sessionId) return false;
+  await prisma.dashboardSession.delete({ where: { id: sessionId } }).catch(() => null);
+  return true;
 }
 
 export function createOauthState() {

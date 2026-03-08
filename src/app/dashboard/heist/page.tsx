@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PremiumGate from "@/components/possum/PremiumGate";
 import HeistClient from "./HeistClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <HeistClient />
+      <PremiumGate featureKey="heist" featureLabel="Heist Engine">
+        <HeistClient />
+      </PremiumGate>
     </Suspense>
   );
 }

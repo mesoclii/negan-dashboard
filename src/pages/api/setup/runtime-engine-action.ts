@@ -1,9 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    try {
+      await enforceDashboardRateLimit(req, "runtime_engine_action");
+    } catch (error: any) {
+      if (isRateLimitError(error)) {
+        return res.status(429).json({ success: false, error: "Too many runtime actions. Please retry shortly." });
+      }
+    }
+
     if (req.method !== "POST") {
       return res.status(405).json({ success: false, error: "Method not allowed" });
     }
@@ -36,6 +46,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }),
     });
     const json = await readJsonSafe(upstream);
+    void auditDashboardEvent({
+      guildId,
+      actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,
+      area: "runtime_engine_action",
+      action: `${engine}:${action}`,
+      severity: upstream.ok ? "info" : "error",
+      metadata: {
+        engine,
+        action,
+      },
+    });
     return res.status(upstream.status).json(json);
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || "Internal error" });

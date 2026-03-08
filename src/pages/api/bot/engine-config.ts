@@ -1,10 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import {
   readGuildIdFromRequest,
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 
 function normalizeWriteBody(req: NextApiRequest, guildId: string) {
   const body = req.body && typeof req.body === "object" ? { ...req.body } : {};
@@ -24,6 +26,14 @@ function normalizeWriteBody(req: NextApiRequest, guildId: string) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    try {
+      await enforceDashboardRateLimit(req, "bot_engine_config");
+    } catch (error: any) {
+      if (isRateLimitError(error)) {
+        return res.status(429).json({ success: false, error: "Too many engine config requests. Please retry shortly." });
+      }
+    }
+
     const guildId = readGuildIdFromRequest(req);
 
     if (req.method === "GET") {
@@ -62,6 +72,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       const data = await readJsonSafe(upstream);
+      void auditDashboardEvent({
+        guildId,
+        actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || req.query?.userId || "").trim() || null,
+        area: "engine_config",
+        action: `${String(body.engine || "unknown")}:save`,
+        severity: upstream.ok ? "info" : "error",
+        metadata: {
+          engine: body.engine || null,
+          keys: Object.keys((body.config && typeof body.config === "object" ? body.config : {}) || {}),
+        },
+      });
       return res.status(upstream.status).json(data);
     }
 

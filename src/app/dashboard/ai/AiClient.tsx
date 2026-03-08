@@ -254,6 +254,16 @@ export default function AiClient() {
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
 
+      <section style={{ ...card, marginBottom: 12 }}>
+        <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+          Archived Modules
+        </div>
+        <div style={{ color: "#ffbdbd", fontSize: 12 }}>
+          `ai-core` and `ai-characters` are now treated as archived scaffolding, not live handlers. The active adaptive path is
+          the Possum learning runtime, and the active model path is the persona engine / OpenAI platform split.
+        </div>
+      </section>
+
       {loading ? <div style={card}>Loading AI routing...</div> : null}
 
       {!loading ? (

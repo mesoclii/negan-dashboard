@@ -17,6 +17,7 @@ type Card = {
   toggle?: ToggleController;
   goOnly?: boolean;
   goLabel?: string;
+  premiumRequired?: boolean;
 };
 
 type ToggleState = {
@@ -359,14 +360,14 @@ const CARDS: Card[] = [
   { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
   { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: setupBodyController("/api/setup/selfroles-config", ["active"]) },
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
-  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled") },
+  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: setupPatchController("/api/setup/store-config", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP/coins progression and reward rules.", toggle: setupPatchController("/api/setup/progression-config", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Prestige reset rules, role rewards, and announce channel.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: giveawaysController },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]) },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]), premiumRequired: true },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
@@ -407,6 +408,7 @@ export default function DashboardClient() {
   const [guildId, setGuildId] = useState("");
   const [states, setStates] = useState<Record<string, ToggleState>>({});
   const [loadingStates, setLoadingStates] = useState(false);
+  const [subscription, setSubscription] = useState<{ active: boolean; plan: string } | null>(null);
 
   useEffect(() => {
     setGuildId(readDashboardGuildId());
@@ -439,8 +441,28 @@ export default function DashboardClient() {
     loadStates(guildId).catch(() => {});
   }, [guildId]);
 
+  useEffect(() => {
+    if (!guildId) {
+      setSubscription(null);
+      return;
+    }
+    (async () => {
+      const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).catch(() => null);
+      const json = await res?.json().catch(() => ({}));
+      if (!res || !res.ok || json?.success === false) {
+        setSubscription({ active: false, plan: "FREE" });
+        return;
+      }
+      setSubscription({
+        active: Boolean(json?.status?.active),
+        plan: String(json?.status?.plan || "FREE"),
+      });
+    })();
+  }, [guildId]);
+
   async function toggleCard(card: Card) {
     if (!guildId || !card.toggle) return;
+    if (card.premiumRequired && !subscription?.active) return;
     const current = states[card.href]?.value ?? false;
     const next = !current;
     setStates((prev) => ({
@@ -518,14 +540,22 @@ export default function DashboardClient() {
                     </>
                   ) : (
                     <>
-                      <span className={pillClass(state.value)}>{statusLabel}</span>
+                      <span className={card.premiumRequired && !subscription?.active ? pillClass(false) : pillClass(state.value)}>
+                        {card.premiumRequired && !subscription?.active ? "Premium" : statusLabel}
+                      </span>
                       <button
                         type="button"
                         onClick={() => toggleCard(card)}
-                        disabled={!guildId || !card.toggle || toggleBusy}
+                        disabled={!guildId || !card.toggle || toggleBusy || (card.premiumRequired && !subscription?.active)}
                         className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {toggleBusy ? "Saving" : state.value ? "Turn Off" : "Turn On"}
+                        {card.premiumRequired && !subscription?.active
+                          ? "Premium"
+                          : toggleBusy
+                            ? "Saving"
+                            : state.value
+                              ? "Turn Off"
+                              : "Turn On"}
                       </button>
                     </>
                   )}
@@ -533,6 +563,11 @@ export default function DashboardClient() {
               </div>
 
               {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
+              {card.premiumRequired && !subscription?.active ? (
+                <p className="mt-2 text-xs text-red-300/90">
+                  Requires an active premium plan for this guild. Current plan: {subscription?.plan || "FREE"}.
+                </p>
+              ) : null}
             </div>
           );
         })}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 import { PREMIUM_FEATURES, STANDARD_FEATURES } from "@/lib/premiumCatalog";
 
@@ -73,6 +73,22 @@ function FeatureListItem({
 
 export default function PremiumFeaturesClient() {
   const guildId = readDashboardGuildId();
+  const [status, setStatus] = useState<{ active: boolean; plan: string; premiumTier: string | null; source: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState("");
+
+  useEffect(() => {
+    if (!guildId) return;
+    (async () => {
+      const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).catch(() => null);
+      const json = await res?.json().catch(() => ({}));
+      if (!res || !res.ok || json?.success === false) {
+        setStatusMsg(json?.error || "Failed to load live premium status.");
+        return;
+      }
+      setStatus(json?.status || null);
+      setStatusMsg("");
+    })();
+  }, [guildId]);
 
   return (
     <div style={{ color: "#ffd0d0", maxWidth: 1320 }}>
@@ -85,6 +101,11 @@ export default function PremiumFeaturesClient() {
         <div style={{ color: "#ffd8a8", fontSize: 13 }}>
           Active Guild: {guildId || "No guild selected"}
         </div>
+        <div style={{ color: "#ffd8a8", fontSize: 13, marginTop: 6 }}>
+          Current Premium Status: {status ? `${status.active ? "Active" : "Inactive"} | ${status.plan}` : "Loading..."}
+          {status?.source ? ` | Source ${status.source}` : ""}
+        </div>
+        {statusMsg ? <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 8 }}>{statusMsg}</div> : null}
       </section>
 
       <section style={{ marginBottom: 18 }}>

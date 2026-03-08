@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PremiumGate from "@/components/possum/PremiumGate";
 import PersonaClient from "./PersonaClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <PersonaClient />
+      <PremiumGate featureKey="persona" featureLabel="Persona Engine AI">
+        <PersonaClient />
+      </PremiumGate>
     </Suspense>
   );
 }

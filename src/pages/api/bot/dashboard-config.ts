@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import {
   readGuildIdFromRequest,
   PRIMARY_BASELINE_GUILD_ID,
@@ -6,6 +7,7 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import {
   CANONICAL_FEATURE_KEYS,
   asBoolean,
@@ -105,6 +107,14 @@ function normalizeWriteBody(req: NextApiRequest, guildId: string) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    try {
+      await enforceDashboardRateLimit(req, "bot_dashboard_config");
+    } catch (error: any) {
+      if (isRateLimitError(error)) {
+        return res.status(429).json({ success: false, error: "Too many dashboard config requests. Please retry shortly." });
+      }
+    }
+
     const guildId = readGuildIdFromRequest(req);
 
     if (req.method === "GET") {
@@ -137,6 +147,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (isRecord(data) && normalized.ignoredFeatureKeys.length > 0) {
         data.ignoredFeatureKeys = normalized.ignoredFeatureKeys;
       }
+      void auditDashboardEvent({
+        guildId,
+        actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || req.query?.userId || "").trim() || null,
+        area: "dashboard_config",
+        action: "save",
+        severity: upstream.ok ? "info" : "error",
+        metadata: {
+          ignoredFeatureKeys: normalized.ignoredFeatureKeys,
+          baselineGuild: guildId === PRIMARY_BASELINE_GUILD_ID || guildId === GAMES_BASELINE_GUILD_ID,
+          keys: Object.keys((normalized.body as any)?.patch || (normalized.body as any)?.features || {}),
+        },
+      });
       return res.status(upstream.status).json(data);
     }
 

@@ -1,8 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    try {
+      await enforceDashboardRateLimit(req, "access_control_config");
+    } catch (error: any) {
+      if (isRateLimitError(error)) {
+        return res.status(429).json({ success: false, error: "Too many access-control requests. Please retry shortly." });
+      }
+    }
+
     const guildId =
       req.method === "GET"
         ? String(req.query.guildId || "").trim()
@@ -34,6 +44,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
       const json = await readJsonSafe(upstream);
+      void auditDashboardEvent({
+        guildId,
+        actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,
+        area: "bot_masters",
+        action: "save_access_control",
+        severity: upstream.ok ? "info" : "error",
+        metadata: {
+          keys: Object.keys(req.body?.patch || req.body?.config || {}),
+        },
+      });
       return res.status(upstream.status).json(json);
     }
 

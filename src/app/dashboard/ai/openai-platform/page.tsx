@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PremiumGate from "@/components/possum/PremiumGate";
 import OpenAiPlatformClient from "./OpenAiPlatformClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <OpenAiPlatformClient />
+      <PremiumGate featureKey="openai-platform" featureLabel="OpenAI Persona Platform">
+        <OpenAiPlatformClient />
+      </PremiumGate>
     </Suspense>
   );
 }

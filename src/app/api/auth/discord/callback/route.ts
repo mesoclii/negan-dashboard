@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
+import { buildDashboardUrl } from "@/lib/dashboardUrl";
 import {
   exchangeDiscordCode,
   fetchDiscordUser,
   isDiscordOauthConfigured,
 } from "@/lib/discordOAuth";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import {
   createDashboardSessionValue,
   DASHBOARD_OAUTH_STATE_COOKIE,
@@ -13,6 +16,14 @@ import {
 } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
+  try {
+    await enforceDashboardRateLimit(request, "oauth_callback");
+  } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return NextResponse.json({ success: false, error: "Too many callback attempts. Please retry shortly." }, { status: 429 });
+    }
+  }
+
   if (!isDiscordOauthConfigured() || !isDashboardSessionConfigured()) {
     return NextResponse.json(
       {
@@ -38,7 +49,7 @@ export async function GET(request: NextRequest) {
   const token = await exchangeDiscordCode(code);
   const user = await fetchDiscordUser(token.access_token);
 
-  const sessionValue = createDashboardSessionValue({
+  const sessionValue = await createDashboardSessionValue({
     user: {
       id: String(user.id),
       username: String(user.username || "Discord User"),
@@ -46,10 +57,11 @@ export async function GET(request: NextRequest) {
       avatar: user.avatar ?? null,
     },
     accessToken: token.access_token,
+    refreshToken: token.refresh_token ?? null,
     expiresAt: Date.now() + Number(token.expires_in || 604800) * 1000,
   });
 
-  const redirectUrl = new URL("/guilds", request.nextUrl.origin);
+  const redirectUrl = buildDashboardUrl("/guilds", request);
   redirectUrl.searchParams.set("userId", String(user.id));
 
   const response = NextResponse.redirect(redirectUrl);
@@ -61,5 +73,17 @@ export async function GET(request: NextRequest) {
     maxAge: Math.max(60, Number(token.expires_in || 604800)),
   });
   response.cookies.delete(DASHBOARD_OAUTH_STATE_COOKIE);
+
+  void auditDashboardEvent({
+    actorUserId: String(user.id),
+    actorTag: user.global_name || user.username || String(user.id),
+    area: "oauth",
+    action: "discord_callback_success",
+    severity: "info",
+    metadata: {
+      redirectTo: redirectUrl.toString(),
+    },
+  });
+
   return response;
 }

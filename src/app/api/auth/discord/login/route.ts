@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { buildDiscordOauthUrl, isDiscordOauthConfigured } from "@/lib/discordOAuth";
+import { auditDashboardEvent } from "@/lib/dashboardAudit";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import {
   DASHBOARD_OAUTH_STATE_COOKIE,
   createOauthState,
@@ -7,7 +9,15 @@ import {
   useSecureCookies,
 } from "@/lib/session";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  try {
+    await enforceDashboardRateLimit(request, "oauth_login");
+  } catch (error: any) {
+    if (isRateLimitError(error)) {
+      return NextResponse.json({ success: false, error: "Too many login attempts. Please retry shortly." }, { status: 429 });
+    }
+  }
+
   if (!isDiscordOauthConfigured()) {
     return NextResponse.json(
       {
@@ -37,6 +47,12 @@ export async function GET() {
     secure: useSecureCookies(),
     path: "/",
     maxAge: 60 * 10,
+  });
+
+  void auditDashboardEvent({
+    area: "oauth",
+    action: "discord_login_redirect",
+    severity: "info",
   });
 
   return response;

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PremiumGate from "@/components/possum/PremiumGate";
 import TtsClient from "../access/tts/TtsClient";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,9 @@ function Loading() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <TtsClient />
+      <PremiumGate featureKey="tts" featureLabel="TTS Engine">
+        <TtsClient />
+      </PremiumGate>
     </Suspense>
   );
 }
