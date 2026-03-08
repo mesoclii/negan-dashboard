@@ -182,12 +182,12 @@ export default function Home() {
           <div
             style={{
               color: "#ff9a9a",
-              fontSize: 18,
-              fontWeight: 800,
-              letterSpacing: "0.20em",
+              fontSize: 24,
+              fontWeight: 900,
+              letterSpacing: "0.24em",
               textTransform: "uppercase",
-              marginTop: 16,
-              textShadow: "0 0 18px rgba(255,54,54,0.18)",
+              marginTop: 18,
+              textShadow: "0 0 22px rgba(255,54,54,0.22)",
             }}
           >
             Designed by aStonedPossum &amp; aCityRaccoon
