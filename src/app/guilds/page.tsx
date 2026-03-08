@@ -10,7 +10,6 @@ type Guild = {
   iconUrl?: string | null;
   botPresent?: boolean;
   memberCount?: number | null;
-  accessReason?: string | null;
   manageable?: boolean;
   owner?: boolean;
 };
@@ -18,7 +17,6 @@ type Guild = {
 type PolicyState = {
   primaryGuildId: string;
   gamesBaselineGuildId: string;
-  stockLockNonPrimary: boolean;
 };
 
 type DiscordUser = {
@@ -28,43 +26,61 @@ type DiscordUser = {
   avatar: string | null;
 };
 
-function badgeStyle(kind: "primary" | "games" | "stock" | "oauth") {
+type PremiumStatus = {
+  active: boolean;
+  plan: string;
+  developerBypass?: boolean;
+};
+
+function badgeStyle(kind: "primary" | "ready" | "premiumOn" | "premiumOff" | "missing") {
   if (kind === "primary") {
     return {
       border: "1px solid #0f7a0f",
-      color: "#b8ffb8",
-      background: "rgba(16,100,16,0.2)",
+      color: "#c8ffd0",
+      background: "rgba(16,100,16,0.22)",
     } as const;
   }
-  if (kind === "games") {
+
+  if (kind === "ready") {
     return {
       border: "1px solid #0f5f7a",
-      color: "#b8f4ff",
+      color: "#cff4ff",
       background: "rgba(8,82,112,0.22)",
     } as const;
   }
-  if (kind === "oauth") {
+
+  if (kind === "premiumOn") {
+    return {
+      border: "1px solid #b07a14",
+      color: "#ffe5ad",
+      background: "rgba(110,68,0,0.24)",
+    } as const;
+  }
+
+  if (kind === "missing") {
     return {
       border: "1px solid #0f5f7a",
-      color: "#b8f4ff",
+      color: "#cff4ff",
       background: "rgba(8,82,112,0.22)",
     } as const;
   }
+
   return {
-    border: "1px solid #8a4d00",
-    color: "#ffd9a3",
-    background: "rgba(120,70,0,0.18)",
+    border: "1px solid #7a0000",
+    color: "#ffd6d6",
+    background: "rgba(120,0,0,0.18)",
   } as const;
 }
 
-function actionButtonStyle(tone: "accent" | "muted" | "open" | "oauth") {
-  if (tone === "accent") {
+function actionButtonStyle(tone: "primary" | "secondary" | "oauth") {
+  if (tone === "primary") {
     return {
       border: "1px solid #ff3b3b",
-      color: "#ffe0e0",
-      background: "rgba(140,0,0,0.35)",
+      color: "#fff4f4",
+      background: "rgba(140,0,0,0.34)",
     } as const;
   }
+
   if (tone === "oauth") {
     return {
       border: "1px solid #0f5f7a",
@@ -72,17 +88,11 @@ function actionButtonStyle(tone: "accent" | "muted" | "open" | "oauth") {
       background: "rgba(8,82,112,0.28)",
     } as const;
   }
-  if (tone === "open") {
-    return {
-      border: "1px solid #7a0000",
-      color: "#fff5f5",
-      background: "transparent",
-    } as const;
-  }
+
   return {
-    border: "1px solid #8a4d00",
-    color: "#ffd9a3",
-    background: "rgba(120,70,0,0.18)",
+    border: "1px solid rgba(255,0,0,0.34)",
+    color: "#ffe2e2",
+    background: "rgba(12,0,0,0.72)",
   } as const;
 }
 
@@ -111,9 +121,9 @@ function resolveGuildIcon(guild: Guild) {
 
 export default function GuildsPage() {
   const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [premiumByGuild, setPremiumByGuild] = useState<Record<string, PremiumStatus>>({});
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
-  const [actionKey, setActionKey] = useState("");
   const [inviteUrl, setInviteUrl] = useState("");
   const [oauthConfigured, setOauthConfigured] = useState(false);
   const [oauthLoggedIn, setOauthLoggedIn] = useState(false);
@@ -121,7 +131,6 @@ export default function GuildsPage() {
   const [policy, setPolicy] = useState<PolicyState>({
     primaryGuildId: "1431799056211906582",
     gamesBaselineGuildId: "1336178965202599936",
-    stockLockNonPrimary: false,
   });
 
   useEffect(() => {
@@ -161,7 +170,6 @@ export default function GuildsPage() {
             setPolicy({
               primaryGuildId: String(p.primaryGuildId),
               gamesBaselineGuildId: String(p.gamesBaselineGuildId || "1336178965202599936"),
-              stockLockNonPrimary: Boolean(p.stockLockNonPrimary),
             });
           }
         }
@@ -174,14 +182,15 @@ export default function GuildsPage() {
         const oauthJson = oauthRes ? await oauthRes.json().catch(() => ({})) : {};
         const installedJson = installedRes ? await installedRes.json().catch(() => ({})) : {};
 
-        const oauthUserValue = oauthJson?.user && typeof oauthJson.user.id === "string"
-          ? {
-              id: String(oauthJson.user.id),
-              username: String(oauthJson.user.username || "Discord User"),
-              globalName: oauthJson.user.globalName ?? null,
-              avatar: oauthJson.user.avatar ?? null,
-            }
-          : null;
+        const oauthUserValue =
+          oauthJson?.user && typeof oauthJson.user.id === "string"
+            ? {
+                id: String(oauthJson.user.id),
+                username: String(oauthJson.user.username || "Discord User"),
+                globalName: oauthJson.user.globalName ?? null,
+                avatar: oauthJson.user.avatar ?? null,
+              }
+            : null;
 
         setOauthConfigured(Boolean(oauthJson?.oauthConfigured));
         setOauthLoggedIn(Boolean(oauthJson?.loggedIn));
@@ -203,7 +212,6 @@ export default function GuildsPage() {
             icon: guild?.icon || null,
             botPresent: guild?.botPresent !== false,
             memberCount: Number(guild?.memberCount || 0),
-            accessReason: guild?.accessReason || null,
             manageable: true,
           });
         }
@@ -221,7 +229,6 @@ export default function GuildsPage() {
             iconUrl: guild?.iconUrl || existing?.iconUrl || null,
             botPresent: existing?.botPresent ?? false,
             memberCount: existing?.memberCount ?? null,
-            accessReason: existing?.accessReason || "oauth_manage_guild",
             manageable: true,
             owner: guild?.owner === true,
           });
@@ -241,13 +248,41 @@ export default function GuildsPage() {
           }
         }
 
+        const mergedGuilds = [...merged.values()];
+        setGuilds(mergedGuilds);
+
+        const installedIds = mergedGuilds
+          .filter((guild) => guild.botPresent !== false)
+          .map((guild) => guild.id);
+
+        if (installedIds.length) {
+          const premiumEntries = await Promise.all(
+            installedIds.map(async (guildId) => {
+              const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, {
+                cache: "no-store",
+              }).catch(() => null);
+              const json = await res?.json().catch(() => ({}));
+              if (!res || !res.ok || json?.success === false) {
+                return [guildId, { active: false, plan: "FREE", developerBypass: false }] as const;
+              }
+              return [
+                guildId,
+                {
+                  active: Boolean(json?.status?.active),
+                  plan: String(json?.status?.plan || "FREE"),
+                  developerBypass: Boolean(json?.status?.developerBypass),
+                },
+              ] as const;
+            })
+          );
+          setPremiumByGuild(Object.fromEntries(premiumEntries));
+        }
+
         if (installedRes && !installedRes.ok) {
           setMsg(installedJson?.error || `Installed guild API failed (${installedRes.status})`);
         } else if (oauthRes && !oauthRes.ok && oauthJson?.error) {
           setMsg(oauthJson.error);
         }
-
-        setGuilds([...merged.values()]);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load guilds.");
       } finally {
@@ -256,7 +291,7 @@ export default function GuildsPage() {
     })();
   }, []);
 
-  const byPrimary = useMemo(() => {
+  const orderedGuilds = useMemo(() => {
     return [...guilds].sort((a, b) => {
       const rank = (guildId: string) => {
         if (guildId === policy.primaryGuildId) return 0;
@@ -274,14 +309,14 @@ export default function GuildsPage() {
   }, [guilds, policy.gamesBaselineGuildId, policy.primaryGuildId]);
 
   const summary = useMemo(() => {
-    const installed = byPrimary.filter((guild) => guild.botPresent !== false).length;
-    const missing = byPrimary.filter((guild) => guild.botPresent === false && guild.manageable).length;
+    const installed = orderedGuilds.filter((guild) => guild.botPresent !== false).length;
+    const missing = orderedGuilds.filter((guild) => guild.botPresent === false && guild.manageable).length;
     return {
       installed,
       missing,
-      total: byPrimary.length,
+      total: orderedGuilds.length,
     };
-  }, [byPrimary]);
+  }, [orderedGuilds]);
 
   function openGuild(guildId: string, guildName: string) {
     localStorage.setItem("activeGuildId", guildId);
@@ -296,383 +331,341 @@ export default function GuildsPage() {
     window.location.href = `/dashboard?${next.toString()}`;
   }
 
-  async function applyGuildMode(guildId: string, guildName: string, mode: "builtIn" | "stock") {
-    const nextActionKey = `${guildId}:${mode}`;
-    try {
-      setActionKey(nextActionKey);
-      setMsg("");
-
-      const res = await fetch("/api/bot/guild-baseline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          guildId,
-          mode,
-          userId: readStoredDashboardUserId(),
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || json?.success === false) {
-        throw new Error(json?.error || `Guild baseline failed (${res.status})`);
-      }
-
-      setMsg(mode === "stock" ? `${guildName} reset to stock off.` : `${guildName} baseline applied.`);
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to apply guild baseline.");
-    } finally {
-      setActionKey("");
-    }
-  }
-
   return (
     <div
       style={{
         color: "#ff5252",
         minHeight: "100vh",
-        padding: 24,
+        padding: 28,
         background:
           "radial-gradient(circle at top, rgba(110,0,0,0.26) 0%, rgba(12,0,0,0.94) 32%, rgba(0,0,0,1) 100%)",
       }}
     >
-      <div style={{ maxWidth: 1420 }}>
-      <h1 style={{ marginTop: 0, marginBottom: 8, fontSize: "clamp(2.3rem, 6vw, 4.6rem)", letterSpacing: "0.16em", textTransform: "uppercase", lineHeight: 0.92 }}>
-        Select Guild
-      </h1>
-      <p style={{ letterSpacing: "0.10em", textTransform: "uppercase", opacity: 0.9, fontSize: 14, maxWidth: 1100 }}>
-        Saviors keeps the full original baseline. Alexandria stays public-ready with premium and Pokemon off. Other installed guilds now start on the standard ready baseline so owners only need to finish setup.
-      </p>
-      {loading ? <p>Loading...</p> : null}
-      {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
+      <div style={{ maxWidth: 1520, margin: "0 auto" }}>
+        <h1
+          style={{
+            marginTop: 0,
+            marginBottom: 10,
+            fontSize: "clamp(3.2rem, 8vw, 5.4rem)",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            lineHeight: 0.92,
+          }}
+        >
+          Select Guild
+        </h1>
+        <p
+          style={{
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            opacity: 0.92,
+            fontSize: 14,
+            maxWidth: 1180,
+            lineHeight: 1.6,
+            marginBottom: 20,
+          }}
+        >
+          Saviors keeps the full original baseline untouched. Other installed guilds come in standard-ready with
+          premium off until you enable a plan or trial. Use this page only to choose a guild or invite the bot.
+        </p>
 
-      <div
-        style={{
-          marginBottom: 16,
-          maxWidth: 1340,
-          border: "1px solid #6f0000",
-          borderRadius: 18,
-          background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.68))",
-          padding: 18,
-          color: "#ffd7d7",
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
-        <div>
-          <div style={{ fontWeight: 900, fontSize: 24 }}>
-            {oauthLoggedIn
-              ? `Discord connected as ${oauthUser?.globalName || oauthUser?.username || oauthUser?.id}`
-              : "Discord OAuth unlocks admin-owned guild discovery"}
+        {loading ? <p style={{ color: "#ffd7d7" }}>Loading...</p> : null}
+        {msg ? <p style={{ color: "#ff9a9a" }}>{msg}</p> : null}
+
+        <div
+          style={{
+            marginBottom: 22,
+            border: "1px solid #6f0000",
+            borderRadius: 20,
+            background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.68))",
+            padding: 20,
+            color: "#ffd7d7",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 14,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 26, lineHeight: 1.25 }}>
+              {oauthLoggedIn
+                ? `Discord connected as ${oauthUser?.globalName || oauthUser?.username || oauthUser?.id}`
+                : "Login with Discord to unlock admin guild discovery"}
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.82, marginTop: 8, lineHeight: 1.65, maxWidth: 900 }}>
+              {oauthConfigured
+                ? oauthLoggedIn
+                  ? "Open shows guilds the bot is already in. Add Bot shows servers you manage that do not have Possum yet."
+                  : "Once you log in, this page can show servers you manage even if Possum has not been invited yet."
+                : "Discord OAuth is not configured in the dashboard env yet, so only bot-installed guilds can be shown right now."}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+              {[
+                `Installed ${summary.installed}`,
+                `Bot Missing ${summary.missing}`,
+                `Visible ${summary.total}`,
+              ].map((text) => (
+                <span
+                  key={text}
+                  style={{
+                    display: "inline-block",
+                    borderRadius: 999,
+                    padding: "5px 12px",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    border: "1px solid rgba(255,0,0,0.28)",
+                    background: "rgba(120,0,0,0.18)",
+                  }}
+                >
+                  {text}
+                </span>
+              ))}
+            </div>
           </div>
-          <div style={{ fontSize: 14, opacity: 0.82, marginTop: 8, lineHeight: 1.6 }}>
-            {oauthConfigured
-              ? oauthLoggedIn
-                ? "Open Dashboard appears for guilds the bot is in. Add Bot appears for servers you manage that do not have Possum yet."
-                : "Login with Discord to see servers you manage, even if the bot is not installed there yet."
-              : "Discord OAuth is not configured in the dashboard env yet, so only bot-installed guilds can be shown right now."}
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-            {[
-              `Installed ${summary.installed}`,
-              `Bot Missing ${summary.missing}`,
-              `Visible ${summary.total}`,
-            ].map((text) => (
-              <span
-                key={text}
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {oauthConfigured && !oauthLoggedIn ? (
+              <a
+                href="/api/auth/discord/login"
                 style={{
-                  display: "inline-block",
                   borderRadius: 999,
-                  padding: "4px 12px",
-                  fontSize: 11,
+                  padding: "10px 16px",
+                  fontSize: 12,
                   fontWeight: 900,
-                  letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  border: "1px solid rgba(255,0,0,0.28)",
-                  background: "rgba(120,0,0,0.18)",
+                  letterSpacing: "0.08em",
+                  textDecoration: "none",
+                  ...actionButtonStyle("oauth"),
                 }}
               >
-                {text}
-              </span>
-            ))}
+                Login With Discord
+              </a>
+            ) : null}
+
+            {oauthConfigured && oauthLoggedIn ? (
+              <a
+                href="/api/auth/logout"
+                style={{
+                  borderRadius: 999,
+                  padding: "10px 16px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  textDecoration: "none",
+                  ...actionButtonStyle("secondary"),
+                }}
+              >
+                Logout
+              </a>
+            ) : null}
+
+            {inviteUrl ? (
+              <a
+                href={inviteUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  borderRadius: 999,
+                  padding: "10px 16px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  textDecoration: "none",
+                  ...actionButtonStyle("primary"),
+                }}
+              >
+                Invite Bot
+              </a>
+            ) : null}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a
-            href="/"
-            style={{
-              borderRadius: 999,
-              padding: "8px 14px",
-              fontSize: 12,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              textDecoration: "none",
-              ...actionButtonStyle("open"),
-            }}
-          >
-            Control Room
-          </a>
-          <a
-            href="/features"
-            style={{
-              borderRadius: 999,
-              padding: "8px 14px",
-              fontSize: 12,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              textDecoration: "none",
-              ...actionButtonStyle("open"),
-            }}
-          >
-            Features
-          </a>
-          <a
-            href="/status"
-            style={{
-              borderRadius: 999,
-              padding: "8px 14px",
-              fontSize: 12,
-              fontWeight: 900,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              textDecoration: "none",
-              ...actionButtonStyle("open"),
-            }}
-          >
-            Status
-          </a>
-          {oauthConfigured && !oauthLoggedIn ? (
-            <a
-              href="/api/auth/discord/login"
-              style={{
-                borderRadius: 999,
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                textDecoration: "none",
-                ...actionButtonStyle("oauth"),
-              }}
-            >
-              Login With Discord
-            </a>
-          ) : null}
-          {oauthConfigured && oauthLoggedIn ? (
-            <a
-              href="/api/auth/logout"
-              style={{
-                borderRadius: 999,
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                textDecoration: "none",
-                ...actionButtonStyle("muted"),
-              }}
-            >
-              Logout
-            </a>
-          ) : null}
-          {inviteUrl ? (
-            <a
-              href={inviteUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                borderRadius: 999,
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 900,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                border: "1px solid #7a0000",
-                color: "#fff0f0",
-                textDecoration: "none",
-                background: "rgba(140,0,0,0.32)",
-              }}
-            >
-              Invite Bot
-            </a>
-          ) : null}
-        </div>
-      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 16, maxWidth: 1340 }}>
-        {byPrimary.map((g) => {
-          const isPrimary = g.id === policy.primaryGuildId;
-          const isGamesBaseline = g.id === policy.gamesBaselineGuildId;
-          const canConfigureLive = g.botPresent !== false;
-          const badge = isPrimary
-            ? "PRIMARY BASELINE (ALL ON)"
-            : isGamesBaseline
-              ? "PUBLIC BASELINE (SECURITY OFF)"
-              : g.botPresent === false && g.manageable
-                ? "ADMIN GUILD (BOT MISSING)"
-                : "STANDARD READY (PREMIUM OFF)";
-          const kind = isPrimary
-            ? "primary"
-            : isGamesBaseline
-              ? "games"
-              : g.botPresent === false && g.manageable
-                ? "oauth"
-                : "stock";
-          const iconUrl = resolveGuildIcon(g);
-          const inviteHref = buildInviteUrl(inviteUrl, g.id);
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(340px,1fr))",
+            gap: 18,
+          }}
+        >
+          {orderedGuilds.map((guild) => {
+            const isPrimary = guild.id === policy.primaryGuildId;
+            const isPublicBaseline = guild.id === policy.gamesBaselineGuildId;
+            const isInstalled = guild.botPresent !== false;
+            const premium = premiumByGuild[guild.id] || null;
+            const iconUrl = resolveGuildIcon(guild);
+            const inviteHref = buildInviteUrl(inviteUrl, guild.id);
 
-          return (
-            <div
-              key={g.id}
-              style={{
-                textAlign: "left",
-                border: "1px solid #6f0000",
-                borderRadius: 18,
-                background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.72))",
-                color: "#ffd7d7",
-                padding: 18,
-                minHeight: 250,
-              }}
-            >
-              <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-                <div
-                  style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 16,
-                    border: "1px solid rgba(255,0,0,0.28)",
-                    background: iconUrl
-                      ? `center / cover no-repeat url(${iconUrl})`
-                      : "linear-gradient(135deg, rgba(100,0,0,0.6), rgba(20,20,20,0.9))",
-                  }}
-                />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, marginBottom: 4, fontSize: 24 }}>{g.name}</div>
-                  <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {g.id}</div>
+            const baselineLabel = isPrimary
+              ? "Primary Baseline"
+              : isPublicBaseline
+                ? "Public Ready"
+                : "Standard Ready";
+
+            const premiumLabel = premium?.developerBypass
+              ? "Developer Access"
+              : premium?.active
+                ? "Premium On"
+                : "Premium Off";
+
+            return (
+              <div
+                key={guild.id}
+                style={{
+                  textAlign: "left",
+                  border: "1px solid #6f0000",
+                  borderRadius: 20,
+                  background: "linear-gradient(180deg, rgba(120,0,0,0.14), rgba(0,0,0,0.72))",
+                  color: "#ffd7d7",
+                  padding: 20,
+                  minHeight: 280,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 12 }}>
+                  <div
+                    style={{
+                      width: 66,
+                      height: 66,
+                      borderRadius: 18,
+                      border: "1px solid rgba(255,0,0,0.28)",
+                      background: iconUrl
+                        ? `center / cover no-repeat url(${iconUrl})`
+                        : "linear-gradient(135deg, rgba(100,0,0,0.6), rgba(20,20,20,0.9))",
+                    }}
+                  />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 900, marginBottom: 4, fontSize: 24, lineHeight: 1.2 }}>{guild.name}</div>
+                    <div style={{ fontSize: 12, opacity: 0.72 }}>Guild {guild.id}</div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 14, opacity: 0.86, minHeight: 46, lineHeight: 1.6 }}>
+                  {isInstalled
+                    ? guild.memberCount
+                      ? `${guild.memberCount} members`
+                      : "Bot connected and ready for setup."
+                    : guild.manageable
+                      ? "You manage this server. Add the bot first, then finish setup from the dashboard."
+                      : "This guild is not currently available for dashboard entry."}
+                </div>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+                  {isInstalled ? (
+                    <>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          borderRadius: 999,
+                          padding: "5px 12px",
+                          fontSize: 11,
+                          fontWeight: 900,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          ...badgeStyle(isPrimary ? "primary" : "ready"),
+                        }}
+                      >
+                        {baselineLabel}
+                      </span>
+                      {!isPrimary ? (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            borderRadius: 999,
+                            padding: "5px 12px",
+                            fontSize: 11,
+                            fontWeight: 900,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            ...badgeStyle(
+                              premium?.active || premium?.developerBypass ? "premiumOn" : "premiumOff"
+                            ),
+                          }}
+                        >
+                          {premiumLabel}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        borderRadius: 999,
+                        padding: "5px 12px",
+                        fontSize: 11,
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        ...badgeStyle("missing"),
+                      }}
+                    >
+                      {guild.manageable ? "Bot Missing" : "Unavailable"}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ marginTop: "auto", display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 18 }}>
+                  {isInstalled ? (
+                    <button
+                      onClick={() => openGuild(guild.id, guild.name)}
+                      style={{
+                        borderRadius: 999,
+                        padding: "10px 16px",
+                        fontSize: 12,
+                        fontWeight: 900,
+                        cursor: "pointer",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        ...actionButtonStyle("secondary"),
+                      }}
+                    >
+                      Open
+                    </button>
+                  ) : inviteHref ? (
+                    <a
+                      href={inviteHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        borderRadius: 999,
+                        padding: "10px 16px",
+                        fontSize: 12,
+                        fontWeight: 900,
+                        textDecoration: "none",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        ...actionButtonStyle(guild.manageable ? "oauth" : "secondary"),
+                      }}
+                    >
+                      Add Bot
+                    </a>
+                  ) : oauthConfigured && !oauthLoggedIn ? (
+                    <a
+                      href="/api/auth/discord/login"
+                      style={{
+                        borderRadius: 999,
+                        padding: "10px 16px",
+                        fontSize: 12,
+                        fontWeight: 900,
+                        textDecoration: "none",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        ...actionButtonStyle("oauth"),
+                      }}
+                    >
+                      Login
+                    </a>
+                  ) : null}
                 </div>
               </div>
-
-              <div style={{ fontSize: 13, opacity: 0.8, minHeight: 38, lineHeight: 1.55 }}>
-                {canConfigureLive
-                  ? g.memberCount
-                    ? `${g.memberCount} members`
-                    : "Bot connected"
-                  : g.manageable
-                    ? "You manage this server. Add the bot to enable the dashboard."
-                    : "Bot not detected in this guild yet."}
-              </div>
-
-              <div
-                style={{
-                  marginTop: 10,
-                  display: "inline-block",
-                  borderRadius: 999,
-                  padding: "4px 12px",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  letterSpacing: "0.04em",
-                  ...badgeStyle(kind),
-                }}
-              >
-                {badge}
-              </div>
-
-              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {canConfigureLive ? (
-                  <button
-                    onClick={() => applyGuildMode(g.id, g.name, "builtIn")}
-                    disabled={actionKey === `${g.id}:builtIn`}
-                    style={{
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: actionKey === `${g.id}:builtIn` ? "wait" : "pointer",
-                      ...actionButtonStyle("accent"),
-                    }}
-                    >
-                    {actionKey === `${g.id}:builtIn`
-                      ? "Applying..."
-                      : isPrimary
-                        ? "Restore Baseline"
-                        : isGamesBaseline
-                          ? "Refresh Baseline"
-                          : "Turn On Baseline"}
-                  </button>
-                ) : null}
-
-                {canConfigureLive && !isPrimary ? (
-                  <button
-                    onClick={() => applyGuildMode(g.id, g.name, "stock")}
-                    disabled={actionKey === `${g.id}:stock`}
-                    style={{
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: actionKey === `${g.id}:stock` ? "wait" : "pointer",
-                      ...actionButtonStyle("muted"),
-                    }}
-                    title="Reset this guild to stock off."
-                  >
-                    {actionKey === `${g.id}:stock` ? "Turning Off..." : "Turn Off"}
-                  </button>
-                ) : null}
-
-                {canConfigureLive ? (
-                  <button
-                    onClick={() => openGuild(g.id, g.name)}
-                    style={{
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      ...actionButtonStyle("open"),
-                    }}
-                  >
-                    Open
-                  </button>
-                ) : inviteHref ? (
-                  <a
-                    href={inviteHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      textDecoration: "none",
-                      ...actionButtonStyle(g.manageable ? "oauth" : "open"),
-                    }}
-                  >
-                    Add Bot
-                  </a>
-                ) : oauthConfigured && !oauthLoggedIn ? (
-                  <a
-                    href="/api/auth/discord/login"
-                    style={{
-                      borderRadius: 999,
-                      padding: "8px 14px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      textDecoration: "none",
-                      ...actionButtonStyle("oauth"),
-                    }}
-                  >
-                    Login
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

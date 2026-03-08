@@ -26,14 +26,28 @@ function getErrorMessage(err: unknown, fallback: string): string {
 const GAMES_BASELINE_FEATURES: Record<string, boolean> = {
   onboardingEnabled: false,
   verificationEnabled: false,
-  heistEnabled: true,
+  heistEnabled: false,
   rareDropEnabled: true,
-  pokemonEnabled: true,
+  pokemonEnabled: false,
   aiEnabled: true,
-  ttsEnabled: true,
+  ttsEnabled: false,
   birthdayEnabled: true,
   economyEnabled: true,
   governanceEnabled: false,
+  securityEnabled: false,
+};
+
+const STANDARD_READY_FEATURES: Record<string, boolean> = {
+  onboardingEnabled: true,
+  verificationEnabled: true,
+  heistEnabled: false,
+  rareDropEnabled: true,
+  pokemonEnabled: false,
+  aiEnabled: true,
+  ttsEnabled: false,
+  birthdayEnabled: true,
+  economyEnabled: true,
+  governanceEnabled: true,
   securityEnabled: false,
 };
 
@@ -51,7 +65,10 @@ function applyNonPrimaryDefaultFeatures(
       ...GAMES_BASELINE_FEATURES,
     };
   }
-  return normalized;
+  return {
+    ...normalized,
+    ...STANDARD_READY_FEATURES,
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

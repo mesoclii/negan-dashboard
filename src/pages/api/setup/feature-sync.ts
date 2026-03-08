@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { readStore, appendAudit } from "@/lib/setupStore";
-import { PRIMARY_BASELINE_GUILD_ID } from "@/lib/guildPolicy";
+import { GAMES_BASELINE_GUILD_ID, PRIMARY_BASELINE_GUILD_ID } from "@/lib/guildPolicy";
 import { getRequestOrigin, readActorUserId } from "@/lib/botApi";
 
 type GenericObject = Record<string, unknown>;
@@ -27,20 +27,37 @@ function getNested(obj: GenericObject, key: string): GenericObject {
   return getObj(obj[key]);
 }
 
+const PUBLIC_READY_FEATURES = Object.freeze({
+  onboardingEnabled: false,
+  verificationEnabled: false,
+  heistEnabled: false,
+  rareDropEnabled: true,
+  pokemonEnabled: false,
+  aiEnabled: true,
+  ttsEnabled: false,
+  birthdayEnabled: true,
+  economyEnabled: true,
+  governanceEnabled: false,
+});
+
+const STANDARD_READY_FEATURES = Object.freeze({
+  onboardingEnabled: true,
+  verificationEnabled: true,
+  heistEnabled: false,
+  rareDropEnabled: true,
+  pokemonEnabled: false,
+  aiEnabled: true,
+  ttsEnabled: false,
+  birthdayEnabled: true,
+  economyEnabled: true,
+  governanceEnabled: true,
+});
+
 function deriveFeatures(guildId: string) {
   if (guildId && guildId !== PRIMARY_BASELINE_GUILD_ID) {
-    return {
-      onboardingEnabled: true,
-      verificationEnabled: true,
-      heistEnabled: true,
-      rareDropEnabled: true,
-      pokemonEnabled: true,
-      aiEnabled: true,
-      ttsEnabled: true,
-      birthdayEnabled: true,
-      economyEnabled: true,
-      governanceEnabled: true,
-    };
+    return guildId === GAMES_BASELINE_GUILD_ID
+      ? { ...PUBLIC_READY_FEATURES }
+      : { ...STANDARD_READY_FEATURES };
   }
 
   const mod = pick("moderator-config.json", guildId, {});

@@ -9,14 +9,22 @@ export type FeatureCatalogEntry = {
 
 export type PremiumFeature = FeatureCatalogEntry & {
   premiumLabel: string;
-  monthlyUsd: number;
-  yearlyUsd: number;
+  includedIn: string[];
   pricingNote: string;
 };
 
-export type PrivateFeature = FeatureCatalogEntry & {
-  policyNote: string;
+export type SubscriptionPlan = {
+  id: string;
+  label: string;
+  monthlyUsd: number | null;
+  yearlyUsd: number | null;
+  headline: string;
+  included: string[];
+  note: string;
 };
+
+export const PRICING_FOOTNOTE =
+  "Prices and included usage are subject to change based on availability, operating cost, and service load.";
 
 export const PREMIUM_FEATURES: PremiumFeature[] = [
   {
@@ -24,41 +32,92 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     label: "TTS Engine",
     route: "/dashboard/tts",
     summary: "Voice playback channels, speech routing, queue rules, and live text-to-speech controls.",
-    premiumLabel: "Premium Add-On",
-    monthlyUsd: 2.49,
-    yearlyUsd: 23.99,
-    pricingNote: "Per guild. Lowered public add-on pricing."
+    premiumLabel: "Premium Feature",
+    includedIn: ["Pro", "Business", "Enterprise"],
+    pricingNote: "Included through paid guild plans."
   },
   {
     id: "persona-ai",
-    label: "Persona Engine AI",
+    label: "Persona AI",
     route: "/dashboard/ai/persona",
-    summary: "OpenAI-powered persona replies, prompt shaping, access rules, persona photos, and backstory-driven behavior.",
-    premiumLabel: "Premium Add-On",
-    monthlyUsd: 7.99,
-    yearlyUsd: 76.99,
-    pricingNote: "Per guild. This is the hosted model path only."
+    summary: "Hosted generative persona replies, prompt shaping, access rules, persona photos, and custom backstory behavior.",
+    premiumLabel: "Premium Feature",
+    includedIn: ["Pro", "Business", "Enterprise"],
+    pricingNote: "Separate from Possum AI and Bot Personalizer."
   },
   {
     id: "heist",
     label: "Heist Engine",
     route: "/dashboard/heist",
     summary: "Heist signup rotations, channel routing, logging, and event-session controls. GTA Ops stays separate.",
-    premiumLabel: "Premium Add-On",
-    monthlyUsd: 4.99,
-    yearlyUsd: 47.99,
-    pricingNote: "Per guild. Heist signup engine only."
+    premiumLabel: "Premium Feature",
+    includedIn: ["Pro", "Business", "Enterprise"],
+    pricingNote: "Guild signup engine only."
+  },
+  {
+    id: "threat-protection-pro",
+    label: "Threat Protection Pro",
+    route: "/dashboard/security",
+    summary: "Adaptive threat intelligence with account integrity, link intel, threat detection, and risk escalation controls.",
+    premiumLabel: "Premium Feature",
+    includedIn: ["Pro", "Business", "Enterprise"],
+    pricingNote: "Best fit for active public communities."
+  },
+  {
+    id: "governance-automation",
+    label: "Governance Automation",
+    route: "/dashboard/governance",
+    summary: "Automated emergency response, containment tooling, approval workflows, and guided enforcement controls.",
+    premiumLabel: "Premium Feature",
+    includedIn: ["Business", "Enterprise"],
+    pricingNote: "Designed for larger communities and staff teams."
   }
 ];
 
-export const PRIVATE_FEATURES: PrivateFeature[] = [
+export const PREMIUM_PLANS: SubscriptionPlan[] = [
   {
-    id: "pokemon-suite",
-    label: "Pokemon Suite",
-    route: "/dashboard/pokemon-catching",
-    summary: "Pokemon catching, battle, and trade remain private and owner-only.",
-    policyNote: "Never sold publicly. Hidden from public SaaS monetization."
-  }
+    id: "pro",
+    label: "Pro",
+    monthlyUsd: 24.99,
+    yearlyUsd: null,
+    headline: "Premium engagement and threat protection for growing communities.",
+    included: [
+      "TTS Engine",
+      "Persona AI",
+      "Heist Engine",
+      "Threat Protection Pro",
+      "Included monthly AI/TTS usage credit",
+    ],
+    note: PRICING_FOOTNOTE,
+  },
+  {
+    id: "business",
+    label: "Business",
+    monthlyUsd: 49.99,
+    yearlyUsd: null,
+    headline: "Adds governance automation and higher included usage for active servers.",
+    included: [
+      "Everything in Pro",
+      "Governance Automation",
+      "Higher included monthly AI/TTS usage credit",
+      "Better operational limits",
+    ],
+    note: PRICING_FOOTNOTE,
+  },
+  {
+    id: "enterprise",
+    label: "Enterprise",
+    monthlyUsd: 99.0,
+    yearlyUsd: null,
+    headline: "Priority control for serious communities with custom support and pooled usage.",
+    included: [
+      "Everything in Business",
+      "Priority support",
+      "Higher pooled monthly AI/TTS usage credit",
+      "Forensics and staff-monitoring priority controls",
+    ],
+    note: `${PRICING_FOOTNOTE} Contact for custom limits and annual contracts.`,
+  },
 ];
 
 const PREMIUM_ROUTE_SET = new Set(PREMIUM_FEATURES.map((feature) => feature.route));
@@ -79,7 +138,7 @@ const STANDARD_MANUAL_FEATURES: FeatureCatalogEntry[] = [
     label: "Possum AI",
     route: "/dashboard/ai/learning",
     summary: "Homemade adaptive AI and bot knowledge base with learned tone, stored knowledge, and runtime reply routing."
-  }
+  },
 ];
 
 export const STANDARD_FEATURES: FeatureCatalogEntry[] = [
@@ -95,11 +154,3 @@ export const STANDARD_FEATURES: FeatureCatalogEntry[] = [
       summary: engine.description,
     })),
 ];
-
-export const OPENAI_PLATFORM_PRICE_CHART = [
-  { id: "bronze", label: "Bronze", monthlyUsd: 1.15, yearlyUsd: 9.99, includedMessages: 200, includedImages: 20, includedBackstory: 20 },
-  { id: "silver", label: "Silver", monthlyUsd: 2.29, yearlyUsd: 19.99, includedMessages: 500, includedImages: 50, includedBackstory: 50 },
-  { id: "gold", label: "Gold", monthlyUsd: 5.79, yearlyUsd: 49.99, includedMessages: 2500, includedImages: 200, includedBackstory: 200 },
-  { id: "diamond", label: "Diamond", monthlyUsd: 9.19, yearlyUsd: 79.99, includedMessages: 5000, includedImages: 500, includedBackstory: 500 },
-  { id: "platinum", label: "Platinum", monthlyUsd: 22.99, yearlyUsd: 199.99, includedMessages: 10000, includedImages: 1000, includedBackstory: 1000 },
-] as const;

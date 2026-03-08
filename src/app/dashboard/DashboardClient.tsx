@@ -408,7 +408,7 @@ export default function DashboardClient() {
   const [guildId, setGuildId] = useState("");
   const [states, setStates] = useState<Record<string, ToggleState>>({});
   const [loadingStates, setLoadingStates] = useState(false);
-  const [subscription, setSubscription] = useState<{ active: boolean; plan: string } | null>(null);
+  const [subscription, setSubscription] = useState<{ active: boolean; plan: string; developerBypass?: boolean } | null>(null);
 
   useEffect(() => {
     setGuildId(readDashboardGuildId());
@@ -450,19 +450,21 @@ export default function DashboardClient() {
       const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).catch(() => null);
       const json = await res?.json().catch(() => ({}));
       if (!res || !res.ok || json?.success === false) {
-        setSubscription({ active: false, plan: "FREE" });
+        setSubscription({ active: false, plan: "FREE", developerBypass: false });
         return;
       }
       setSubscription({
         active: Boolean(json?.status?.active),
         plan: String(json?.status?.plan || "FREE"),
+        developerBypass: Boolean(json?.status?.developerBypass),
       });
     })();
   }, [guildId]);
 
   async function toggleCard(card: Card) {
     if (!guildId || !card.toggle) return;
-    if (card.premiumRequired && !subscription?.active) return;
+    const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
+    if (card.premiumRequired && !premiumUnlocked) return;
     const current = states[card.href]?.value ?? false;
     const next = !current;
     setStates((prev) => ({
@@ -513,6 +515,7 @@ export default function DashboardClient() {
           const state = card.state;
           const toggleBusy = state.saving || loadingStates;
           const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
+          const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
 
           return (
             <div
@@ -540,16 +543,16 @@ export default function DashboardClient() {
                     </>
                   ) : (
                     <>
-                      <span className={card.premiumRequired && !subscription?.active ? pillClass(false) : pillClass(state.value)}>
-                        {card.premiumRequired && !subscription?.active ? "Premium" : statusLabel}
+                      <span className={card.premiumRequired && !premiumUnlocked ? pillClass(false) : pillClass(state.value)}>
+                        {card.premiumRequired && !premiumUnlocked ? "Premium" : statusLabel}
                       </span>
                       <button
                         type="button"
                         onClick={() => toggleCard(card)}
-                        disabled={!guildId || !card.toggle || toggleBusy || (card.premiumRequired && !subscription?.active)}
+                        disabled={!guildId || !card.toggle || toggleBusy || (card.premiumRequired && !premiumUnlocked)}
                         className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {card.premiumRequired && !subscription?.active
+                        {card.premiumRequired && !premiumUnlocked
                           ? "Premium"
                           : toggleBusy
                             ? "Saving"
@@ -563,7 +566,7 @@ export default function DashboardClient() {
               </div>
 
               {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
-              {card.premiumRequired && !subscription?.active ? (
+              {card.premiumRequired && !premiumUnlocked ? (
                 <p className="mt-2 text-xs text-red-300/90">
                   Requires an active premium plan for this guild. Current plan: {subscription?.plan || "FREE"}.
                 </p>

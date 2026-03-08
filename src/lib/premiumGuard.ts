@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
-import { featureRequiresPremium, getGuildSubscriptionStatus } from "@/lib/subscription";
+import { featureRequiresPremium, getGuildSubscriptionStatus, isDeveloperPremiumBypass } from "@/lib/subscription";
 
 const FEATURE_LABELS: Record<string, string> = {
   tts: "TTS Engine",
@@ -39,7 +39,12 @@ export async function requirePremiumAccess(
     return true;
   }
 
-  const subscription = await getGuildSubscriptionStatus(guildId, readActorUserId(req)).catch(() => null);
+  const actorUserId = readActorUserId(req);
+  if (isDeveloperPremiumBypass(actorUserId)) {
+    return true;
+  }
+
+  const subscription = await getGuildSubscriptionStatus(guildId, actorUserId).catch(() => null);
   if (subscription?.active) {
     return true;
   }

@@ -6,8 +6,16 @@ import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "
 const PREMIUM_FEATURES = new Set(["tts", "heist", "persona", "openai-platform"]);
 const SYNC_TTL_MS = 60_000;
 
+function normalizeActorUserId(actorUserId?: string) {
+  return String(actorUserId || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
+}
+
 export function featureRequiresPremium(featureKey: string) {
   return PREMIUM_FEATURES.has(String(featureKey || "").trim());
+}
+
+export function isDeveloperPremiumBypass(actorUserId?: string) {
+  return normalizeActorUserId(actorUserId) === MASTER_OWNER_USER_ID;
 }
 
 type SubscriptionStatus = {
@@ -17,6 +25,7 @@ type SubscriptionStatus = {
   premiumTier: string | null;
   source: string;
   premiumExpiresAt: string | null;
+  developerBypass: boolean;
 };
 
 function normalizePlan(value: unknown) {
@@ -47,6 +56,8 @@ async function readBotPremium(guildId: string, actorUserId: string) {
 
 export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: string): Promise<SubscriptionStatus> {
   const id = String(guildId || "").trim();
+  const normalizedActorUserId = normalizeActorUserId(actorUserId);
+  const developerBypass = isDeveloperPremiumBypass(normalizedActorUserId);
   if (!id) {
     return {
       guildId: "",
@@ -55,6 +66,7 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
       premiumTier: null,
       source: "missing_guild",
       premiumExpiresAt: null,
+      developerBypass,
     };
   }
 
@@ -105,6 +117,7 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
           premiumTier: synced.premiumTier,
           source: synced.source,
           premiumExpiresAt: synced.premiumExpiresAt ? synced.premiumExpiresAt.toISOString() : null,
+          developerBypass,
         };
         await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
         return status;
@@ -123,7 +136,58 @@ export async function getGuildSubscriptionStatus(guildId: string, actorUserId?: 
     premiumTier: existing?.premiumTier || null,
     source: existing?.source || "db_cache",
     premiumExpiresAt: existing?.premiumExpiresAt ? existing.premiumExpiresAt.toISOString() : null,
+    developerBypass,
   };
+  await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
+  return status;
+}
+
+export async function setGuildSubscriptionStatus(
+  guildId: string,
+  input: {
+    active: boolean;
+    plan?: string;
+    premiumTier?: string | null;
+    premiumExpiresAt?: Date | null;
+    source?: string;
+  }
+): Promise<SubscriptionStatus> {
+  const id = String(guildId || "").trim();
+  if (!id) {
+    throw new Error("guildId is required");
+  }
+
+  const record = await prisma.guildSubscription.upsert({
+    where: { guildId: id },
+    update: {
+      active: Boolean(input.active),
+      plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
+      premiumTier: input.premiumTier ? String(input.premiumTier) : null,
+      premiumExpiresAt: input.premiumExpiresAt ?? null,
+      source: String(input.source || "owner_override").trim() || "owner_override",
+      syncedAt: new Date(),
+    },
+    create: {
+      guildId: id,
+      active: Boolean(input.active),
+      plan: normalizePlan(input.plan || (input.active ? "PRO" : "FREE")),
+      premiumTier: input.premiumTier ? String(input.premiumTier) : null,
+      premiumExpiresAt: input.premiumExpiresAt ?? null,
+      source: String(input.source || "owner_override").trim() || "owner_override",
+      syncedAt: new Date(),
+    },
+  });
+
+  const status = {
+    guildId: id,
+    active: Boolean(record.active),
+    plan: normalizePlan(record.plan),
+    premiumTier: record.premiumTier || null,
+    source: record.source || "owner_override",
+    premiumExpiresAt: record.premiumExpiresAt ? record.premiumExpiresAt.toISOString() : null,
+    developerBypass: false,
+  };
+
   await writeGuildDiscoveryCache("subscription_status", id, status, 45).catch(() => null);
   return status;
 }
