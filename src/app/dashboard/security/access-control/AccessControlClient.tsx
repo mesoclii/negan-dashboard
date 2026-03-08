@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { CONTROL_OWNER_USER_IDS } from "@/lib/dashboardOwner";
 
 type Role = { id: string; name: string; position?: number };
 
@@ -142,7 +142,7 @@ export default function AccessControlClient() {
           Set which roles and users can manage the dashboard for this guild. The master owner override stays above everything.
         </div>
         <div style={{ color: "#ffd27a", fontSize: 12, marginTop: 8 }}>
-          Master owner override: {MASTER_OWNER_USER_ID}
+          Control owner override: {CONTROL_OWNER_USER_IDS.join(", ")}
         </div>
       </div>
 

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { isDashboardControlOwner } from "@/lib/dashboardOwner";
 import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { readPublicStatus, writePublicStatus } from "@/lib/publicStatusStore";
 
 function isMasterOwner(userId: string) {
-  return String(userId || "").trim() === MASTER_OWNER_USER_ID;
+  return isDashboardControlOwner(userId);
 }
 
 export async function GET() {
@@ -48,4 +48,3 @@ export async function POST(request: NextRequest) {
     status: next,
   });
 }
-

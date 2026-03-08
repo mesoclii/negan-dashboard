@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
 import { featureRequiresPremium, getGuildSubscriptionStatus, isDeveloperPremiumBypass } from "@/lib/subscription";
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -40,7 +40,7 @@ export async function requirePremiumAccess(
   }
 
   const actorUserId = readActorUserId(req);
-  if (isDeveloperPremiumBypass(actorUserId)) {
+  if (isDeveloperPremiumBypass(actorUserId) || isDashboardControlOwner(actorUserId)) {
     return true;
   }
 

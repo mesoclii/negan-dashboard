@@ -3,7 +3,7 @@ import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { getGuildSubscriptionStatus, setGuildSubscriptionStatus } from "@/lib/subscription";
 import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
 
   const session = await readDashboardSessionValue(request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
   const actorUserId = String(session?.user?.id || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
+  const isMasterOwner = isDashboardControlOwner(actorUserId);
 
   try {
     const status = await getGuildSubscriptionStatus(guildId, actorUserId);
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
   const session = await readDashboardSessionValue(request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
   const actorUserId = String(session?.user?.id || "").trim();
-  const isMasterOwner = actorUserId === MASTER_OWNER_USER_ID;
+  const isMasterOwner = isDashboardControlOwner(actorUserId);
 
   if (!isMasterOwner) {
     return NextResponse.json({ success: false, error: "Only the master owner can change premium plan state." }, { status: 403 });

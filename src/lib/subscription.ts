@@ -1,4 +1,4 @@
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
 import { readGuildDiscoveryCache, writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import prisma from "@/lib/prisma";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
@@ -15,7 +15,7 @@ export function featureRequiresPremium(featureKey: string) {
 }
 
 export function isDeveloperPremiumBypass(actorUserId?: string) {
-  return normalizeActorUserId(actorUserId) === MASTER_OWNER_USER_ID;
+  return isDashboardControlOwner(normalizeActorUserId(actorUserId));
 }
 
 type SubscriptionStatus = {

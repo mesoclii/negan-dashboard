@@ -238,15 +238,15 @@ export default function AiClient() {
   return (
     <div style={wrap}>
       <section style={{ ...card, marginBottom: 12 }}>
-        <h1 style={{ margin: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-          AI Control
-        </h1>
+            <h1 style={{ margin: 0, color: "#ff4a4a", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              AI Routing
+            </h1>
         <div style={{ color: "#ff9f9f", marginTop: 8 }}>Guild: {guildName || guildId}</div>
         <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 900 }}>
-          The AI stack is split by what it actually is. Possum AI owns the adaptive homemade path and knowledge base.
-          Persona AI owns the hosted persona roster. Persona-triggered messages stay on the persona path, and all other
-          eligible adaptive traffic stays on the Possum AI path.
-        </div>
+              The AI stack is split by what it actually is. Possum AI owns the adaptive homemade path and knowledge base.
+              Persona AI owns the premium hosted persona roster. Persona-triggered messages stay on the persona path, and all
+              other eligible adaptive traffic stays on the Possum AI path.
+            </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
 

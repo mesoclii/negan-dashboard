@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
 import { fetchDiscordGuilds, hasGuildManageAccess, isDiscordOauthConfigured } from "@/lib/discordOAuth";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   }
 
   const actorUserId = String(session.user.id || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
-  const isMasterOwner = actorUserId === MASTER_OWNER_USER_ID;
+  const isMasterOwner = isDashboardControlOwner(actorUserId);
 
   let adminGuildCount = 0;
   let installedGuildCount = 0;
@@ -62,4 +62,3 @@ export async function GET(request: NextRequest) {
     user: session.user,
   });
 }
-

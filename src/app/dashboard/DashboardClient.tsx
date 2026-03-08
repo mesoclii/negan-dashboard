@@ -14,6 +14,7 @@ type Card = {
   href: string;
   title: string;
   description: string;
+  category?: "standard" | "premium";
   toggle?: ToggleController;
   goOnly?: boolean;
   goLabel?: string;
@@ -352,22 +353,25 @@ const pokemonTradeController: ToggleController = {
 const CARDS: Card[] = [
   { href: "/dashboard/bot-personalizer", title: "Bot Personalizer", description: "Per-guild Possum AI naming, avatar, activity, and backstory.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/bot-masters", title: "Bot Masters", description: "Set which guild roles and users can manage the dashboard.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/premium-features", title: "Premium Features", description: "See which public SaaS features are paid vs standard before you finalize billing.", goOnly: true, goLabel: "Go" },
-  { href: "/dashboard/ai", title: "AI Control", description: "Split Possum AI, Persona AI, and OpenAI platform controls.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/ai/learning", title: "Possum AI", description: "Homemade adaptive AI, bot knowledge base, learning writes, and synthesis runtime.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/ai", title: "AI Routing", description: "Exclusive routing between Possum AI and Persona AI paths.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/ai/persona", title: "Persona AI", description: "Hosted persona runtime, photos, triggers, and roster controls.", goOnly: true, goLabel: "Go", premiumRequired: true, category: "premium" },
+  { href: "/dashboard/ai/openai-platform", title: "Hosted AI Platform", description: "Provider, model, and hosted premium AI platform controls.", goOnly: true, goLabel: "Go", premiumRequired: true, category: "premium" },
   { href: "/dashboard/automations", title: "Automations", description: "Bot automation list, limits, and runtime state.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "Command Studio", description: "Custom command engine and command toggles.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
   { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: setupBodyController("/api/setup/selfroles-config", ["active"]) },
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
-  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true },
+  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: setupPatchController("/api/setup/store-config", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP/coins progression and reward rules.", toggle: setupPatchController("/api/setup/progression-config", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Prestige reset rules, role rewards, and announce channel.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: giveawaysController },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]), premiumRequired: true },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
@@ -383,8 +387,8 @@ const CARDS: Card[] = [
   { href: "/dashboard/pokemon-catching", title: "Pokemon Catching", description: "Wild spawn lanes, catch rates, reward tuning, and catch logs.", toggle: pokemonCatchingController },
   { href: "/dashboard/pokemon-battle", title: "Pokemon Battle", description: "Battle lane, battle logging, and duel availability.", toggle: pokemonBattleController },
   { href: "/dashboard/pokemon-trade", title: "Pokemon Trade", description: "Trade gate and trade log routing.", toggle: pokemonTradeController },
-  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: featureController("governanceEnabled") },
-  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: featureController("governanceEnabled") },
+  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: entityController("engine/blacklistEngine.js") },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: entityController("engine/failsafeEngine.js") },
   { href: "/dashboard/panels", title: "Panel Deploy", description: "Bulk panel deploy and status.", toggle: engineController("panelDeploy") },
@@ -498,6 +502,10 @@ export default function DashboardClient() {
     [states]
   );
 
+  const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
+  const standardCards = cards.filter((card) => !card.premiumRequired);
+  const premiumCards = cards.filter((card) => card.premiumRequired);
+
   return (
     <section className="space-y-5">
       <header className="rounded-xl border possum-divider bg-black/50 p-5 possum-border">
@@ -511,11 +519,10 @@ export default function DashboardClient() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => {
+        {standardCards.map((card) => {
           const state = card.state;
           const toggleBusy = state.saving || loadingStates;
           const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
-          const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
 
           return (
             <div
@@ -543,22 +550,16 @@ export default function DashboardClient() {
                     </>
                   ) : (
                     <>
-                      <span className={card.premiumRequired && !premiumUnlocked ? pillClass(false) : pillClass(state.value)}>
-                        {card.premiumRequired && !premiumUnlocked ? "Premium" : statusLabel}
+                      <span className={pillClass(state.value)}>
+                        {statusLabel}
                       </span>
                       <button
                         type="button"
                         onClick={() => toggleCard(card)}
-                        disabled={!guildId || !card.toggle || toggleBusy || (card.premiumRequired && !premiumUnlocked)}
+                        disabled={!guildId || !card.toggle || toggleBusy}
                         className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {card.premiumRequired && !premiumUnlocked
-                          ? "Premium"
-                          : toggleBusy
-                            ? "Saving"
-                            : state.value
-                              ? "Turn Off"
-                              : "Turn On"}
+                        {toggleBusy ? "Saving" : state.value ? "Turn Off" : "Turn On"}
                       </button>
                     </>
                   )}
@@ -566,15 +567,76 @@ export default function DashboardClient() {
               </div>
 
               {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
-              {card.premiumRequired && !premiumUnlocked ? (
-                <p className="mt-2 text-xs text-red-300/90">
-                  Requires an active premium plan for this guild. Current plan: {subscription?.plan || "FREE"}.
-                </p>
-              ) : null}
             </div>
           );
         })}
       </div>
+
+      {premiumUnlocked ? (
+        <div className="space-y-3">
+          <header className="rounded-xl border possum-divider bg-black/45 p-4 possum-border">
+            <p className="text-xs uppercase tracking-[0.22em] possum-soft">Premium Category</p>
+            <h3 className="mt-1 text-xl font-black uppercase tracking-[0.08em] possum-red">
+              Premium Features
+            </h3>
+            <p className="mt-2 text-sm text-red-200/80">
+              Paid add-ons are separated from the standard stack. Current access: {subscription?.developerBypass ? "developer override" : subscription?.plan || "FREE"}.
+            </p>
+          </header>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {premiumCards.map((card) => {
+              const state = card.state;
+              const toggleBusy = state.saving || loadingStates;
+              const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
+
+              return (
+                <div
+                  key={card.href}
+                  className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={card.href} className="min-w-0 flex-1">
+                      <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
+                      <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
+                    </Link>
+
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {card.goOnly ? (
+                        <>
+                          <span className="rounded-full border border-amber-500/40 bg-amber-950/30 px-2 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-amber-300">
+                            Premium
+                          </span>
+                          <Link
+                            href={card.href}
+                            className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
+                          >
+                            {card.goLabel || "Go"}
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <span className={pillClass(state.value)}>{statusLabel}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleCard(card)}
+                            disabled={!guildId || !card.toggle || toggleBusy}
+                            className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {toggleBusy ? "Saving" : state.value ? "Turn Off" : "Turn On"}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
