@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
@@ -17,32 +17,44 @@ const DEFAULT_CONFIG: PanelDeployCfg = {
   notes: "",
 };
 
+const PANEL_ROUTES = [
+  {
+    href: "/dashboard/selfroles",
+    title: "Selfroles",
+    description: "Owns role buttons, panel layout, button labels, emojis, and publish controls.",
+  },
+  {
+    href: "/dashboard/tickets",
+    title: "Tickets",
+    description: "Owns ticket types, button text, emoji, welcome copy, transcripts, and staff routing.",
+  },
+];
+
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1200 };
 const card: React.CSSProperties = { border: "1px solid #6a0000", borderRadius: 12, background: "rgba(120,0,0,0.10)", padding: 14, marginBottom: 12 };
-const input: React.CSSProperties = { width: "100%", padding: "10px 12px", background: "#0b0b0b", color: "#ffd8d8", border: "1px solid #7a0000", borderRadius: 8 };
-const linkCard: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 10, padding: 12, color: "#ffd0d0", textDecoration: "none", background: "#110000" };
+const button: React.CSSProperties = {
+  padding: "10px 14px",
+  background: "#0b0b0b",
+  color: "#ffd8d8",
+  border: "1px solid #7a0000",
+  borderRadius: 8,
+  cursor: "pointer",
+  fontWeight: 900,
+};
+const linkCard: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 10, padding: 14, color: "#ffd0d0", textDecoration: "none", background: "#110000" };
 
 export default function PanelsPage() {
   const [deployOutput, setDeployOutput] = useState<string[]>([]);
   const {
     guildId,
     guildName,
-    config: cfg,
-    setConfig: setCfg,
-    channels,
     summary,
     details,
     loading,
     saving,
     message,
-    save,
     runAction,
   } = useGuildEngineEditor<PanelDeployCfg>("panelDeploy", DEFAULT_CONFIG);
-
-  const textChannels = useMemo(
-    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
-    [channels]
-  );
 
   async function deployAll() {
     const result = await runAction("deployAll");
@@ -53,41 +65,31 @@ export default function PanelsPage() {
 
   return (
     <div style={shell}>
-      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Panel Deploy Engine</h1>
+      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Panel Hub</h1>
       <div style={{ color: "#ff9999", marginTop: 6 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Bulk deploy control for panel-backed engines. This page saves the live deploy target and can trigger a real deploy from the bot.
+        Panel layouts belong to the engine that owns them. Use this page only to jump into those engine tabs and run the shared deploy action for supported panels.
       </div>
       {message ? <div style={{ color: "#ffd27a", marginTop: 8 }}>{message}</div> : null}
 
       {loading ? (
-        <div style={{ ...card, marginTop: 12 }}>Loading panel deploy...</div>
+        <div style={{ ...card, marginTop: 12 }}>Loading panel hub...</div>
       ) : (
         <>
           <EngineInsights summary={summary} details={details} />
 
           <section style={{ ...card, marginTop: 12 }}>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-              <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Engine Enabled</label>
-              <button onClick={deployAll} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-                {saving ? "Working..." : "Deploy All Panels"}
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+              Shared Deploy
+            </div>
+            <div style={{ color: "#ffd5d5", lineHeight: 1.6, maxWidth: 780 }}>
+              The bulk deploy action is only for panel-backed systems that already have their real setup finished inside their own tabs. It is not where you edit ticket flows, selfrole buttons, or future game panels.
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <button onClick={deployAll} disabled={saving} style={button}>
+                {saving ? "Working..." : "Deploy Supported Panels"}
               </button>
             </div>
-          </section>
-
-          <section style={card}>
-            <div>
-              <div style={{ marginBottom: 6 }}>Deploy Channel</div>
-              <select style={input} value={cfg.deployChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, deployChannelId: e.target.value }))}>
-                <option value="">Select channel</option>
-                {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
-              </select>
-            </div>
-          </section>
-
-          <section style={card}>
-            <div style={{ marginBottom: 6 }}>Deployment Notes</div>
-            <textarea style={{ ...input, minHeight: 120 }} value={cfg.notes} onChange={(e) => setCfg((p) => ({ ...p, notes: e.target.value }))} />
           </section>
 
           {deployOutput.length ? (
@@ -99,26 +101,23 @@ export default function PanelsPage() {
             </section>
           ) : null}
 
-          <section style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-            <Link href={`/dashboard/selfroles?guildId=${encodeURIComponent(guildId)}`} style={linkCard}>
-              <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>Selfroles</div>
-              <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 6 }}>Edit button layouts before you deploy them.</div>
-            </Link>
-            <Link href={`/dashboard/tickets?guildId=${encodeURIComponent(guildId)}`} style={linkCard}>
-              <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>Tickets</div>
-              <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 6 }}>Open the ticket panel editor used by deploy-all.</div>
-            </Link>
-            <Link href={`/dashboard/panel?guildId=${encodeURIComponent(guildId)}`} style={linkCard}>
-              <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>Master Panel</div>
-              <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 6 }}>Configure the persistent master panel separately.</div>
-            </Link>
+          <section style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+            {PANEL_ROUTES.map((item) => (
+              <Link key={item.href} href={`${item.href}?guildId=${encodeURIComponent(guildId)}`} style={linkCard}>
+                <div style={{ color: "#ff5a5a", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em" }}>{item.title}</div>
+                <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>{item.description}</div>
+              </Link>
+            ))}
           </section>
 
-          <div style={{ ...card, display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-              {saving ? "Saving..." : "Save Panel Deploy"}
-            </button>
-          </div>
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+              Game Panel Rule
+            </div>
+            <div style={{ color: "#ffd5d5", lineHeight: 1.6, maxWidth: 820 }}>
+              If a game engine needs its own panel, build and control that panel inside that game engine tab. The panel hub is not where game-panel logic or layout belongs.
+            </div>
+          </section>
         </>
       )}
     </div>

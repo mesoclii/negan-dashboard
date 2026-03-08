@@ -59,12 +59,11 @@ export const ENGINE_REGISTRY: EngineDef[] = [
 
   { id: "automation-studio", label: "Automation Studio", description: "Visual automation builder and runtime editor", group: "Automation", route: "/dashboard/automations/studio" },
   { id: "commands", label: "Command Studio", description: "Custom command builder", group: "Automation", route: "/dashboard/commands" },
-  { id: "panel-deploy", label: "Panel Deploy", description: "Panel deploy/status controls", group: "Automation", route: "/dashboard/panels" },
+  { id: "panel-hub", label: "Panel Hub", description: "Panel-backed engine launch and shared deploy controls", group: "Automation", route: "/dashboard/panels" },
   { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
 
   { id: "blacklist", label: "Blacklist", description: "Blacklist controls", group: "Operations", route: "/dashboard/blacklist" },
   { id: "failsafe", label: "Failsafe", description: "Failsafe emergency controls", group: "Operations", route: "/dashboard/failsafe" },
-  { id: "master-panel", label: "Master Panel", description: "Master panel command controls", group: "Operations", route: "/dashboard/panel" },
   { id: "runtime-router", label: "Runtime Router", description: "Gun/possum/vip runtime routing", group: "Operations", route: "/dashboard/runtime-router" },
   { id: "jed", label: "Jed", description: "Jed engine controls", group: "Operations", route: "/dashboard/jed" },
 ];

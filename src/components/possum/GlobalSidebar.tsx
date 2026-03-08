@@ -21,8 +21,7 @@ const LINKS = [
   { href: "/dashboard/pokemon-trade", label: "Pokemon Trade" },
   { href: "/dashboard/heist", label: "Heist" },
   { href: "/dashboard/gta-ops", label: "GTA Ops" },
-  { href: "/dashboard/panels", label: "Panel Deploy" },
-  { href: "/dashboard/panel", label: "Master Panel" },
+  { href: "/dashboard/panels", label: "Panel Hub" },
   { href: "/dashboard/security", label: "Security" },
   { href: "/dashboard/system-health", label: "System Health" },
   { href: "/dashboard/vip", label: "VIP" }
