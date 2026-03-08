@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import AiTabs from "@/components/possum/AiTabs";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
@@ -139,6 +140,8 @@ export default function LearningClient() {
 
   return (
     <div style={wrap}>
+      <AiTabs current="possum" />
+
       <section style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
@@ -153,8 +156,8 @@ export default function LearningClient() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href={buildDashboardHref("/dashboard/ai")} style={action}>
-              AI Routing
+            <Link href={buildDashboardHref("/dashboard/bot-personalizer")} style={action}>
+              Bot Personalizer
             </Link>
             <Link href={buildDashboardHref("/dashboard/ai/persona")} style={action}>
               Persona AI
@@ -222,8 +225,8 @@ export default function LearningClient() {
           </div>
           <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7 }}>
             Possum AI owns the adaptive route only. Persona AI owns persona-only channels, persona keywords, and hosted
-            persona prompts. Possum AI should never be gated by Persona AI pricing, and Persona AI should never write
-            into Possum adaptive profile tables.
+            persona prompts. Possum AI stays tied to Bot Personalizer and the guild identity layer, and Persona AI
+            should never write into Possum adaptive profile tables.
           </div>
         </div>
       </section>

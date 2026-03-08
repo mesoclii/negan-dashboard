@@ -57,12 +57,10 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "range", label: "Range", description: "Range game controls", group: "Games", route: "/dashboard/range" },
   { id: "truthdare", label: "Truth Dare", description: "Truth/Dare controls", group: "Games", route: "/dashboard/truthdare" },
 
-  { id: "automations", label: "Automations", description: "SaaS automation builder and runtime", group: "Automation", route: "/dashboard/automations" },
+  { id: "automation-studio", label: "Automation Studio", description: "Visual automation builder and runtime editor", group: "Automation", route: "/dashboard/automations/studio" },
   { id: "commands", label: "Command Studio", description: "Custom command builder", group: "Automation", route: "/dashboard/commands" },
   { id: "panel-deploy", label: "Panel Deploy", description: "Panel deploy/status controls", group: "Automation", route: "/dashboard/panels" },
   { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
-
-  { id: "ai-core", label: "AI Control", description: "Split Possum AI, Persona AI, and provider controls", group: "AI", route: "/dashboard/ai" },
 
   { id: "blacklist", label: "Blacklist", description: "Blacklist controls", group: "Operations", route: "/dashboard/blacklist" },
   { id: "failsafe", label: "Failsafe", description: "Failsafe emergency controls", group: "Operations", route: "/dashboard/failsafe" },

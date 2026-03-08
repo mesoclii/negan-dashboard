@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
+import AiTabs from "@/components/possum/AiTabs";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type PersonaRow = {
@@ -115,6 +116,8 @@ export default function PersonaClient() {
 
   return (
     <div style={wrap}>
+      <AiTabs current="persona" />
+
       <section style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
@@ -128,6 +131,12 @@ export default function PersonaClient() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href={buildDashboardHref("/dashboard/bot-personalizer")} style={action}>
+              Bot Personalizer
+            </Link>
+            <Link href={buildDashboardHref("/dashboard/ai/learning")} style={action}>
+              Possum AI
+            </Link>
             <Link href={buildDashboardHref("/dashboard/ai/openai-platform")} style={action}>
               Open OpenAI Platform
             </Link>
@@ -170,7 +179,8 @@ export default function PersonaClient() {
             <div style={{ color: "#ffdada", fontWeight: 700 }}>Persona AI is separate from Possum AI.</div>
             <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>
               The persona roster uses its own trigger rules, persona-only channels, access lists, photos, and direct OpenAI calls from the persona engine.
-              The handcrafted Possum AI runs separately on the non-persona path, and provider pricing, public catalog, and billing belong to the OpenAI platform page instead.
+              The handcrafted Possum AI runs separately on the non-persona path and stays linked to Bot Personalizer, while provider pricing,
+              public catalog, and billing belong to the OpenAI platform page instead.
             </div>
           </section>
 

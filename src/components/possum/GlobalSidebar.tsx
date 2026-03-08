@@ -5,7 +5,10 @@ import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/dashboard/automations", label: "Automations" },
+  { href: "/dashboard/bot-personalizer", label: "Bot Personalizer" },
+  { href: "/dashboard/ai/learning", label: "Possum AI" },
+  { href: "/dashboard/ai/persona", label: "Persona AI" },
+  { href: "/dashboard/automations/studio", label: "Automation Studio" },
   { href: "/dashboard/commands", label: "Command Studio" },
   { href: "/dashboard/tickets", label: "Tickets" },
   { href: "/dashboard/selfroles", label: "Selfroles" },
