@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
@@ -153,6 +154,15 @@ export default function HallOfFameClient() {
         activeKey="hallOfFame"
         title="Hall Of Fame"
         subtitle="Recognition layer for the achievement stack. This page surfaces top achievers and the display routing that should be used when you expose the Hall publicly."
+      />
+      <EngineContractPanel
+        engineKey="hallOfFame"
+        intro="Hall Of Fame is the recognition surface for the linked progression stack. It should reflect achievement output and prestige history, not create its own parallel progression logic."
+        related={[
+          { label: "Achievements", route: "/dashboard/achievements", reason: "achievement unlocks are the raw fuel for Hall Of Fame recognition" },
+          { label: "Prestige", route: "/dashboard/prestige", reason: "prestige milestones should be reflected in how public recognition is framed" },
+          { label: "Loyalty", route: "/dashboard/loyalty", reason: "long-tail tenure rewards help define which recognition moments deserve public display" },
+        ]}
       />
 
       <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {guildName || guildId}</div>

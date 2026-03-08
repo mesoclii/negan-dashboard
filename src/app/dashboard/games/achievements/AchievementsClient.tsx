@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Role = { id: string; name: string; position?: number };
@@ -258,6 +259,15 @@ export default function AchievementsClient() {
         activeKey="achievements"
         title="Achievements Engine"
         subtitle="Milestone grant layer on top of progression. This page controls what unlocks, how rewards are granted, and how your badge/achievement surfaces are announced."
+      />
+      <EngineContractPanel
+        engineKey="achievements"
+        intro="Achievements are the milestone grant layer above progression. This surface should decide which actions unlock, what each unlock grants, and how the catalog is presented without collapsing into a flat badge list."
+        related={[
+          { label: "Progression", route: "/dashboard/economy/progression", reason: "progression events are the intake feed for achievement logic" },
+          { label: "Hall Of Fame", route: "/dashboard/halloffame", reason: "Hall Of Fame is the public recognition layer for achievement output" },
+          { label: "Prestige", route: "/dashboard/prestige", reason: "late-loop prestige should stay aligned with how hard achievements are to earn" },
+        ]}
       />
       <div style={{ ...card, marginBottom: 12, position: "sticky", top: 8, zIndex: 20, backdropFilter: "blur(4px)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>

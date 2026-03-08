@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
@@ -113,6 +114,15 @@ export default function LoyaltyEngineClient() {
         activeKey="loyalty"
         title="Loyalty Engine"
         subtitle="Long-tail retention layer tied into VIP, progression bonus value, birthday/radio recognition, and member reward timing."
+      />
+      <EngineContractPanel
+        engineKey="loyalty"
+        intro="Loyalty is the retention layer for the progression family. It should reward tenure and steady participation without replacing XP, achievements, or prestige as the main advancement loop."
+        related={[
+          { label: "VIP", route: "/dashboard/vip", reason: "VIP lifecycle and loyalty benefits should stay aligned instead of creating conflicting long-term perks" },
+          { label: "Birthdays", route: "/dashboard/economy/radio-birthday", reason: "radio/birthday recognition is part of the same long-tail member appreciation surface" },
+          { label: "Prestige", route: "/dashboard/prestige", reason: "prestige carry-forward value should not overpower loyalty retention rewards" },
+        ]}
       />
       <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 12 }}>VIP is a separate engine. This page configures loyalty milestone behavior surfaced for VIP + loyalty flow.</div>

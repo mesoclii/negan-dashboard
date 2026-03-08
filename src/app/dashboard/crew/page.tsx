@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
@@ -24,7 +25,7 @@ const DEFAULT_CREW: CrewCfg = {
   crewRolePrefix: "Crew",
 };
 
-const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1200 };
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1280 };
 const card: React.CSSProperties = { border: "1px solid #6a0000", borderRadius: 12, background: "rgba(120,0,0,0.10)", padding: 14, marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", padding: "10px 12px", background: "#0b0b0b", color: "#ffd8d8", border: "1px solid #7a0000", borderRadius: 8 };
 
@@ -63,12 +64,38 @@ export default function CrewEnginePage() {
         <div style={card}>Loading crew...</div>
       ) : (
         <>
+          <EngineContractPanel
+            engineKey="crew"
+            intro="Crew is the identity and treasury layer for the GTA side of the bot. This surface controls how expensive it is to found a crew, how large crews can grow, and whether public recruiting stays open."
+            related={[
+              { label: "Dominion", route: "/dashboard/dominion", reason: "dominion raids, wars, and territory ownership resolve by crew identity" },
+              { label: "Contracts", route: "/dashboard/contracts", reason: "crew-facing objectives should stay economically aligned with contract payouts" },
+              { label: "Profile", route: "/dashboard/profile", reason: "crew status, rank, and member-facing identity should stay aligned with profile surfaces" },
+            ]}
+          />
           <EngineInsights summary={summary} details={details} />
 
           <section style={{ ...card, marginTop: 12 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
               <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Crew Enabled</label>
               <label><input type="checkbox" checked={cfg.allowPublicRecruitment} onChange={(e) => setCfg((p) => ({ ...p, allowPublicRecruitment: e.target.checked }))} /> Allow public recruitment</label>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Founding Rules</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Creation cost and max crews define how scarce crew ownership feels. If these are too soft, dominion and treasury loops lose value fast.
+                </div>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Recruitment Surface</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Public recruitment should only be on when a clear recruiting lane exists. Otherwise the engine should be staff-driven and routed through direct management commands.
+                </div>
+              </div>
             </div>
           </section>
 
@@ -102,8 +129,8 @@ export default function CrewEnginePage() {
                   {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
                 </select>
               </div>
-              <div style={{ color: "#ffb2b2", fontSize: 12 }}>
-                Used as the public crew recruiting lane when you leave recruitment enabled.
+              <div style={{ color: "#ffb2b2", fontSize: 12, lineHeight: 1.7 }}>
+                Used as the public crew recruiting lane when recruitment stays enabled. Leave it blank if recruiting should remain controlled by staff only.
               </div>
             </div>
           </section>

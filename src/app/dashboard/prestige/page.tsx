@@ -7,6 +7,7 @@ import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 type PrestigeCfg = {
   enabled: boolean;
   maxLevel: number;
+  xpMultiplierPerPrestige: number;
   announceChannelId: string;
   roleRewards: Record<string, string>;
 };
@@ -14,6 +15,7 @@ type PrestigeCfg = {
 const DEFAULT_PRESTIGE: PrestigeCfg = {
   enabled: true,
   maxLevel: 50,
+  xpMultiplierPerPrestige: 0.1,
   announceChannelId: "",
   roleRewards: {},
 };
@@ -103,6 +105,10 @@ export default function PrestigePage() {
                 <input style={input} type="number" min={1} value={cfg.maxLevel} onChange={(e) => setCfg((p) => ({ ...p, maxLevel: Number(e.target.value || 0) }))} />
               </div>
               <div>
+                <div style={{ marginBottom: 6 }}>XP Multiplier Per Prestige</div>
+                <input style={input} type="number" min={0} step="0.01" value={cfg.xpMultiplierPerPrestige} onChange={(e) => setCfg((p) => ({ ...p, xpMultiplierPerPrestige: Number(e.target.value || 0) }))} />
+              </div>
+              <div>
                 <div style={{ marginBottom: 6 }}>Announce Channel</div>
                 <select style={input} value={cfg.announceChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, announceChannelId: e.target.value }))}>
                   <option value="">Select channel</option>
@@ -113,6 +119,9 @@ export default function PrestigePage() {
           </section>
 
           <section style={card}>
+            <div style={{ color: "#ffb0b0", lineHeight: 1.7, marginBottom: 12 }}>
+              XP multiplier per prestige controls the carry-forward value members get after they reset. Keep it aligned with loyalty reward pacing and achievement prestige so one loop does not dwarf the others.
+            </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
               <div>
                 <div style={{ color: "#ffb0b0", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Prestige Role Rewards</div>

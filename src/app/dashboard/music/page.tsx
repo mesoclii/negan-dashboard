@@ -50,6 +50,8 @@ type MusicCfg = {
   policyTag: string;
   maxRoutesPerGuild: number;
   maxActiveSessionsPerGuild: number;
+  allowBridgeMode: boolean;
+  maxBridgedRoutesPerSource: number;
   defaultVolume: number;
   idleDisconnectMinutes: number;
   autoLeaveIfAloneSeconds: number;
@@ -81,6 +83,15 @@ type MusicCfg = {
     rejectAdSupportedSources: boolean;
     strictSourceAllowlist: boolean;
   };
+  panelDeploy: {
+    enabled: boolean;
+    channelId: string;
+    messageId: string;
+    title: string;
+    description: string;
+    bannerUrl: string;
+    footerText: string;
+  };
   library: MusicLibraryTrack[];
   routes: MusicRoute[];
 };
@@ -97,6 +108,8 @@ const EMPTY: MusicCfg = {
   policyTag: "always_free_non_profit",
   maxRoutesPerGuild: 6,
   maxActiveSessionsPerGuild: 4,
+  allowBridgeMode: false,
+  maxBridgedRoutesPerSource: 2,
   defaultVolume: 80,
   idleDisconnectMinutes: 10,
   autoLeaveIfAloneSeconds: 60,
@@ -127,6 +140,15 @@ const EMPTY: MusicCfg = {
     suppressPublicStatus: false,
     rejectAdSupportedSources: true,
     strictSourceAllowlist: false,
+  },
+  panelDeploy: {
+    enabled: false,
+    channelId: "",
+    messageId: "",
+    title: "Possum Music Control",
+    description: "Use /music to route direct audio streams and library aliases into the configured voice routes.",
+    bannerUrl: "",
+    footerText: "Music stays permanently free and excluded from paid plans.",
   },
   library: [],
   routes: [],
@@ -258,6 +280,16 @@ export default function MusicEnginePage() {
     event.target.value = "";
   };
 
+  const uploadPanelBanner = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file).catch(() => "");
+    if (dataUrl) {
+      setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, bannerUrl: dataUrl } }));
+    }
+    event.target.value = "";
+  };
+
   if (!guildId) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
@@ -289,6 +321,7 @@ export default function MusicEnginePage() {
               {[
                 ["maxRoutesPerGuild", "Max Routes", 1, 20],
                 ["maxActiveSessionsPerGuild", "Max Active Sessions", 1, 12],
+                ["maxBridgedRoutesPerSource", "Max Bridged Routes", 1, 8],
                 ["defaultVolume", "Default Volume", 1, 200],
                 ["idleDisconnectMinutes", "Idle Disconnect (min)", 0, 120],
                 ["autoLeaveIfAloneSeconds", "Leave If Alone (sec)", 0, 600],
@@ -309,6 +342,15 @@ export default function MusicEnginePage() {
                   />
                 </div>
               ))}
+            </div>
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 14 }}>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.allowBridgeMode} onChange={(e) => setCfg((prev) => ({ ...prev, allowBridgeMode: e.target.checked }))} />
+                Allow bridge mode
+              </label>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffbaba" }}>
+                One source channel can feed multiple target routes when this is on.
+              </label>
             </div>
           </section>
 
@@ -421,6 +463,65 @@ export default function MusicEnginePage() {
                   {text}
                 </label>
               ))}
+            </div>
+          </section>
+
+          <section style={box}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              <div>
+                <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Panel Deploy</div>
+                <div style={{ color: "#ffb8b8", fontSize: 12, lineHeight: 1.6 }}>
+                  Deploy a persistent music control board into the configured text channel. This is the shared public entry point for the per-route music setup.
+                </div>
+              </div>
+              <button onClick={() => void runAction("deployPanel")} style={button} disabled={saving}>
+                Deploy Music Panel
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
+              <div>
+                <div style={label}>Panel State</div>
+                <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                  <input type="checkbox" checked={cfg.panelDeploy.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, enabled: e.target.checked } }))} />
+                  Enabled
+                </label>
+              </div>
+              <div>
+                <div style={label}>Deploy Channel</div>
+                <select style={input} value={cfg.panelDeploy.channelId} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, channelId: e.target.value } }))}>
+                  <option value="">Not set</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>
+                      #{channel.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={label}>Panel Message ID</div>
+                <input style={input} value={cfg.panelDeploy.messageId} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, messageId: e.target.value } }))} />
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 14, marginTop: 14 }}>
+              <div>
+                <div style={label}>Panel Title</div>
+                <input style={input} value={cfg.panelDeploy.title} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, title: e.target.value } }))} />
+              </div>
+              <div>
+                <div style={label}>Panel Banner URL</div>
+                <input style={input} value={cfg.panelDeploy.bannerUrl} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, bannerUrl: e.target.value } }))} placeholder="https://..." />
+                <div style={{ marginTop: 8 }}>
+                  <input type="file" accept="image/*" onChange={(e) => void uploadPanelBanner(e)} />
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <div style={label}>Panel Description</div>
+              <textarea style={{ ...input, minHeight: 90 }} value={cfg.panelDeploy.description} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, description: e.target.value } }))} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <div style={label}>Panel Footer</div>
+              <input style={input} value={cfg.panelDeploy.footerText} onChange={(e) => setCfg((prev) => ({ ...prev, panelDeploy: { ...prev.panelDeploy, footerText: e.target.value } }))} />
             </div>
           </section>
 

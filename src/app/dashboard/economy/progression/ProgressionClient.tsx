@@ -3,6 +3,7 @@
 
 
 import { useEffect, useState } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Role = { id: string; name: string };
@@ -264,6 +265,15 @@ export default function ProgressionPage() {
         activeKey="progression"
         title="Progression Engine"
         subtitle="Core XP and event-ingest layer for the linked achievement stack. This page is where the bot decides what gets tracked, how fast members climb, and which reward hooks become eligible."
+      />
+      <EngineContractPanel
+        engineKey="progression"
+        intro="Progression is the intake layer for the entire achievement family. Every XP event, anti-abuse rule, role reward, and category gate here changes what the rest of the stack can see."
+        related={[
+          { label: "Achievements", route: "/dashboard/achievements", reason: "achievement unlocks are downstream of progression events" },
+          { label: "Hall Of Fame", route: "/dashboard/halloffame", reason: "recognition only matters if progression intake is balanced correctly" },
+          { label: "Prestige", route: "/dashboard/prestige", reason: "prestige gating starts with max-level pacing here" },
+        ]}
       />
       <h1 style={{ marginTop: 0, letterSpacing: "0.12em", textTransform: "uppercase" }}>Progression Engine</h1>
       <p>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>

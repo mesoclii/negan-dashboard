@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
@@ -30,7 +31,7 @@ const DEFAULT_DOMINION: DominionCfg = {
   defaultRaidMaxTheft: 5000,
 };
 
-const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1200 };
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1280 };
 const card: React.CSSProperties = { border: "1px solid #6a0000", borderRadius: 12, background: "rgba(120,0,0,0.10)", padding: 14, marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", padding: "10px 12px", background: "#0b0b0b", color: "#ffd8d8", border: "1px solid #7a0000", borderRadius: 8 };
 
@@ -70,6 +71,15 @@ export default function DominionEnginePage() {
         <div style={card}>Loading dominion...</div>
       ) : (
         <>
+          <EngineContractPanel
+            engineKey="dominion"
+            intro="Dominion is the crew-vs-crew war layer. This page controls season cadence, raid availability, payout timing, and the default health/theft profile that every active raid starts from."
+            related={[
+              { label: "Crew", route: "/dashboard/crew", reason: "dominion ownership, raids, and war state all resolve against crew identity" },
+              { label: "Contracts", route: "/dashboard/contracts", reason: "dominion objectives and payouts should stay aligned with the wider economy loop" },
+              { label: "Hall Of Fame", route: "/dashboard/halloffame", reason: "major competitive milestones can surface into recognition and archive layers" },
+            ]}
+          />
           <EngineInsights summary={summary} details={details} />
 
           <section style={{ ...card, marginTop: 12 }}>
@@ -79,6 +89,23 @@ export default function DominionEnginePage() {
               <button onClick={() => runAction("resetSeason")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }}>
                 Reset Season
               </button>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Season Cadence</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Season length and decay windows define how fast the dominion map churns. Short seasons keep pressure high; longer seasons make territory income and raid defense matter more.
+                </div>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Raid Defaults</div>
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  Duration, health pool, and max theft are the baseline combat contract for every raid. If these drift too low, raids turn into free money instead of a real crew conflict loop.
+                </div>
+              </div>
             </div>
           </section>
 
