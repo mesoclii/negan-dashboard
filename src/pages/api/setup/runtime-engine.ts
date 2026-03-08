@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,6 +33,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method !== "GET" && isWriteBlockedForGuild(guildId)) {
       return res.status(403).json(stockLockError(guildId));
+    }
+
+    if (req.method !== "GET") {
+      const allowed = await requirePremiumAccess(req, res, guildId, engine);
+      if (allowed !== true) return allowed;
     }
 
     if (req.method === "GET") {

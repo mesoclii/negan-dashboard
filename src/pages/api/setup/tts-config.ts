@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 
 type TtsConfig = {
   active: boolean;
@@ -72,6 +73,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method !== "GET" && isWriteBlockedForGuild(guildId)) {
       return res.status(403).json(stockLockError(guildId));
+    }
+
+    if (req.method !== "GET") {
+      const allowed = await requirePremiumAccess(req, res, guildId, "tts");
+      if (allowed !== true) return allowed;
     }
 
     if (req.method === "GET") {

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs/promises";
 import path from "path";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 
 const STORE_FILE = path.join(process.cwd(), "data", "baselines", "ai-personas-config.json");
 
@@ -137,6 +138,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (method === "POST" || method === "PUT") {
       const guildId = String(req.body?.guildId || req.query.guildId || "").trim();
       if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+
+      const allowed = await requirePremiumAccess(req, res, guildId, "persona");
+      if (allowed !== true) return allowed;
 
       const patch = req.body?.patch ?? req.body?.config ?? req.body ?? {};
       const store = await readStore();

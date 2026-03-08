@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 
 type HeistOpsConfig = {
   active: boolean;
@@ -89,7 +90,7 @@ function writeStore(data: Record<string, HeistOpsConfig>) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), "utf8");
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const guildId = String(req.query.guildId || req.body?.guildId || "").trim();
   if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
 
@@ -101,6 +102,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (req.method === "POST" || req.method === "PUT") {
+    const allowed = await requirePremiumAccess(req, res, guildId, "heist");
+    if (allowed !== true) return allowed;
+
     const body = req.body || {};
     const next: HeistOpsConfig = {
       ...current,

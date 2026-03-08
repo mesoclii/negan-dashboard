@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 
 type PlanKey = "bronze" | "silver" | "gold" | "platinum" | "diamond";
 type Plan = {
@@ -100,7 +101,7 @@ function mergeCfg(base: AiPricingConfig, patch: Partial<AiPricingConfig>): AiPri
   };
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === "GET") {
       const guildId = String(req.query.guildId || "").trim();
@@ -114,6 +115,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === "POST") {
       const guildId = String(req.body?.guildId || "").trim();
       if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+
+      const allowed = await requirePremiumAccess(req, res, guildId, "openai-platform");
+      if (allowed !== true) return allowed;
 
       const patch = (req.body?.patch || req.body?.config || {}) as Partial<AiPricingConfig>;
       const store = readStore();
