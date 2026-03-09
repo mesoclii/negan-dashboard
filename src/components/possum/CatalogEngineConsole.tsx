@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ChangeEvent, CSSProperties } from "react";
-import EngineContractPanel from "@/components/possum/EngineContractPanel";
+import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { buildDashboardHref } from "@/lib/dashboardContext";
-import { getEngineSpec } from "@/lib/dashboardEngineCatalog";
 import { useGuildEngineEditor, type GuildChannel, type GuildRole } from "@/components/possum/useGuildEngineEditor";
 
 type QuickLink = {
@@ -23,6 +21,51 @@ type CatalogEngineConsoleProps = {
 
 type JsonRecord = Record<string, any>;
 
+type CatalogEdge = {
+  from?: string;
+  to?: string;
+  type?: string;
+  why?: string;
+  channel?: string;
+};
+
+type EngineField = {
+  key?: string;
+  type?: string;
+  label?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  maxLength?: number;
+};
+
+type EngineFieldGroup = {
+  key?: string;
+  label?: string;
+  fields?: EngineField[];
+};
+
+type EngineFieldSchema = {
+  title?: string;
+  groups?: EngineFieldGroup[];
+};
+
+type LiveEngineSpec = {
+  engineKey: string;
+  configKey?: string;
+  displayName?: string;
+  category?: string;
+  premiumRequired?: boolean;
+  privateOnly?: boolean;
+  decisionLogic?: string;
+  hardDependencies?: {
+    services?: string[];
+    envVars?: string[];
+    runtimeFlags?: string[];
+  };
+};
+
 const shell: CSSProperties = {
   color: "#ffd0d0",
   padding: 18,
@@ -34,14 +77,6 @@ const card: CSSProperties = {
   borderRadius: 14,
   padding: 16,
   background: "linear-gradient(180deg, rgba(120,0,0,0.12), rgba(0,0,0,0.72))",
-  marginTop: 12,
-};
-
-const fieldset: CSSProperties = {
-  border: "1px solid #450000",
-  borderRadius: 12,
-  padding: 14,
-  background: "rgba(120,0,0,0.08)",
   marginTop: 12,
 };
 
@@ -104,6 +139,13 @@ function updateAtPath(input: any, path: string[], nextValue: any): any {
   };
 }
 
+function getAtPath(input: any, path: string[]) {
+  return path.reduce((current, segment) => {
+    if (!current || typeof current !== "object") return undefined;
+    return current[segment];
+  }, input);
+}
+
 function toggle(list: string[], id: string) {
   const set = new Set((Array.isArray(list) ? list : []).map((value) => String(value || "").trim()).filter(Boolean));
   if (set.has(id)) set.delete(id);
@@ -124,7 +166,7 @@ function parseNumberish(value: string, fallback: number) {
 }
 
 function looksLongText(key: string) {
-  return /(message|template|notes|description|intro|footer|content|copy|text|prompt|backstory)/i.test(key);
+  return /(message|template|notes|description|intro|footer|content|copy|text|prompt|backstory|logic)/i.test(key);
 }
 
 function looksImageField(key: string) {
@@ -209,6 +251,225 @@ function renderIdChecklist({
   );
 }
 
+function ChannelWeightListField({
+  value,
+  channels,
+  update,
+}: {
+  value: any;
+  channels: GuildChannel[];
+  update: (nextValue: any) => void;
+}) {
+  const options = getTextChannels(channels);
+  const rows = Array.isArray(value)
+    ? value.map((entry) =>
+        isPlainObject(entry)
+          ? {
+              channelId: String(entry.channelId || entry.id || ""),
+              weight: Number(entry.weight || 1),
+            }
+          : { channelId: "", weight: 1 }
+      )
+    : [];
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {rows.map((row, index) => (
+        <div key={`${row.channelId || "row"}_${index}`} style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 10 }}>
+          <select
+            style={input}
+            value={row.channelId}
+            onChange={(event) => {
+              const next = [...rows];
+              next[index] = { ...row, channelId: event.target.value };
+              update(next);
+            }}
+          >
+            <option value="">Select channel</option>
+            {options.map((channel) => (
+              <option key={channel.id} value={channel.id}>
+                #{channel.name}
+              </option>
+            ))}
+          </select>
+          <input
+            style={input}
+            type="number"
+            min={1}
+            value={row.weight}
+            onChange={(event) => {
+              const next = [...rows];
+              next[index] = { ...row, weight: parseNumberish(event.target.value, 1) };
+              update(next);
+            }}
+          />
+          <button type="button" style={button} onClick={() => update(rows.filter((_, rowIndex) => rowIndex !== index))}>
+            Remove
+          </button>
+        </div>
+      ))}
+      <div>
+        <button type="button" style={button} onClick={() => update([...rows, { channelId: "", weight: 1 }])}>
+          Add Channel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SchemaField({
+  field,
+  value,
+  channels,
+  roles,
+  update,
+}: {
+  field: EngineField;
+  value: any;
+  channels: GuildChannel[];
+  roles: GuildRole[];
+  update: (nextValue: any) => void;
+}) {
+  const fieldKey = String(field.key || "");
+  const labelText = String(field.label || humanize(fieldKey || "value"));
+  const type = String(field.type || "string");
+  const textChannels = getTextChannels(channels);
+  const voiceChannels = getVoiceChannels(channels);
+
+  if (type === "boolean") {
+    return (
+      <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+        <input type="checkbox" checked={Boolean(value)} onChange={(event) => update(event.target.checked)} /> {labelText}
+      </label>
+    );
+  }
+
+  if (type === "number") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <input
+          style={input}
+          type="number"
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          value={Number(value ?? field.min ?? 0)}
+          onChange={(event) => update(parseNumberish(event.target.value, Number(value ?? field.min ?? 0)))}
+        />
+      </div>
+    );
+  }
+
+  if (type === "textarea") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <textarea style={{ ...input, minHeight: 120 }} value={String(value ?? "")} onChange={(event) => update(event.target.value)} />
+      </div>
+    );
+  }
+
+  if (type === "select") {
+    const options = Array.isArray(field.options) ? field.options : [];
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <select style={input} value={String(value || "")} onChange={(event) => update(event.target.value)}>
+          <option value="">Select</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (type === "channel-single") {
+    const options = /voice/i.test(labelText) ? voiceChannels : textChannels;
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <select style={input} value={String(value || "")} onChange={(event) => update(event.target.value)}>
+          <option value="">Not set</option>
+          {options.map((channel) => (
+            <option key={channel.id} value={channel.id}>
+              {options === textChannels ? "#" : ""}
+              {channel.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (type === "channel-multi") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        {renderIdChecklist({
+          values: Array.isArray(value) ? value.map((entry) => String(entry)) : [],
+          options: textChannels.map((channel) => ({ id: channel.id, name: `#${channel.name}` })),
+          prefix: fieldKey || labelText,
+          onToggle: (id) => update(toggle(Array.isArray(value) ? value.map((entry) => String(entry)) : [], id)),
+        })}
+      </div>
+    );
+  }
+
+  if (type === "role-single") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <select style={input} value={String(value || "")} onChange={(event) => update(event.target.value)}>
+          <option value="">Not set</option>
+          {roles.map((role) => (
+            <option key={role.id} value={role.id}>
+              @{role.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (type === "role-multi") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        {renderIdChecklist({
+          values: Array.isArray(value) ? value.map((entry) => String(entry)) : [],
+          options: roles.map((role) => ({ id: role.id, name: `@${role.name}` })),
+          prefix: fieldKey || labelText,
+          onToggle: (id) => update(toggle(Array.isArray(value) ? value.map((entry) => String(entry)) : [], id)),
+        })}
+      </div>
+    );
+  }
+
+  if (type === "string-list") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <textarea style={{ ...input, minHeight: 120 }} value={Array.isArray(value) ? value.map((entry) => String(entry)).join("\n") : ""} onChange={(event) => update(lines(event.target.value))} />
+      </div>
+    );
+  }
+
+  if (type === "channel-weight-list") {
+    return (
+      <div>
+        <div style={label}>{labelText}</div>
+        <ChannelWeightListField value={value} channels={channels} update={update} />
+      </div>
+    );
+  }
+
+  return <ConfigField path={[fieldKey || "value"]} value={value} channels={channels} roles={roles} update={update} />;
+}
+
 function ConfigField({
   path,
   value,
@@ -239,7 +500,7 @@ function ConfigField({
   if (isPlainObject(value)) {
     const entries = Object.entries(value);
     return (
-      <div style={fieldset}>
+      <div style={card}>
         <div style={{ ...label, marginBottom: 10 }}>{title}</div>
         <div style={{ display: "grid", gap: 12 }}>
           {entries.length ? (
@@ -308,11 +569,7 @@ function ConfigField({
       return (
         <div>
           <div style={label}>{title}</div>
-          <textarea
-            style={{ ...input, minHeight: 110 }}
-            value={value.map((entry) => String(entry ?? "")).join("\n")}
-            onChange={(event) => update(lines(event.target.value))}
-          />
+          <textarea style={{ ...input, minHeight: 110 }} value={value.map((entry) => String(entry ?? "")).join("\n")} onChange={(event) => update(lines(event.target.value))} />
         </div>
       );
     }
@@ -470,7 +727,9 @@ export default function CatalogEngineConsole({
   commandId = "",
   links = [],
 }: CatalogEngineConsoleProps) {
-  const spec = getEngineSpec(engineKey);
+  const [spec, setSpec] = useState<LiveEngineSpec | null>(null);
+  const [fieldSchema, setFieldSchema] = useState<EngineFieldSchema | null>(null);
+  const [edges, setEdges] = useState<CatalogEdge[]>([]);
   const {
     guildId,
     guildName,
@@ -486,20 +745,75 @@ export default function CatalogEngineConsole({
     save,
   } = useGuildEngineEditor<JsonRecord>(engineKey, {});
 
+  useEffect(() => {
+    if (!guildId) return;
+    let cancelled = false;
+
+    (async () => {
+      const res = await fetch(`/api/bot/engine-catalog?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engineKey)}`, {
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (cancelled || !res.ok || json?.success === false) return;
+
+      const specs = Array.isArray(json?.engineSpecs) ? json.engineSpecs : [];
+      const found =
+        specs.find((entry) => String(entry?.engineKey || "").trim() === engineKey) ||
+        specs.find((entry) => String(entry?.configKey || "").trim() === engineKey) ||
+        null;
+
+      setSpec(found);
+      setFieldSchema(json?.fieldSchema && typeof json.fieldSchema === "object" ? json.fieldSchema : null);
+      setEdges(Array.isArray(json?.connections?.edges) ? json.connections.edges : []);
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [engineKey, guildId]);
+
+  const entries = Object.entries(config || {});
+  const groupedSchema = useMemo(
+    () => (Array.isArray(fieldSchema?.groups) ? fieldSchema.groups.filter((group) => Array.isArray(group?.fields) && group.fields.length) : []),
+    [fieldSchema]
+  );
+  const dependencyState = useMemo(() => {
+    const incoming = edges.filter((edge) => String(edge.to || "").trim() === engineKey);
+    const outgoing = edges.filter((edge) => String(edge.from || "").trim() === engineKey);
+    return { incoming, outgoing };
+  }, [edges, engineKey]);
+
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
   }
 
-  const entries = Object.entries(config || {});
-
   return (
     <section style={shell}>
-      <h1 style={{ margin: 0, color: "#ff4f4f", letterSpacing: "0.10em", textTransform: "uppercase" }}>{title}</h1>
-      <p style={{ marginTop: 10, color: "#ffabab" }}>{description}</p>
-      <p style={{ marginTop: 0, color: "#ffbdbd" }}>
-        Guild: <b>{guildName || guildId}</b>
-        {commandId ? <> | Commands: <b>{commandId}</b></> : null}
-      </p>
+      <div style={card}>
+        <div style={{ ...label, marginBottom: 8 }}>Live Engine Surface</div>
+        <div style={{ color: "#ff4545", fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.10em" }}>
+          {title || spec?.displayName || humanize(engineKey)}
+        </div>
+        <div style={{ color: "#ffabab", marginTop: 8 }}>
+          Guild: <b>{guildName || guildId}</b>
+          {commandId ? (
+            <>
+              {" "}
+              | Commands: <b>{commandId}</b>
+            </>
+          ) : null}
+        </div>
+        <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginTop: 10 }}>
+          {description || spec?.decisionLogic || "This page writes directly into the live engine config for the selected guild."}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          {links.map((item) => (
+            <Link key={item.href} href={buildDashboardHref(item.href)} style={{ ...button, textDecoration: "none" }}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {message ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{message}</div> : null}
 
@@ -507,57 +821,75 @@ export default function CatalogEngineConsole({
         <div style={card}>Loading engine runtime...</div>
       ) : (
         <>
-          {spec ? (
-            <EngineContractPanel
-              engineKey={engineKey}
-              title={title}
-              intro={description}
-              related={links.map((item) => ({ label: item.label, route: item.href, reason: "linked operational surface" }))}
-            />
-          ) : (
-            <div style={card}>
-              <div style={{ ...label, marginBottom: 8 }}>Runtime Contract</div>
-              <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
-                This engine is using the live runtime editor without a documented catalog contract yet.
-              </div>
-            </div>
-          )}
-
           <EngineInsights summary={summary} details={details} />
 
-          <div style={card}>
-            <div style={{ ...label, marginBottom: 10 }}>Live Operator Surface</div>
-            <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
-              This tab is now bound to the live per-guild engine config instead of the old placeholder editor. Channel IDs, roles, limits, policy
-              thresholds, templates, and image-backed presentation fields all save directly to the bot runtime for <b>{spec?.displayName || title}</b>.
-            </div>
-          </div>
-
-          {entries.length ? (
-            entries.map(([key, value]) => (
-              <div key={key} style={card}>
-                <ConfigField
-                  path={[key]}
-                  value={value}
-                  channels={channels}
-                  roles={roles}
-                  update={(nextValue) => setConfig((prev) => updateAtPath(prev, [key], nextValue))}
-                />
-              </div>
-            ))
-          ) : (
+          {(dependencyState.incoming.length || dependencyState.outgoing.length || spec?.hardDependencies) ? (
             <div style={card}>
-              <div style={{ color: "#ffbcbc" }}>No engine-specific overrides are saved yet. Save once to create the live runtime config for this guild.</div>
+              <div style={{ ...label, marginBottom: 8 }}>Dependency Impact</div>
+              {dependencyState.incoming.length ? (
+                <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginBottom: 8 }}>
+                  Depends on: {dependencyState.incoming.map((edge) => humanize(String(edge.from || "unknown"))).join(", ")}
+                </div>
+              ) : null}
+              {dependencyState.outgoing.length ? (
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7, marginBottom: 8 }}>
+                  Feeds into: {dependencyState.outgoing.map((edge) => humanize(String(edge.to || "unknown"))).join(", ")}
+                </div>
+              ) : null}
+              {spec?.hardDependencies?.services?.length ? (
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+                  Services: {spec.hardDependencies.services.join(", ")}
+                </div>
+              ) : null}
             </div>
-          )}
+          ) : null}
 
-          <div style={{ ...card, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {links.map((item) => (
-                <Link key={item.href} href={buildDashboardHref(item.href)} style={{ ...button, textDecoration: "none" }}>
-                  {item.label}
-                </Link>
-              ))}
+          {groupedSchema.length
+            ? groupedSchema.map((group) => (
+                <div key={String(group.key || group.label || "group")} style={card}>
+                  <div style={{ ...label, marginBottom: 10 }}>{String(group.label || humanize(String(group.key || "group")))}</div>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {(group.fields || []).map((field) => {
+                      const path = String(field.key || "")
+                        .split(".")
+                        .map((part) => part.trim())
+                        .filter(Boolean);
+                      if (!path.length) return null;
+                      return (
+                        <SchemaField
+                          key={path.join(".")}
+                          field={field}
+                          value={getAtPath(config, path)}
+                          channels={channels}
+                          roles={roles}
+                          update={(nextValue) => setConfig((prev) => updateAtPath(prev, path, nextValue))}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            : entries.length
+              ? entries.map(([key, value]) => (
+                  <ConfigField
+                    key={key}
+                    path={[key]}
+                    value={value}
+                    channels={channels}
+                    roles={roles}
+                    update={(nextValue) => setConfig((prev) => updateAtPath(prev, [key], nextValue))}
+                  />
+                ))
+              : (
+                <div style={card}>
+                  <div style={{ color: "#ffbcbc" }}>No engine-specific overrides are saved yet. Save once to create the live runtime config for this guild.</div>
+                </div>
+              )}
+
+          <div style={{ ...card, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+              {spec?.premiumRequired ? "Premium engine." : "Standard engine."}
+              {spec?.privateOnly ? " Private-only surface." : ""}
             </div>
             <button type="button" onClick={() => save()} disabled={saving} style={button}>
               {saving ? "Saving..." : "Save Engine"}

@@ -29,19 +29,6 @@ const tabBase: React.CSSProperties = {
   border: "1px solid rgba(255,0,0,.30)",
 };
 
-const relationshipCopy: Record<ProgressionStackKey, string> = {
-  progression:
-    "Progression is the event intake layer. Messages, invites, games, onboarding, economy actions, and AI interactions all feed counters here before unlock systems above it react.",
-  achievements:
-    "Achievements sit on top of progression events. This layer watches the tracked actions, grants milestones, and pushes badge-panel or announce behavior when thresholds are met.",
-  hallOfFame:
-    "Hall Of Fame is the recognition layer. It reads the achievement output and surfaces top achievers instead of driving the progression loop itself.",
-  loyalty:
-    "Loyalty is the long-tail retention layer. It is separate from raw XP, but it feeds benefit timing and reward consistency that matter across VIP, radio, and prestige value.",
-  prestige:
-    "Prestige is the late-loop reset and elevation layer. In your current build, achievement prestige also exists as a separate milestone path once a user clears a high achievement threshold.",
-};
-
 export default function ProgressionStackShell({
   activeKey,
   title,
@@ -72,7 +59,6 @@ export default function ProgressionStackShell({
           {title}
         </div>
         <div style={{ color: "#ffd0d0", lineHeight: 1.7, maxWidth: 980, marginTop: 8 }}>{subtitle}</div>
-        <div style={{ color: "#ffb2b2", lineHeight: 1.7, maxWidth: 980, marginTop: 8 }}>{relationshipCopy[activeKey]}</div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
           {PROGRESSION_STACK.map((item) => {

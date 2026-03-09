@@ -19,10 +19,27 @@ const card: CSSProperties = {
 export default function EngineInsights({
   summary,
   details,
+  showDetails = false,
 }: {
   summary: EngineSummaryItem[];
   details: EngineDetails;
+  showDetails?: boolean;
 }) {
+  if (!showDetails) {
+    return summary.length ? (
+      <section style={grid}>
+        {summary.map((item) => (
+          <div key={`${item.label}_${item.value}`} style={card}>
+            <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {item.label}
+            </div>
+            <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{item.value}</div>
+          </div>
+        ))}
+      </section>
+    ) : null;
+  }
+
   const detailEntries = Object.entries(details || {}).filter(([, value]) => {
     if (!value) return false;
     if (Array.isArray(value)) return value.length > 0;
