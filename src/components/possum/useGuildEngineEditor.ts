@@ -89,6 +89,30 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setMessage("");
     try {
       const patch = { ...(config as any), ...(nextPatch || {}) };
+      const validateRes = await fetch("/api/setup/runtime-engine-validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guildId, engine, patch }),
+      });
+      const validateJson = await validateRes.json().catch(() => ({}));
+      if (!validateRes.ok || validateJson?.success === false) {
+        throw new Error(validateJson?.error || "Validation failed.");
+      }
+      const validation = validateJson?.validation || {};
+      const blocked = Array.isArray(validation?.blocked) ? validation.blocked.filter(Boolean) : [];
+      const warnings = Array.isArray(validation?.warnings) ? validation.warnings.filter(Boolean) : [];
+      if (blocked.length) {
+        throw new Error(blocked.join(" | "));
+      }
+      if (warnings.length && typeof window !== "undefined") {
+        const confirmed = window.confirm(
+          ["This change affects connected engines:", ...warnings.map((item: string) => `- ${item}`), "", "Continue with save?"].join("\n")
+        );
+        if (!confirmed) {
+          setMessage("Save cancelled.");
+          return null;
+        }
+      }
       const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +125,8 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setConfig({ ...(defaults as any), ...(json?.config || patch) });
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
-      setMessage("Saved.");
+      const saveWarnings = Array.isArray(json?.validation?.warnings) ? json.validation.warnings.filter(Boolean) : [];
+      setMessage(saveWarnings.length ? `Saved. ${saveWarnings.join(" | ")}` : "Saved.");
       return json;
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");

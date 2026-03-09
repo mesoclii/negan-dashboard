@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.containment"
       title="Containment Engine"
-      intro="Controls automated slowmode and isolation behavior when guild or category risk reaches the configured emergency threshold."
-      related={[
-        { route: "/dashboard/security/escalation", label: "Escalation", reason: "containment normally follows escalation state" },
-        { route: "/dashboard/security/policy", label: "Security Policy", reason: "containment behavior should match governance posture" },
+      description="Control automated slowmode and isolation behavior when guild or category risk reaches the configured emergency threshold."
+      links={[
+        { href: "/dashboard/security/escalation", label: "Escalation" },
+        { href: "/dashboard/security/policy", label: "Security Policy" },
       ]}
     />
   );

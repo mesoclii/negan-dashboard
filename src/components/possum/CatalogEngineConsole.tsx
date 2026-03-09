@@ -777,12 +777,6 @@ export default function CatalogEngineConsole({
     () => (Array.isArray(fieldSchema?.groups) ? fieldSchema.groups.filter((group) => Array.isArray(group?.fields) && group.fields.length) : []),
     [fieldSchema]
   );
-  const dependencyState = useMemo(() => {
-    const incoming = edges.filter((edge) => String(edge.to || "").trim() === engineKey);
-    const outgoing = edges.filter((edge) => String(edge.from || "").trim() === engineKey);
-    return { incoming, outgoing };
-  }, [edges, engineKey]);
-
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
   }
@@ -822,27 +816,6 @@ export default function CatalogEngineConsole({
       ) : (
         <>
           <EngineInsights summary={summary} details={details} />
-
-          {(dependencyState.incoming.length || dependencyState.outgoing.length || spec?.hardDependencies) ? (
-            <div style={card}>
-              <div style={{ ...label, marginBottom: 8 }}>Dependency Impact</div>
-              {dependencyState.incoming.length ? (
-                <div style={{ color: "#ffd0d0", lineHeight: 1.7, marginBottom: 8 }}>
-                  Depends on: {dependencyState.incoming.map((edge) => humanize(String(edge.from || "unknown"))).join(", ")}
-                </div>
-              ) : null}
-              {dependencyState.outgoing.length ? (
-                <div style={{ color: "#ffbcbc", lineHeight: 1.7, marginBottom: 8 }}>
-                  Feeds into: {dependencyState.outgoing.map((edge) => humanize(String(edge.to || "unknown"))).join(", ")}
-                </div>
-              ) : null}
-              {spec?.hardDependencies?.services?.length ? (
-                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
-                  Services: {spec.hardDependencies.services.join(", ")}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           {groupedSchema.length
             ? groupedSchema.map((group) => (

@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.crewSecurity"
       title="Crew Security Engine"
-      intro="Monitors suspicious crew-to-crew patterns, funneling, and ping-pong behavior so GTA operations can be protected without flattening the whole guild."
-      related={[
-        { route: "/dashboard/crew", label: "Crew Engine", reason: "crew policy should match live crew mechanics" },
-        { route: "/dashboard/security/engines", label: "Security Engines", reason: "crew signals still feed the shared stack" },
+      description="Monitor suspicious crew-to-crew patterns, funneling, and ping-pong behavior so GTA operations can be protected without flattening the whole guild."
+      links={[
+        { href: "/dashboard/crew", label: "Crew Engine" },
+        { href: "/dashboard/security/engines", label: "Security Engines" },
       ]}
     />
   );

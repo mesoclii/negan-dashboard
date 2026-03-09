@@ -1,0 +1,49 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    try {
+      await enforceDashboardRateLimit(req, "runtime_engine_validate");
+    } catch (error: any) {
+      if (isRateLimitError(error)) {
+        return res.status(429).json({ success: false, error: "Too many validation requests. Please retry shortly." });
+      }
+    }
+
+    if (req.method !== "POST") {
+      return res.status(405).json({ success: false, error: "Method not allowed" });
+    }
+
+    const guildId = String(req.body?.guildId || "").trim();
+    const engine = String(req.body?.engine || "").trim();
+    const patch =
+      req.body?.patch && typeof req.body.patch === "object"
+        ? req.body.patch
+        : req.body?.config && typeof req.body.config === "object"
+          ? req.body.config
+          : {};
+
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: "guildId is required" });
+    }
+    if (!engine) {
+      return res.status(400).json({ success: false, error: "engine is required" });
+    }
+
+    const allowed = await requirePremiumAccess(req, res, guildId, engine);
+    if (allowed !== true) return allowed;
+
+    const upstream = await fetch(`${BOT_API}/engine-runtime/validate`, {
+      method: "POST",
+      headers: buildBotApiHeaders(req, { json: true }),
+      body: JSON.stringify({ guildId, engine, patch }),
+    });
+    const json = await readJsonSafe(upstream);
+    return res.status(upstream.status).json(json);
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || "Internal error" });
+  }
+}

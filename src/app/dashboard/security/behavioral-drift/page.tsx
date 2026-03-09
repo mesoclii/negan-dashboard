@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.behavioralDrift"
       title="Behavioral Drift Engine"
-      intro="Tracks message volume, content shift, and interaction pattern drift so unusual changes can be fed into trust and escalation scoring."
-      related={[
-        { route: "/dashboard/security/engines", label: "Security Engines", reason: "keep drift tuned alongside the rest of the stack" },
-        { route: "/dashboard/security/risk-escalation", label: "Risk Escalation", reason: "drift contributes directly to escalation" },
+      description="Track message volume, content shift, and interaction pattern drift for this guild so unusual changes can feed trust and escalation scoring."
+      links={[
+        { href: "/dashboard/security/engines", label: "Security Engines" },
+        { href: "/dashboard/security/risk-escalation", label: "Risk Escalation" },
       ]}
     />
   );

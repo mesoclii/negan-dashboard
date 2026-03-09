@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.threatIntel"
       title="Threat Intel Engine"
-      intro="Composes live join, link, integrity, and wave signals into a coherent threat score so the rest of the stack can react with context."
-      related={[
-        { route: "/dashboard/security/link-intel", label: "Link Intel", reason: "link reputation is a main threat input" },
-        { route: "/dashboard/security/account-integrity", label: "Account Integrity", reason: "account trust should influence threat levels" },
+      description="Compose live join, link, integrity, and wave signals into a coherent threat score so the rest of the stack can react with context."
+      links={[
+        { href: "/dashboard/security/link-intel", label: "Link Intel" },
+        { href: "/dashboard/security/account-integrity", label: "Account Integrity" },
       ]}
     />
   );

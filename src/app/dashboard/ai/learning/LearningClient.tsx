@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import AiTabs from "@/components/possum/AiTabs";
 import EngineInsights from "@/components/possum/EngineInsights";
-import type { EngineDetails, EngineSummaryItem } from "@/components/possum/useGuildEngineEditor";
+import type { EngineDetails, EngineSummaryItem, GuildChannel } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type PossumSettings = {
@@ -17,6 +17,11 @@ type PossumSettings = {
   gamerMode: boolean;
   regionAware: boolean;
   escalationOn: boolean;
+};
+
+type ChannelModeRow = {
+  channelId: string;
+  mode: string;
 };
 
 const DEFAULT_SETTINGS: PossumSettings = {
@@ -107,13 +112,13 @@ const ACTIVE_MODULES = [
 ];
 
 const DATA_ASSETS = [
-  "data/negan/authority.*",
-  "data/negan/ambient.*",
-  "data/negan/gta.*",
-  "data/negan/tech.*",
-  "data/negan/regions.*",
-  "data/negan/monologues.*",
-  "data/negan/rockstar/*",
+  "Authority response bank",
+  "Ambient chatter bank",
+  "GTA / ops topic bank",
+  "Tech / moderation topic bank",
+  "Regional reply variants",
+  "Monologue / escalation lines",
+  "Rockstar / community topic packs",
 ];
 
 const PERSISTENCE_MODELS = [
@@ -131,6 +136,13 @@ const LEARNING_WRITES = [
   "Channel profile updates: average profanity, dominant topics, activity score",
   "Knowledge storage: snippets of longer messages stored by topic and source user",
   "No Persona AI writes into these adaptive profile tables",
+];
+
+const CHANNEL_MODE_OPTIONS = [
+  { value: "adaptive", label: "Adaptive" },
+  { value: "quiet", label: "Quiet" },
+  { value: "direct", label: "Direct Replies" },
+  { value: "monitor", label: "Monitor Only" },
 ];
 
 const SLIDER_FIELDS: Array<{
@@ -170,6 +182,8 @@ export default function LearningClient() {
   const [adaptiveEnabled, setAdaptiveEnabled] = useState(false);
   const [personaEnabled, setPersonaEnabled] = useState(false);
   const [settings, setSettings] = useState<PossumSettings>(DEFAULT_SETTINGS);
+  const [channelModes, setChannelModes] = useState<ChannelModeRow[]>([]);
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [summary, setSummary] = useState<EngineSummaryItem[]>([]);
   const [details, setDetails] = useState<EngineDetails>({});
 
@@ -182,27 +196,54 @@ export default function LearningClient() {
     try {
       setLoading(true);
       setMessage("");
-      const [runtimeRes, settingsRes] = await Promise.all([
+      const [runtimeRes, settingsRes, guildRes] = await Promise.all([
         fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=runtimeRouter`, {
           cache: "no-store",
         }),
         fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(targetGuildId)}`, {
           cache: "no-store",
         }),
+        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, {
+          cache: "no-store",
+        }),
       ]);
 
       const runtimeJson = await readJsonOrThrow(runtimeRes);
       const settingsJson = await readJsonOrThrow(settingsRes);
+      const guildJson = await readJsonOrThrow(guildRes);
 
       setGuildName(targetGuildName);
       setAdaptiveEnabled(runtimeJson?.config?.adaptiveAiEnabled !== false);
       setPersonaEnabled(Boolean(runtimeJson?.config?.personaAiEnabled));
       setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
       setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
+      setChannels(
+        Array.isArray(guildJson?.channels)
+          ? guildJson.channels
+              .map((channel: any) => ({
+                id: String(channel?.id || "").trim(),
+                name: String(channel?.name || "").trim(),
+                type: channel?.type,
+                parentId: channel?.parentId ?? null,
+              }))
+              .filter((channel: GuildChannel) => channel.id)
+              .sort((a: GuildChannel, b: GuildChannel) => a.name.localeCompare(b.name))
+          : []
+      );
       setSettings({
         ...DEFAULT_SETTINGS,
         ...(settingsJson?.config || {}),
       });
+      setChannelModes(
+        Array.isArray(settingsJson?.channelModes)
+          ? settingsJson.channelModes
+              .map((row: any) => ({
+                channelId: String(row?.channelId || "").trim(),
+                mode: String(row?.mode || "adaptive").trim() || "adaptive",
+              }))
+              .filter((row: ChannelModeRow) => row.channelId)
+          : []
+      );
     } catch (err: any) {
       setMessage(err?.message || "Failed to load Possum AI.");
     } finally {
@@ -254,6 +295,7 @@ export default function LearningClient() {
         body: JSON.stringify({
           guildId,
           patch: settings,
+          channelModes,
         }),
       });
       const json = await readJsonOrThrow(res);
@@ -322,6 +364,25 @@ export default function LearningClient() {
     }
   }
 
+  const routingDetails = Array.isArray(details?.routing) ? details.routing : [];
+  const adaptiveProfileDetails = Array.isArray(details?.adaptiveProfile) ? details.adaptiveProfile : [];
+  const runtimeMemoryDetails = Array.isArray(details?.runtimeMemory) ? details.runtimeMemory : [];
+  const topicDetails = Array.isArray(details?.topTopics) ? details.topTopics : [];
+  const knowledgeSamples = Array.isArray(details?.knowledgeSamples) ? details.knowledgeSamples : [];
+  const textChannels = channels.filter((channel) => {
+    const type = Number(channel?.type);
+    const text = String(channel?.type || "").toLowerCase();
+    return type === 0 || text.includes("text");
+  });
+
+  function updateChannelMode(index: number, patch: Partial<ChannelModeRow>) {
+    setChannelModes((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
+  }
+
+  function removeChannelMode(index: number) {
+    setChannelModes((current) => current.filter((_, rowIndex) => rowIndex !== index));
+  }
+
   if (!guildId) {
     return <div style={{ color: "#ff8585", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
   }
@@ -385,6 +446,64 @@ export default function LearningClient() {
             <div style={card}>
               <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Adaptive Identity</div>
               <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Bot Knowledge Base</div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div>
+                <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  Channel Mode Overrides
+                </div>
+                <div style={{ color: "#ffbdbd", fontSize: 12, maxWidth: 900 }}>
+                  Override how Possum AI behaves in specific channels without touching Persona AI. These modes are stored per guild and applied directly to the adaptive assistant path.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChannelModes((current) => [...current, { channelId: "", mode: "adaptive" }])}
+                disabled={saving}
+                style={action}
+              >
+                Add Channel Mode
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+              {channelModes.length ? channelModes.map((row, index) => (
+                <div key={`${row.channelId || "new"}_${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 220px auto", gap: 10, alignItems: "end" }}>
+                  <div>
+                    <label>Channel</label>
+                    <select
+                      style={input}
+                      value={row.channelId}
+                      onChange={(e) => updateChannelMode(index, { channelId: e.target.value })}
+                    >
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          #{channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Mode</label>
+                    <select style={input} value={row.mode} onChange={(e) => updateChannelMode(index, { mode: e.target.value })}>
+                      {CHANNEL_MODE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button type="button" onClick={() => removeChannelMode(index)} disabled={saving} style={action}>
+                    Remove
+                  </button>
+                </div>
+              )) : (
+                <div style={{ color: "#ffbdbd", fontSize: 12 }}>No per-channel Possum overrides saved yet.</div>
+              )}
             </div>
           </section>
 
@@ -527,6 +646,58 @@ export default function LearningClient() {
                   Wipe Knowledge
                 </button>
               </div>
+            </div>
+          </section>
+
+          <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Live Routing State
+              </div>
+              {(routingDetails.length ? routingDetails : adaptiveProfileDetails).map((item, index) => (
+                <div key={`${item.title || item.name || "routing"}_${index}`} style={{ borderTop: "1px solid #330000", paddingTop: 8, marginTop: 8 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.title || item.name}</div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.6, marginTop: 4 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Runtime Memory
+              </div>
+              {runtimeMemoryDetails.map((item, index) => (
+                <div key={`${item.title || item.name || "memory"}_${index}`} style={{ borderTop: "1px solid #330000", paddingTop: 8, marginTop: 8 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.title || item.name}</div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.6, marginTop: 4 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Top Learned Topics
+              </div>
+              {topicDetails.length ? topicDetails.map((item, index) => (
+                <div key={`${item.name || item.title || "topic"}_${index}`} style={{ borderTop: "1px solid #330000", paddingTop: 8, marginTop: 8 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.name || item.title}</div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.6, marginTop: 4 }}>{item.value}</div>
+                </div>
+              )) : <div style={{ color: "#ffbdbd", fontSize: 12 }}>No learned topics yet for this guild.</div>}
+            </div>
+
+            <div style={card}>
+              <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Knowledge Samples
+              </div>
+              {knowledgeSamples.length ? knowledgeSamples.map((item, index) => (
+                <div key={`${item.name || item.title || "sample"}_${index}`} style={{ borderTop: "1px solid #330000", paddingTop: 8, marginTop: 8 }}>
+                  <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.title || item.name}</div>
+                  <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.6, marginTop: 4 }}>{item.value}</div>
+                </div>
+              )) : <div style={{ color: "#ffbdbd", fontSize: 12 }}>No knowledge snippets stored for this guild yet.</div>}
             </div>
           </section>
 

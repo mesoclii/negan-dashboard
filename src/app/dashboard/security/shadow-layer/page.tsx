@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.shadowLayer"
       title="Shadow Layer Engine"
-      intro="Applies hidden suppression and interaction deny rules for high-risk users when you want quiet containment instead of visible enforcement."
-      related={[
-        { route: "/dashboard/security/containment", label: "Containment", reason: "shadow controls should match visible containment rules" },
-        { route: "/dashboard/security/policy", label: "Security Policy", reason: "suppression should obey governance posture" },
+      description="Apply hidden suppression and interaction deny rules for high-risk users when you want quiet containment instead of visible enforcement."
+      links={[
+        { href: "/dashboard/security/containment", label: "Containment" },
+        { href: "/dashboard/security/policy", label: "Security Policy" },
       ]}
     />
   );

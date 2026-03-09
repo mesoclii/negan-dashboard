@@ -2,6 +2,8 @@ node_modules
 .next
 .env
 prisma/dashboard.db
+prisma/*.db-shm
+prisma/*.db-wal
 *.log
 *.tar.gz
 *.bak

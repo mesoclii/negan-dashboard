@@ -1,14 +1,14 @@
-import SecuritySubEngineConsole from "@/components/possum/SecuritySubEngineConsole";
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <SecuritySubEngineConsole
+    <CatalogEngineConsole
       engineKey="security.accountIntegrity"
       title="Account Integrity Engine"
-      intro="Scores account age, profile integrity, and baseline trust signals before they flow into the broader threat and escalation pipeline."
-      related={[
-        { route: "/dashboard/security/engines", label: "Security Engines", reason: "see how integrity fits into the full stack" },
-        { route: "/dashboard/security/trust-weight", label: "Trust Weight", reason: "integrity weighting feeds trust calculations" },
+      description="Score account age, profile integrity, and baseline trust signals for this guild before those signals flow into the broader threat and escalation pipeline."
+      links={[
+        { href: "/dashboard/security/engines", label: "Security Engines" },
+        { href: "/dashboard/security/trust-weight", label: "Trust Weight" },
       ]}
     />
   );
