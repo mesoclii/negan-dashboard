@@ -280,7 +280,7 @@ export default function BotPersonalizerClient() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
               <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-                This page controls Possum AI identity, naming, webhook branding, and guild-facing presentation. Persona AI is a separate paid surface and does not control this page.
+                This page controls Possum AI identity, naming, webhook branding, and guild-facing presentation for this guild.
               </div>
               <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
                 Open Possum AI
