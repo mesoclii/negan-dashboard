@@ -111,7 +111,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     }
   }
 
-  async function runAction(action: string) {
+  async function runAction(action: string, payload?: Record<string, unknown>) {
     if (!guildId) return null;
     setSaving(true);
     setMessage("");
@@ -119,7 +119,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       const res = await fetch("/api/setup/runtime-engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, engine, action }),
+        body: JSON.stringify({ guildId, engine, action, payload }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {

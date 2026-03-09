@@ -1,0 +1,204 @@
+"use client";
+
+import EngineContractPanel from "@/components/possum/EngineContractPanel";
+import EngineInsights from "@/components/possum/EngineInsights";
+import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
+
+type ProfileCfg = {
+  enabled: boolean;
+  repEnabled: boolean;
+  titleEditingEnabled: boolean;
+  repCooldownHours: number;
+  maxEquippedBadges: number;
+  titleMaxLength: number;
+  defaultBackgroundId: string;
+  defaultFrameId: string;
+  notes: string;
+};
+
+const DEFAULT_CFG: ProfileCfg = {
+  enabled: true,
+  repEnabled: true,
+  titleEditingEnabled: true,
+  repCooldownHours: 24,
+  maxEquippedBadges: 3,
+  titleMaxLength: 32,
+  defaultBackgroundId: "possum-night",
+  defaultFrameId: "iron",
+  notes: "",
+};
+
+const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1360 };
+const card: React.CSSProperties = {
+  border: "1px solid #5f0000",
+  borderRadius: 14,
+  padding: 16,
+  background: "linear-gradient(180deg, rgba(120,0,0,0.12), rgba(0,0,0,0.72))",
+  marginBottom: 14,
+};
+const input: React.CSSProperties = {
+  width: "100%",
+  background: "#0a0a0a",
+  color: "#ffd0d0",
+  border: "1px solid #7f0000",
+  borderRadius: 10,
+  padding: "10px 12px",
+};
+const label: React.CSSProperties = {
+  color: "#ffb9b9",
+  fontSize: 12,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  marginBottom: 6,
+};
+
+function optionRows(value: unknown) {
+  if (!Array.isArray(value)) return [] as Array<{ id: string; label: string; meta: string }>;
+  return value
+    .map((row: any) => {
+      const meta = String(row?.value || "").trim();
+      const id = String(meta.split("|")[0] || "").trim();
+      const label = String(row?.name || row?.title || id || "Unknown").trim();
+      return { id, label, meta };
+    })
+    .filter((row) => row.id);
+}
+
+export default function ProfileClient() {
+  const {
+    guildId,
+    guildName,
+    config: cfg,
+    setConfig: setCfg,
+    summary,
+    details,
+    loading,
+    saving,
+    message,
+    save,
+  } = useGuildEngineEditor<ProfileCfg>("profile", DEFAULT_CFG);
+
+  const backgroundOptions = optionRows(details.backgrounds);
+  const frameOptions = optionRows(details.frames);
+  const badgeOptions = optionRows(details.badges);
+
+  if (!guildId) {
+    return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
+  }
+
+  return (
+    <div style={shell}>
+      <EngineContractPanel
+        engineKey="profile"
+        intro="Profile is the member-facing identity and reputation surface. It should stay linked to progression, achievements, hall of fame, loyalty, and prestige instead of becoming a separate competing stat system."
+        related={[
+          { label: "Progression", route: "/dashboard/economy/progression", reason: "levels and XP feed the profile rank surface" },
+          { label: "Achievements", route: "/dashboard/achievements", reason: "badges and milestone unlocks surface through profile cosmetics and prestige gating" },
+          { label: "Hall Of Fame", route: "/dashboard/halloffame", reason: "public recognition should match profile-facing stat visibility" },
+          { label: "Loyalty", route: "/dashboard/loyalty", reason: "tenure rewards should stay visible in the profile stack" },
+          { label: "Prestige", route: "/dashboard/prestige", reason: "prestige is the late-loop capstone for the same achievement family" },
+        ]}
+      />
+
+      <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
+      {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
+
+      {loading ? (
+        <div style={card}>Loading profile engine...</div>
+      ) : (
+        <>
+          <EngineInsights summary={summary} details={details} />
+
+          <section style={{ ...card, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, enabled: e.target.checked }))} /> Profile engine enabled
+              </label>
+              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.repEnabled} onChange={(e) => setCfg((prev) => ({ ...prev, repEnabled: e.target.checked }))} /> Reputation enabled
+              </label>
+              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.titleEditingEnabled} onChange={(e) => setCfg((prev) => ({ ...prev, titleEditingEnabled: e.target.checked }))} /> Title editing enabled
+              </label>
+            </div>
+            <div style={{ color: "#ffb8b8", fontSize: 12, lineHeight: 1.6, marginTop: 10 }}>
+              This controls the live member profile surface, not just a shell. Reputation cooldowns, title editing, default cosmetics, and badge limits are enforced by the actual profile engine.
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Profile Policy
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+              <div>
+                <div style={label}>Rep Cooldown (hours)</div>
+                <input style={input} type="number" min={1} value={cfg.repCooldownHours} onChange={(e) => setCfg((prev) => ({ ...prev, repCooldownHours: Number(e.target.value || 1) }))} />
+              </div>
+              <div>
+                <div style={label}>Max Equipped Badges</div>
+                <input style={input} type="number" min={1} value={cfg.maxEquippedBadges} onChange={(e) => setCfg((prev) => ({ ...prev, maxEquippedBadges: Number(e.target.value || 1) }))} />
+              </div>
+              <div>
+                <div style={label}>Title Max Length</div>
+                <input style={input} type="number" min={1} value={cfg.titleMaxLength} onChange={(e) => setCfg((prev) => ({ ...prev, titleMaxLength: Number(e.target.value || 1) }))} />
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Default Cosmetics
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+              <div>
+                <div style={label}>Default Background</div>
+                <select style={input} value={cfg.defaultBackgroundId} onChange={(e) => setCfg((prev) => ({ ...prev, defaultBackgroundId: e.target.value }))}>
+                  <option value="">Select background</option>
+                  {backgroundOptions.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.label} ({row.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={label}>Default Frame</div>
+                <select style={input} value={cfg.defaultFrameId} onChange={(e) => setCfg((prev) => ({ ...prev, defaultFrameId: e.target.value }))}>
+                  <option value="">Select frame</option>
+                  {frameOptions.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.label} ({row.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, color: "#ffb8b8", fontSize: 12, lineHeight: 1.7 }}>
+              Asset library currently visible: {backgroundOptions.length} backgrounds, {frameOptions.length} frames, {badgeOptions.length} badges.
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={label}>Profile Notes</div>
+            <textarea
+              style={{ ...input, minHeight: 120 }}
+              value={cfg.notes || ""}
+              onChange={(e) => setCfg((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Profile policy, title rules, badge expectations, or linked progression notes."
+            />
+          </section>
+
+          <section style={{ ...card, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ color: "#ffb8b8", lineHeight: 1.6, maxWidth: 840 }}>
+              This page owns the live profile policy. Achievement progression, hall-of-fame recognition, loyalty, and prestige stay linked, but the actual member-facing identity rules live here.
+            </div>
+            <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}

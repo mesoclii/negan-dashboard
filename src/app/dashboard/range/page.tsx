@@ -21,6 +21,14 @@ type RangeCfg = {
     liveImageUrl: string;
   };
   weapons: Record<WeaponKey, { displayName: string; imageUrl: string }>;
+  rewardTuning: {
+    critPoints: number;
+    hitPoints: number;
+    grazePoints: number;
+    hitXp: number;
+    winCoins: number;
+    winXp: number;
+  };
 };
 
 const WEAPON_STATS: Record<WeaponKey, { clip: number; reserve: number; accuracyMod: number; misfireMod: number; pointsMod: number }> = {
@@ -51,6 +59,14 @@ const EMPTY: RangeCfg = {
     rifle: { displayName: "Rifle", imageUrl: "" },
     shotgun: { displayName: "Shotgun", imageUrl: "" },
     sniper: { displayName: "Sniper", imageUrl: "" },
+  },
+  rewardTuning: {
+    critPoints: 30,
+    hitPoints: 15,
+    grazePoints: 8,
+    hitXp: 5,
+    winCoins: 30,
+    winXp: 35,
   },
 };
 
@@ -198,6 +214,41 @@ export default function RangeEnginePage() {
                   ))}
                 </select>
               </div>
+            </div>
+          </section>
+
+          <section style={box}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Reward + Scoring Tuning
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+              <div>
+                <div style={label}>Critical Hit Points</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.critPoints} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, critPoints: Number(e.target.value || 0) } }))} />
+              </div>
+              <div>
+                <div style={label}>Standard Hit Points</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.hitPoints} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, hitPoints: Number(e.target.value || 0) } }))} />
+              </div>
+              <div>
+                <div style={label}>Graze Points</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.grazePoints} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, grazePoints: Number(e.target.value || 0) } }))} />
+              </div>
+              <div>
+                <div style={label}>Hit XP</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.hitXp} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, hitXp: Number(e.target.value || 0) } }))} />
+              </div>
+              <div>
+                <div style={label}>Win Coins</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.winCoins} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, winCoins: Number(e.target.value || 0) } }))} />
+              </div>
+              <div>
+                <div style={label}>Win XP</div>
+                <input style={input} type="number" min={0} value={cfg.rewardTuning.winXp} onChange={(e) => setCfg((p) => ({ ...p, rewardTuning: { ...p.rewardTuning, winXp: Number(e.target.value || 0) } }))} />
+              </div>
+            </div>
+            <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>
+              These values now drive the live range session itself: shot scoring, per-hit progression XP, and winner payouts.
             </div>
           </section>
 

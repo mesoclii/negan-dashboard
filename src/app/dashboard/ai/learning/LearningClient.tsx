@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, type CSSProperties } from "react";
 import AiTabs from "@/components/possum/AiTabs";
+import EngineInsights from "@/components/possum/EngineInsights";
+import type { EngineDetails, EngineSummaryItem } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type PossumSettings = {
@@ -13,6 +15,8 @@ type PossumSettings = {
   seriousness: number;
   verbosity: number;
   gamerMode: boolean;
+  regionAware: boolean;
+  escalationOn: boolean;
 };
 
 const DEFAULT_SETTINGS: PossumSettings = {
@@ -23,6 +27,8 @@ const DEFAULT_SETTINGS: PossumSettings = {
   seriousness: 5,
   verbosity: 5,
   gamerMode: false,
+  regionAware: true,
+  escalationOn: true,
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
@@ -164,50 +170,51 @@ export default function LearningClient() {
   const [adaptiveEnabled, setAdaptiveEnabled] = useState(false);
   const [personaEnabled, setPersonaEnabled] = useState(false);
   const [settings, setSettings] = useState<PossumSettings>(DEFAULT_SETTINGS);
+  const [summary, setSummary] = useState<EngineSummaryItem[]>([]);
+  const [details, setDetails] = useState<EngineDetails>({});
+
+  async function loadAll(targetGuildId: string, targetGuildName: string) {
+    if (!targetGuildId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMessage("");
+      const [runtimeRes, settingsRes] = await Promise.all([
+        fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(targetGuildId)}&engine=runtimeRouter`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(targetGuildId)}`, {
+          cache: "no-store",
+        }),
+      ]);
+
+      const runtimeJson = await readJsonOrThrow(runtimeRes);
+      const settingsJson = await readJsonOrThrow(settingsRes);
+
+      setGuildName(targetGuildName);
+      setAdaptiveEnabled(runtimeJson?.config?.adaptiveAiEnabled !== false);
+      setPersonaEnabled(Boolean(runtimeJson?.config?.personaAiEnabled));
+      setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
+      setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...(settingsJson?.config || {}),
+      });
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to load Possum AI.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     const resolved = resolveGuild();
     setGuildId(resolved.guildId);
     setGuildName(resolved.guildName);
-
-    if (!resolved.guildId) {
-      setLoading(false);
-      return;
-    }
-
-    (async () => {
-      try {
-        setLoading(true);
-        setMessage("");
-
-        const [dashboardRes, settingsRes] = await Promise.all([
-          fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(resolved.guildId)}`, {
-            cache: "no-store",
-          }),
-          fetch(`/api/bot/possum-settings?guildId=${encodeURIComponent(resolved.guildId)}`, {
-            cache: "no-store",
-          }),
-        ]);
-
-        const dashboardJson = await readJsonOrThrow(dashboardRes);
-        const settingsJson = await readJsonOrThrow(settingsRes);
-
-        setAdaptiveEnabled(
-          Boolean(dashboardJson?.config?.aiRuntime?.adaptiveAiEnabled ?? dashboardJson?.config?.features?.adaptiveAiEnabled)
-        );
-        setPersonaEnabled(
-          Boolean(dashboardJson?.config?.aiRuntime?.personaAiEnabled ?? dashboardJson?.config?.features?.personaAiEnabled)
-        );
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          ...(settingsJson?.config || {}),
-        });
-      } catch (err: any) {
-        setMessage(err?.message || "Failed to load Possum AI.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void loadAll(resolved.guildId, resolved.guildName);
   }, []);
 
   async function setAdaptiveRuntime(next: boolean) {
@@ -215,17 +222,19 @@ export default function LearningClient() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/bot/engine-config", {
+      const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guildId,
-          engine: "aiRuntime",
+          engine: "runtimeRouter",
           patch: { adaptiveAiEnabled: next },
         }),
       });
-      await readJsonOrThrow(res);
+      const json = await readJsonOrThrow(res);
       setAdaptiveEnabled(next);
+      setSummary(Array.isArray(json?.summary) ? json.summary : []);
+      setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       setMessage(`Possum AI ${next ? "enabled" : "disabled"} for this guild.`);
     } catch (err: any) {
       setMessage(err?.message || "Failed to update Possum AI runtime.");
@@ -253,6 +262,7 @@ export default function LearningClient() {
         ...(json?.config || {}),
       });
       setMessage("Saved Possum AI guild settings.");
+      await loadAll(guildId, guildName);
     } catch (err: any) {
       setMessage(err?.message || "Failed to save Possum AI.");
     } finally {
@@ -279,8 +289,34 @@ export default function LearningClient() {
         ...(json?.config || {}),
       });
       setMessage("Reset Possum AI guild settings to defaults.");
+      await loadAll(guildId, guildName);
     } catch (err: any) {
       setMessage(err?.message || "Failed to reset Possum AI.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runtimeAction(actionName: "clearReplyMemory" | "wipeProfiles" | "wipeKnowledge") {
+    if (!guildId) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/setup/runtime-engine-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "runtimeRouter",
+          action: actionName,
+        }),
+      });
+      const json = await readJsonOrThrow(res);
+      setSummary(Array.isArray(json?.summary) ? json.summary : []);
+      setDetails((json?.details && typeof json.details === "object") ? json.details : {});
+      setMessage("Possum AI runtime action completed.");
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to run runtime action.");
     } finally {
       setSaving(false);
     }
@@ -310,6 +346,9 @@ export default function LearningClient() {
             <Link href={buildDashboardHref("/dashboard/bot-personalizer")} style={action}>
               Bot Personalizer
             </Link>
+            <Link href={buildDashboardHref("/dashboard/runtime-router")} style={action}>
+              Runtime Router
+            </Link>
             <Link href={buildDashboardHref("/dashboard/ai/memory")} style={action}>
               Memory
             </Link>
@@ -328,6 +367,8 @@ export default function LearningClient() {
 
       {!loading ? (
         <>
+          <EngineInsights summary={summary} details={details} />
+
           <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginBottom: 12 }}>
             <div style={card}>
               <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Possum Runtime</div>
@@ -408,13 +449,29 @@ export default function LearningClient() {
                   />{" "}
                   Auto replies enabled
                 </label>
-                <label style={{ display: "block" }}>
+                <label style={{ display: "block", marginBottom: 10 }}>
                   <input
                     type="checkbox"
                     checked={settings.gamerMode}
                     onChange={(e) => setSettings((prev) => ({ ...prev, gamerMode: e.target.checked }))}
                   />{" "}
                   Gamer mode enabled
+                </label>
+                <label style={{ display: "block", marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.regionAware}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, regionAware: e.target.checked }))}
+                  />{" "}
+                  Region-aware replies enabled
+                </label>
+                <label style={{ display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.escalationOn}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, escalationOn: e.target.checked }))}
+                  />{" "}
+                  Escalation logic enabled
                 </label>
               </div>
             </div>
@@ -446,6 +503,30 @@ export default function LearningClient() {
 
             <div style={{ color: "#ff9c9c", fontSize: 12, marginTop: 12 }}>
               Persona AI is currently {personaEnabled ? "enabled" : "disabled"} in this guild, but it stays fully separate from these Possum AI controls.
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div>
+                <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                  Knowledge Base Operations
+                </div>
+                <div style={{ color: "#ffbdbd", fontSize: 12, maxWidth: 900 }}>
+                  These actions hit the live adaptive runtime for this guild. Use them when you need to clear reply memory, reset learned profiles, or wipe the Possum AI knowledge base before retesting.
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" onClick={() => void runtimeAction("clearReplyMemory")} disabled={saving} style={action}>
+                  Clear Reply Memory
+                </button>
+                <button type="button" onClick={() => void runtimeAction("wipeProfiles")} disabled={saving} style={action}>
+                  Wipe Profiles
+                </button>
+                <button type="button" onClick={() => void runtimeAction("wipeKnowledge")} disabled={saving} style={action}>
+                  Wipe Knowledge
+                </button>
+              </div>
             </div>
           </section>
 

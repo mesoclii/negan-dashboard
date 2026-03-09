@@ -22,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const guildId = String(req.body?.guildId || "").trim();
     const engine = String(req.body?.engine || "").trim();
     const action = String(req.body?.action || "").trim();
+    const payload = req.body?.payload && typeof req.body.payload === "object" ? req.body.payload : undefined;
 
     if (!guildId) {
       return res.status(400).json({ success: false, error: "guildId is required" });
@@ -47,6 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         guildId,
         engine,
         action,
+        payload,
       }),
     });
     const json = await readJsonSafe(upstream);
@@ -59,6 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       metadata: {
         engine,
         action,
+        payloadKeys: payload ? Object.keys(payload) : [],
       },
     });
     return res.status(upstream.status).json(json);
