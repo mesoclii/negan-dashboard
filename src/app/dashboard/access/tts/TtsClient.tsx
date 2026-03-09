@@ -52,7 +52,7 @@ const DEFAULT_ROUTE: TtsRoute = {
   priority: 100,
   volume: 100,
   maxCharsPerMessage: null,
-  requirePrefix: null,
+  requirePrefix: false,
   prefix: "",
   useSpeakerFallback: true,
   notes: "",
@@ -68,8 +68,8 @@ const DEFAULT_CONFIG: TtsConfig = {
   blockedChannelIds: [],
   allowedRoleIds: [],
   voiceChannelOnly: false,
-  requirePrefix: true,
-  prefix: "??",
+  requirePrefix: false,
+  prefix: "",
   autoRouteEnabled: true,
   autoTextChannelId: null,
   autoVoiceChannelId: null,
@@ -214,7 +214,7 @@ export default function TtsAccessPage() {
       <h1 style={{ marginTop: 0, color: "#ff4444", textTransform: "uppercase", letterSpacing: "0.14em" }}>TTS Engine</h1>
       <div style={{ color: "#ff9999" }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Full per-guild TTS routing. Every route can bind its own text lanes, voice destination, voice preset, volume, priority, and prefix behavior.
+        Full per-guild TTS routing. Every route can bind its own text lanes, voice destination, voice preset, volume, priority, and prefix behavior. Explicit routes speak without a prefix unless you turn one on for that route.
       </div>
       {message ? <div style={{ color: "#ffd27a", marginTop: 8 }}>{message}</div> : null}
 
@@ -374,7 +374,20 @@ export default function TtsAccessPage() {
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #500000", borderRadius: 8, padding: 8 }}>
               {textChannels.map((channel) => (
                 <label key={`allow_${channel.id}`} style={{ display: "block", marginBottom: 4 }}>
-                  <input type="checkbox" checked={cfg.allowedChannelIds.includes(channel.id)} onChange={() => setCfg((p) => ({ ...normalizeConfig(p), allowedChannelIds: toggle(normalizeConfig(p).allowedChannelIds, channel.id) }))} /> #{channel.name}
+                  <input
+                    type="checkbox"
+                    checked={cfg.allowedChannelIds.includes(channel.id)}
+                    onChange={() =>
+                      setCfg((p) => {
+                        const next = normalizeConfig(p);
+                        return {
+                          ...next,
+                          allowedChannelIds: toggle(next.allowedChannelIds, channel.id),
+                          blockedChannelIds: next.blockedChannelIds.filter((id) => id !== channel.id),
+                        };
+                      })
+                    }
+                  /> #{channel.name}
                 </label>
               ))}
             </div>
@@ -385,7 +398,20 @@ export default function TtsAccessPage() {
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #500000", borderRadius: 8, padding: 8 }}>
               {textChannels.map((channel) => (
                 <label key={`block_${channel.id}`} style={{ display: "block", marginBottom: 4 }}>
-                  <input type="checkbox" checked={cfg.blockedChannelIds.includes(channel.id)} onChange={() => setCfg((p) => ({ ...normalizeConfig(p), blockedChannelIds: toggle(normalizeConfig(p).blockedChannelIds, channel.id) }))} /> #{channel.name}
+                  <input
+                    type="checkbox"
+                    checked={cfg.blockedChannelIds.includes(channel.id)}
+                    onChange={() =>
+                      setCfg((p) => {
+                        const next = normalizeConfig(p);
+                        return {
+                          ...next,
+                          blockedChannelIds: toggle(next.blockedChannelIds, channel.id),
+                          allowedChannelIds: next.allowedChannelIds.filter((id) => id !== channel.id),
+                        };
+                      })
+                    }
+                  /> #{channel.name}
                 </label>
               ))}
             </div>

@@ -27,8 +27,8 @@ const DEFAULT_TTS: TtsConfig = {
   blockedChannelIds: [],
   allowedRoleIds: [],
   voiceChannelOnly: false,
-  requirePrefix: true,
-  prefix: "??",
+  requirePrefix: false,
+  prefix: "",
 };
 
 function toArray(v: any): string[] {
@@ -138,8 +138,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         voiceChannelOnly:
           typeof patch.voiceChannelOnly === "boolean" ? patch.voiceChannelOnly : toBool(currentEngine.voiceChannelOnly, false),
         requirePrefix:
-          typeof patch.requirePrefix === "boolean" ? patch.requirePrefix : toBool(currentEngine.requirePrefix, true),
-        prefix: typeof patch.prefix === "string" ? patch.prefix : String(currentEngine.prefix ?? "??"),
+          typeof patch.requirePrefix === "boolean" ? patch.requirePrefix : toBool(currentEngine.requirePrefix, false),
+        prefix: typeof patch.prefix === "string" ? patch.prefix : String(currentEngine.prefix ?? ""),
       };
 
       const [dashSaveRes, ttsSaveRes] = await Promise.all([
