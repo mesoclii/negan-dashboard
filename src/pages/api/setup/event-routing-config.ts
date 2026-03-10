@@ -1,60 +1,80 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { appendAudit, deepMerge, readStore, writeStore } from "@/lib/setupStore";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 
-const FILE = "event-routing-config.json";
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
 
-function defaults() {
-  return {
-    active: true,
-    listeners: {
-      messageCreate: true,
-      interactionCreate: true,
-      guildMemberAdd: true,
-      guildMemberRemove: true,
-      messageDelete: true,
-      messageUpdate: true
-    },
-    customRoutes: [],
-    retries: {
-      enabled: true,
-      maxRetries: 2,
-      baseDelayMs: 250
-    },
-    deadLetter: {
-      enabled: true,
-      maxAgeHours: 24,
-      channelId: ""
+function mergeDeep<T extends Record<string, any>>(base: T, patch: Record<string, unknown>): T {
+  const next: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (isObject(value) && isObject(next[key])) {
+      next[key] = mergeDeep(next[key] as Record<string, any>, value);
+    } else {
+      next[key] = value;
     }
+  }
+  return next as T;
+}
+
+function pickConfigPayload(req: NextApiRequest, current: Record<string, unknown>) {
+  const body = req.body && typeof req.body === "object" ? { ...(req.body as Record<string, unknown>) } : {};
+  delete body.guildId;
+  delete body.userId;
+  delete body.uid;
+  delete body.engine;
+
+  if (isObject(body.config)) return body.config;
+  if (isObject(body.patch)) return mergeDeep(current, body.patch);
+  return mergeDeep(current, body);
+}
+
+async function readCurrentConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=eventReactor`,
+    {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    }
+  );
+  const data = await readJsonSafe(upstream);
+  return {
+    upstream,
+    data,
+    config: isObject(data?.config) ? (data.config as Record<string, unknown>) : {},
   };
 }
 
-function guildId(req: NextApiRequest) {
-  return String(req.query.guildId || req.body?.guildId || "").trim();
-}
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const gid = guildId(req);
-  if (!gid) return res.status(400).json({ success: false, error: "guildId required" });
-
-  const store = readStore(FILE);
-  const current = store[gid] || defaults();
-
-  if (req.method === "GET") {
-    return res.status(200).json({ success: true, guildId: gid, config: current });
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const guildId = String(req.query.guildId || req.body?.guildId || "").trim();
+  if (!guildId) {
+    return res.status(400).json({ success: false, error: "guildId required" });
   }
 
-  if (req.method === "POST") {
-    const patch = req.body?.patch || {};
-    const next = deepMerge(current, patch);
-    store[gid] = next;
-    writeStore(FILE, store);
-    appendAudit({
-      guildId: gid,
-      area: "event-routing",
-      action: "save",
-      keys: Object.keys(patch || {})
+  if (req.method === "GET") {
+    const { upstream, data } = await readCurrentConfig(req, guildId);
+    return res.status(upstream.status).json({ success: upstream.ok, guildId, config: data?.config || {} });
+  }
+
+  if (req.method === "POST" || req.method === "PUT") {
+    if (isWriteBlockedForGuild(guildId)) {
+      return res.status(403).json(stockLockError(guildId));
+    }
+
+    const current = await readCurrentConfig(req, guildId);
+    if (!current.upstream.ok) {
+      return res.status(current.upstream.status).json(current.data);
+    }
+
+    const config = pickConfigPayload(req, current.config);
+    const upstream = await fetch(`${BOT_API}/engine-config`, {
+      method: "POST",
+      headers: buildBotApiHeaders(req, { json: true }),
+      body: JSON.stringify({ guildId, engine: "eventReactor", config }),
     });
-    return res.status(200).json({ success: true, guildId: gid, config: next });
+    const data = await readJsonSafe(upstream);
+    return res.status(upstream.status).json({ success: upstream.ok, guildId, config: data?.config || config, error: data?.error });
   }
 
   return res.status(405).json({ success: false, error: "Method not allowed" });

@@ -122,13 +122,13 @@ const DATA_ASSETS = [
 ];
 
 const PERSISTENCE_MODELS = [
-  "PossumGuildConfig -> @@map(\"NeganGuildConfig\")",
-  "PossumSettings -> @@map(\"NeganSettings\")",
-  "PossumUserProfile -> @@map(\"NeganUserProfile\")",
-  "PossumChannelProfile -> @@map(\"NeganChannelProfile\")",
-  "PossumKnowledge -> @@map(\"NeganKnowledge\")",
-  "PossumGovernor -> @@map(\"NeganGovernor\")",
-  "PossumProfile -> @@map(\"NeganProfile\")",
+  "Possum guild config (legacy mapped storage retained for compatibility)",
+  "Possum adaptive settings (legacy mapped storage retained for compatibility)",
+  "Possum user profile (legacy mapped storage retained for compatibility)",
+  "Possum channel profile (legacy mapped storage retained for compatibility)",
+  "Possum knowledge store (legacy mapped storage retained for compatibility)",
+  "Possum escalation/governor state (legacy mapped storage retained for compatibility)",
+  "Possum profile records (legacy mapped storage retained for compatibility)",
 ];
 
 const LEARNING_WRITES = [

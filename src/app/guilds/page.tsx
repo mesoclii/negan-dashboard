@@ -26,13 +26,7 @@ type DiscordUser = {
   avatar: string | null;
 };
 
-type PremiumStatus = {
-  active: boolean;
-  plan: string;
-  developerBypass?: boolean;
-};
-
-function badgeStyle(kind: "primary" | "ready" | "premiumOn" | "premiumOff" | "missing") {
+function badgeStyle(kind: "primary" | "ready" | "missing") {
   if (kind === "primary") {
     return {
       border: "1px solid #0f7a0f",
@@ -46,14 +40,6 @@ function badgeStyle(kind: "primary" | "ready" | "premiumOn" | "premiumOff" | "mi
       border: "1px solid #0f5f7a",
       color: "#cff4ff",
       background: "rgba(8,82,112,0.22)",
-    } as const;
-  }
-
-  if (kind === "premiumOn") {
-    return {
-      border: "1px solid #b07a14",
-      color: "#ffe5ad",
-      background: "rgba(110,68,0,0.24)",
     } as const;
   }
 
@@ -121,7 +107,6 @@ function resolveGuildIcon(guild: Guild) {
 
 export default function GuildsPage() {
   const [guilds, setGuilds] = useState<Guild[]>([]);
-  const [premiumByGuild, setPremiumByGuild] = useState<Record<string, PremiumStatus>>({});
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [inviteUrl, setInviteUrl] = useState("");
@@ -251,33 +236,6 @@ export default function GuildsPage() {
         const mergedGuilds = [...merged.values()];
         setGuilds(mergedGuilds);
 
-        const installedIds = mergedGuilds
-          .filter((guild) => guild.botPresent !== false)
-          .map((guild) => guild.id);
-
-        if (installedIds.length) {
-          const premiumEntries = await Promise.all(
-            installedIds.map(async (guildId) => {
-              const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, {
-                cache: "no-store",
-              }).catch(() => null);
-              const json = await res?.json().catch(() => ({}));
-              if (!res || !res.ok || json?.success === false) {
-                return [guildId, { active: false, plan: "FREE", developerBypass: false }] as const;
-              }
-              return [
-                guildId,
-                {
-                  active: Boolean(json?.status?.active),
-                  plan: String(json?.status?.plan || "FREE"),
-                  developerBypass: Boolean(json?.status?.developerBypass),
-                },
-              ] as const;
-            })
-          );
-          setPremiumByGuild(Object.fromEntries(premiumEntries));
-        }
-
         if (installedRes && !installedRes.ok) {
           setMsg(installedJson?.error || `Installed guild API failed (${installedRes.status})`);
         } else if (oauthRes && !oauthRes.ok && oauthJson?.error) {
@@ -365,8 +323,8 @@ export default function GuildsPage() {
             marginBottom: 20,
           }}
         >
-          Saviors keeps the full original baseline untouched. Other installed guilds come in standard-ready with
-          premium off until you enable a plan or trial. Use this page only to choose a guild or invite the bot.
+          Saviors keeps the full original baseline untouched. Other installed guilds come in standard-ready so owners
+          can finish setup without resetting Saviors. Use this page only to choose a guild or invite the bot.
         </p>
 
         {loading ? <p style={{ color: "#ffd7d7" }}>Loading...</p> : null}
@@ -496,7 +454,6 @@ export default function GuildsPage() {
             const isPrimary = guild.id === policy.primaryGuildId;
             const isPublicBaseline = guild.id === policy.gamesBaselineGuildId;
             const isInstalled = guild.botPresent !== false;
-            const premium = premiumByGuild[guild.id] || null;
             const iconUrl = resolveGuildIcon(guild);
             const inviteHref = buildInviteUrl(inviteUrl, guild.id);
 
@@ -505,12 +462,6 @@ export default function GuildsPage() {
               : isPublicBaseline
                 ? "Public Ready"
                 : "Standard Ready";
-
-            const premiumLabel = premium?.developerBypass
-              ? "Developer Access"
-              : premium?.active
-                ? "Premium On"
-                : "Premium Off";
 
             return (
               <div
@@ -557,40 +508,20 @@ export default function GuildsPage() {
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
                   {isInstalled ? (
-                    <>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          borderRadius: 999,
-                          padding: "5px 12px",
-                          fontSize: 11,
-                          fontWeight: 900,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          ...badgeStyle(isPrimary ? "primary" : "ready"),
-                        }}
-                      >
-                        {baselineLabel}
-                      </span>
-                      {!isPrimary ? (
-                        <span
-                          style={{
-                            display: "inline-block",
-                            borderRadius: 999,
-                            padding: "5px 12px",
-                            fontSize: 11,
-                            fontWeight: 900,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            ...badgeStyle(
-                              premium?.active || premium?.developerBypass ? "premiumOn" : "premiumOff"
-                            ),
-                          }}
-                        >
-                          {premiumLabel}
-                        </span>
-                      ) : null}
-                    </>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        borderRadius: 999,
+                        padding: "5px 12px",
+                        fontSize: 11,
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        ...badgeStyle(isPrimary ? "primary" : "ready"),
+                      }}
+                    >
+                      {baselineLabel}
+                    </span>
                   ) : (
                     <span
                       style={{

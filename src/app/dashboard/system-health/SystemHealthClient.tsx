@@ -42,16 +42,20 @@ export default function SystemHealthPage() {
   const [logKind, setLogKind] = useState("dash-error");
   const [logLines, setLogLines] = useState<string[]>([]);
   const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [statusSummary, setStatusSummary] = useState<any>(null);
+  const [engineCatalogSummary, setEngineCatalogSummary] = useState<{ engines: number; sections: number } | null>(null);
 
   async function loadAll(gid: string) {
     if (!gid) return;
-    const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
       fetch(`/api/setup/runtime-safety-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-config?guildId=${gid}`).then((r) => r.json()),
       fetch(`/api/setup/audit-trail-events?guildId=${gid}&limit=200`).then((r) => r.json()),
       fetch(`/api/setup/audit-log-feed?kind=${encodeURIComponent(logKind)}&lines=200`).then((r) => r.json()),
       fetch(`/api/setup/snapshots`).then((r) => r.json()).catch(() => ({ snapshots: [] })),
-      fetch(`/api/bot/guild-data?guildId=${gid}`).then((r) => r.json()).catch(() => ({}))
+      fetch(`/api/bot/guild-data?guildId=${gid}`).then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/status`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/bot/engine-catalog?guildId=${gid}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}))
     ]);
     setRuntime(r1?.config || null);
     setAuditCfg(r2?.config || null);
@@ -62,6 +66,12 @@ export default function SystemHealthPage() {
     const nextGuildName = String(r6?.guild?.name || "").trim();
     setGuildName(nextGuildName);
     if (nextGuildName && typeof window !== "undefined") localStorage.setItem("activeGuildName", nextGuildName);
+    const status = r7?.status || null;
+    setStatusSummary(status);
+    const catalogRoot = r8?.catalog || r8?.data?.catalog || null;
+    const engineCount = Array.isArray(catalogRoot?.engines) ? catalogRoot.engines.length : 0;
+    const sectionCount = Array.isArray(catalogRoot?.dashboardSections) ? catalogRoot.dashboardSections.length : 0;
+    setEngineCatalogSummary({ engines: engineCount, sections: sectionCount });
   }
 
   useEffect(() => {
@@ -119,6 +129,39 @@ export default function SystemHealthPage() {
         Guild: <b>{guildName || (typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId) || "(none)"}</b>
       </p>
       {msg && <div style={{ marginBottom: 10, color: "#ff8c8c" }}>{msg}</div>}
+
+      {(statusSummary || engineCatalogSummary) && (
+        <div style={box}>
+          <b>Runtime Summary</b>
+          <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Public Status</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{statusSummary?.overall || "unknown"}</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>{statusSummary?.headline || "No status headline."}</div>
+            </div>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Engine Catalog</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{engineCatalogSummary?.engines ?? 0} engines</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>{engineCatalogSummary?.sections ?? 0} sections</div>
+            </div>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Audit Events</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{auditEvents.length}</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>Recent config change entries</div>
+            </div>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Log Lines</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{logLines.length}</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>Current log view ({logKind})</div>
+            </div>
+            <div style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>Snapshots</div>
+              <div style={{ fontWeight: 800, marginTop: 6 }}>{snapshots.length}</div>
+              <div style={{ fontSize: 12, marginTop: 4, color: "#ffd0d0" }}>Recent backups stored</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={box}>
         <b>Quick Links</b>

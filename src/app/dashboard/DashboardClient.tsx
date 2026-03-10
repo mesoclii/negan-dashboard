@@ -376,7 +376,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/automations/studio", title: "Automation Studio", description: "Visual trigger/condition/action flow builder.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/commands", title: "Command Studio", description: "Custom command engine and command toggles.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
-  { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: setupBodyController("/api/setup/selfroles-config", ["active"]) },
+  { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: engineController("selfroles", ["active"]) },
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
   { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true, category: "premium" },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
@@ -386,7 +386,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: giveawaysController },
-  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: setupBodyController("/api/setup/heist-ops-config", ["active"]), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
@@ -410,7 +410,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
   { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", toggle: setupPatchController("/api/setup/runtime-safety-config", ["active"]) },
-  { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: setupPatchController("/api/setup/vip-config", ["active"]) },
+  { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: engineController("vip", ["active"]) },
 ];
 
 function pillClass(on: boolean | null) {

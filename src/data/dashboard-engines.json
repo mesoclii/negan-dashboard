@@ -41,7 +41,7 @@
         "adaptive intelligence profile updates"
       ],
       "persistence": [
-        "Prisma: Possum/Negan profile and knowledge tables"
+        "Prisma: adaptive profile and knowledge tables"
       ],
       "outputs": ["message reply", "adaptive webhook reply", "audit route log"],
       "failureModes": ["feature disabled", "adaptiveAiEnabled false", "no valid reply", "webhook fallback to direct reply"]
@@ -897,7 +897,6 @@
       "key": "core-platform",
       "label": "Core Platform",
       "engineKeys": [
-        "runtimeRouter",
         "automation",
         "customCommands",
         "eventReactor",

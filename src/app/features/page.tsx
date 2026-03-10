@@ -4,12 +4,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { buildPublicInviteUrl } from "@/lib/publicLinks";
-import {
-  PRICING_FOOTNOTE,
-  PREMIUM_FEATURES,
-  PREMIUM_PLANS,
-  STANDARD_FEATURES,
-} from "@/lib/premiumCatalog";
+import { PRICING_FOOTNOTE, PREMIUM_FEATURES, PREMIUM_PLANS, STANDARD_FEATURES } from "@/lib/premiumCatalog";
 
 type SessionState = {
   loggedIn: boolean;
@@ -159,23 +154,18 @@ export default function FeaturesPage() {
                 <div style={{ color: "#ff5a5a", fontSize: 22, fontWeight: 900, textTransform: "uppercase" }}>
                   {plan.label}
                 </div>
-                <div style={{ color: "#fff1c7", fontSize: 34, fontWeight: 900, marginTop: 12 }}>
-                  {plan.monthlyUsd === null ? "Custom" : `$${plan.monthlyUsd.toFixed(2)}`}
-                  <span style={{ color: "#ffb8b8", fontSize: 13, marginLeft: 8 }}>/ month</span>
-                </div>
-                {plan.yearlyUsd !== null ? (
-                  <div style={{ color: "#ffd0d0", marginTop: 6 }}>${plan.yearlyUsd.toFixed(2)} yearly</div>
-                ) : null}
                 <div style={{ color: "#ffd4d4", lineHeight: 1.7, marginTop: 12 }}>{plan.headline}</div>
                 <div style={{ color: "#ffbdbd", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>
                   {plan.included.map((item) => (
                     <div key={item}>{item}</div>
                   ))}
                 </div>
+                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 12 }}>
+                  Pricing is provided on request. {PRICING_FOOTNOTE}
+                </div>
               </div>
             ))}
           </div>
-          <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 14 }}>{PRICING_FOOTNOTE}</div>
         </section>
 
         <section style={{ ...card, marginBottom: 22 }}>

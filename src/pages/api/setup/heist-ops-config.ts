@@ -1,142 +1,84 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 
-type HeistOpsConfig = {
-  active: boolean;
-  signupEnabled: boolean;
-  signupChannelId: string;
-  announceChannelId: string;
-  transcriptChannelId: string;
-  hostRoleIds: string[];
-  maxPlayers: number;
-  reserveSlots: number;
-  joinWindowMinutes: number;
-  sessionDurationMinutes: number;
-  cooldownMinutes: number;
-  autoLockOnStart: boolean;
-  requireVoiceChannel: boolean;
-  voiceChannelId: string;
-  payoutEnabled: boolean;
-  payoutCoinsWin: number;
-  payoutCoinsLose: number;
-  streakBonusEnabled: boolean;
-  minAccountAgeDays: number;
-  mustBeVerified: boolean;
-  verifiedRoleId: string;
-  blockedRoleIds: string[];
-  notes: string;
-  updatedAt: string;
-};
-
-const STORE_PATH = path.join(process.cwd(), "data", "setup", "heist-ops-config.json");
-
-function toInt(v: unknown, fallback: number): number {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function toArr(v: unknown): string[] {
-  if (Array.isArray(v)) return v.map((x) => String(x || "").trim()).filter(Boolean);
-  return [];
-}
-
-function defaults(): HeistOpsConfig {
-  return {
-    active: true,
-    signupEnabled: true,
-    signupChannelId: "",
-    announceChannelId: "",
-    transcriptChannelId: "",
-    hostRoleIds: [],
-    maxPlayers: 8,
-    reserveSlots: 2,
-    joinWindowMinutes: 10,
-    sessionDurationMinutes: 45,
-    cooldownMinutes: 15,
-    autoLockOnStart: true,
-    requireVoiceChannel: false,
-    voiceChannelId: "",
-    payoutEnabled: true,
-    payoutCoinsWin: 1000,
-    payoutCoinsLose: 250,
-    streakBonusEnabled: true,
-    minAccountAgeDays: 0,
-    mustBeVerified: false,
-    verifiedRoleId: "",
-    blockedRoleIds: [],
-    notes: "",
-    updatedAt: "",
-  };
-}
-
-function ensureDir() {
-  fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
-}
-
-function readStore(): Record<string, HeistOpsConfig> {
-  try {
-    const raw = fs.readFileSync(STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
+function mergeDeep<T extends Record<string, any>>(base: T, patch: Record<string, unknown>): T {
+  const next: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (isObject(value) && isObject(next[key])) {
+      next[key] = mergeDeep(next[key] as Record<string, any>, value);
+    } else {
+      next[key] = value;
+    }
   }
+  return next as T;
 }
 
-function writeStore(data: Record<string, HeistOpsConfig>) {
-  ensureDir();
-  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), "utf8");
+function pickConfigPayload(req: NextApiRequest, current: Record<string, unknown>) {
+  const body = req.body && typeof req.body === "object" ? { ...(req.body as Record<string, unknown>) } : {};
+  delete body.guildId;
+  delete body.userId;
+  delete body.uid;
+  delete body.engine;
+
+  if (isObject(body.config)) return body.config;
+  if (isObject(body.patch)) return mergeDeep(current, body.patch);
+  return mergeDeep(current, body);
+}
+
+async function readCurrentConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-config?guildId=${encodeURIComponent(guildId)}&engine=heist`,
+    {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    }
+  );
+  const data = await readJsonSafe(upstream);
+  return {
+    upstream,
+    data,
+    config: isObject(data?.config) ? (data.config as Record<string, unknown>) : {},
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const guildId = String(req.query.guildId || req.body?.guildId || "").trim();
-  if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
-
-  const store = readStore();
-  const current = { ...defaults(), ...(store[guildId] || {}) };
+  if (!guildId) {
+    return res.status(400).json({ success: false, error: "guildId is required" });
+  }
 
   if (req.method === "GET") {
-    return res.status(200).json({ success: true, guildId, config: current });
+    const { upstream, data } = await readCurrentConfig(req, guildId);
+    return res.status(upstream.status).json({ success: upstream.ok, guildId, config: data?.config || {} });
   }
 
   if (req.method === "POST" || req.method === "PUT") {
+    if (isWriteBlockedForGuild(guildId)) {
+      return res.status(403).json(stockLockError(guildId));
+    }
+
     const allowed = await requirePremiumAccess(req, res, guildId, "heist");
     if (allowed !== true) return allowed;
 
-    const body = req.body || {};
-    const next: HeistOpsConfig = {
-      ...current,
-      active: Boolean(body.active ?? current.active),
-      signupEnabled: Boolean(body.signupEnabled ?? current.signupEnabled),
-      signupChannelId: String(body.signupChannelId ?? current.signupChannelId),
-      announceChannelId: String(body.announceChannelId ?? current.announceChannelId),
-      transcriptChannelId: String(body.transcriptChannelId ?? current.transcriptChannelId),
-      hostRoleIds: toArr(body.hostRoleIds ?? current.hostRoleIds),
-      maxPlayers: toInt(body.maxPlayers, current.maxPlayers),
-      reserveSlots: toInt(body.reserveSlots, current.reserveSlots),
-      joinWindowMinutes: toInt(body.joinWindowMinutes, current.joinWindowMinutes),
-      sessionDurationMinutes: toInt(body.sessionDurationMinutes, current.sessionDurationMinutes),
-      cooldownMinutes: toInt(body.cooldownMinutes, current.cooldownMinutes),
-      autoLockOnStart: Boolean(body.autoLockOnStart ?? current.autoLockOnStart),
-      requireVoiceChannel: Boolean(body.requireVoiceChannel ?? current.requireVoiceChannel),
-      voiceChannelId: String(body.voiceChannelId ?? current.voiceChannelId),
-      payoutEnabled: Boolean(body.payoutEnabled ?? current.payoutEnabled),
-      payoutCoinsWin: toInt(body.payoutCoinsWin, current.payoutCoinsWin),
-      payoutCoinsLose: toInt(body.payoutCoinsLose, current.payoutCoinsLose),
-      streakBonusEnabled: Boolean(body.streakBonusEnabled ?? current.streakBonusEnabled),
-      minAccountAgeDays: toInt(body.minAccountAgeDays, current.minAccountAgeDays),
-      mustBeVerified: Boolean(body.mustBeVerified ?? current.mustBeVerified),
-      verifiedRoleId: String(body.verifiedRoleId ?? current.verifiedRoleId),
-      blockedRoleIds: toArr(body.blockedRoleIds ?? current.blockedRoleIds),
-      notes: String(body.notes ?? current.notes),
-      updatedAt: new Date().toISOString(),
-    };
+    const current = await readCurrentConfig(req, guildId);
+    if (!current.upstream.ok) {
+      return res.status(current.upstream.status).json(current.data);
+    }
 
-    store[guildId] = next;
-    writeStore(store);
-    return res.status(200).json({ success: true, guildId, config: next });
+    const config = pickConfigPayload(req, current.config);
+    const upstream = await fetch(`${BOT_API}/engine-config`, {
+      method: "POST",
+      headers: buildBotApiHeaders(req, { json: true }),
+      body: JSON.stringify({ guildId, engine: "heist", config }),
+    });
+    const data = await readJsonSafe(upstream);
+    return res.status(upstream.status).json({ success: upstream.ok, guildId, config: data?.config || config, error: data?.error });
   }
 
   return res.status(405).json({ success: false, error: "Method not allowed" });
