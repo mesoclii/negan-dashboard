@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FALLBACK_GUILD_NAMES, MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { buildPublicInviteUrl } from "@/lib/publicLinks";
 
 type Guild = {
   id: string;
@@ -219,7 +220,7 @@ export default function GuildsPage() {
           });
         }
 
-        setInviteUrl(typeof installedJson?.inviteUrl === "string" ? installedJson.inviteUrl : "");
+        setInviteUrl(buildPublicInviteUrl());
 
         for (const [guildId, guildName] of Object.entries(FALLBACK_GUILD_NAMES)) {
           if (!merged.has(guildId)) {
