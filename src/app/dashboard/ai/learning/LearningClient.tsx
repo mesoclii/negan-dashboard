@@ -136,13 +136,13 @@ const DATA_ASSETS = [
 ];
 
 const PERSISTENCE_MODELS = [
-  "Possum guild config (legacy mapped storage retained for compatibility)",
-  "Possum adaptive settings (legacy mapped storage retained for compatibility)",
-  "Possum user profile (legacy mapped storage retained for compatibility)",
-  "Possum channel profile (legacy mapped storage retained for compatibility)",
-  "Possum knowledge store (legacy mapped storage retained for compatibility)",
-  "Possum escalation/governor state (legacy mapped storage retained for compatibility)",
-  "Possum profile records (legacy mapped storage retained for compatibility)",
+  "Possum guild config (Prisma-backed live runtime settings)",
+  "Possum adaptive settings (guild-level runtime router config)",
+  "Possum user profile (learned per-user adaptive profile)",
+  "Possum channel profile (learned per-channel adaptive profile)",
+  "Possum knowledge store (stored topical knowledge snippets)",
+  "Possum escalation/governor state (runtime control state)",
+  "Possum profile records (guild adaptive profile tables)",
 ];
 
 const LEARNING_WRITES = [

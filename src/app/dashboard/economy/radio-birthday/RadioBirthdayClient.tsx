@@ -108,7 +108,7 @@ export default function RadioBirthdayPage() {
         setLoading(true);
         setMsg("");
         const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/radio-birthday-config?guildId=${encodeURIComponent(guildId)}`),
+          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=radio`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
         ]);
 
@@ -123,7 +123,7 @@ export default function RadioBirthdayPage() {
         );
         setChannels(Array.isArray(gdJson?.channels) ? gdJson.channels : []);
       } catch (e: any) {
-        setMsg(e?.message || "Failed to load Radio/Birthday config.");
+        setMsg(e?.message || "Failed to load live radio/birthday runtime.");
       } finally {
         setLoading(false);
       }
@@ -140,10 +140,10 @@ export default function RadioBirthdayPage() {
     setSaving(true);
     setMsg("");
     try {
-      const res = await fetch("/api/setup/radio-birthday-config", {
+      const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch }),
+        body: JSON.stringify({ guildId, engine: "radio", patch }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");

@@ -157,7 +157,7 @@ export default function AchievementsClient() {
         setLoading(true);
         setMsg("");
         const [cfgRes, gdRes] = await Promise.all([
-          fetch(`/api/setup/achievements-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=achievements`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" })
         ]);
         const cfgJson = await cfgRes.json().catch(() => ({}));
@@ -227,10 +227,10 @@ export default function AchievementsClient() {
     setSaving(true);
     setMsg("");
     try {
-      const r = await fetch("/api/setup/achievements-config", {
+      const r = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg })
+        body: JSON.stringify({ guildId, engine: "achievements", patch: cfg })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j?.success === false) throw new Error(j?.error || "Save failed");
@@ -245,7 +245,7 @@ export default function AchievementsClient() {
       };
       setCfg(merged);
       setBase(JSON.parse(JSON.stringify(merged)));
-      setMsg("Achievements saved.");
+      setMsg("Saved live achievements runtime.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {

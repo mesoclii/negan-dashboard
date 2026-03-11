@@ -47,20 +47,6 @@ function buildPatch(path: string[], value: boolean) {
   return root;
 }
 
-function setPathValue<T>(input: T, path: string[], value: boolean): T {
-  const clone: any = JSON.parse(JSON.stringify(input || {}));
-  let current = clone;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    const key = path[index];
-    if (!current[key] || typeof current[key] !== "object" || Array.isArray(current[key])) {
-      current[key] = {};
-    }
-    current = current[key];
-  }
-  current[path[path.length - 1]] = value;
-  return clone;
-}
-
 async function readJsonOrThrow(res: Response) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.success === false) {
@@ -102,57 +88,6 @@ async function saveEngineConfig(guildId: string, engine: string, patch: Record<s
   await readJsonOrThrow(res);
 }
 
-async function getSetupConfig(guildId: string, endpoint: string) {
-  const res = await fetch(`${endpoint}?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
-  const json = await readJsonOrThrow(res);
-  return json?.config || {};
-}
-
-async function saveSetupPatch(guildId: string, endpoint: string, patch: Record<string, unknown>) {
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, patch }),
-  });
-  await readJsonOrThrow(res);
-}
-
-async function saveSetupConfig(guildId: string, endpoint: string, config: Record<string, unknown>) {
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, config }),
-  });
-  await readJsonOrThrow(res);
-}
-
-async function saveSetupBody(guildId: string, endpoint: string, config: Record<string, unknown>) {
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, ...config }),
-  });
-  await readJsonOrThrow(res);
-}
-
-async function getEntityConfig(guildId: string, engineId: string) {
-  const res = await fetch(
-    `/api/setup/engine-entity-config?guildId=${encodeURIComponent(guildId)}&engineId=${encodeURIComponent(engineId)}`,
-    { cache: "no-store" }
-  );
-  const json = await readJsonOrThrow(res);
-  return json?.config || {};
-}
-
-async function saveEntityActive(guildId: string, engineId: string, active: boolean) {
-  const res = await fetch("/api/setup/engine-entity-config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engineId, patch: { active } }),
-  });
-  await readJsonOrThrow(res);
-}
-
 function featureController(key: string): ToggleController {
   return {
     async read(guildId) {
@@ -188,96 +123,17 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
   };
 }
 
-function setupPatchController(endpoint: string, fieldPath: string[]): ToggleController {
-  return {
-    async read(guildId) {
-      const config = await getSetupConfig(guildId, endpoint);
-      return readBoolPath(config, fieldPath, false);
-    },
-    async write(guildId, next) {
-      await saveSetupPatch(guildId, endpoint, buildPatch(fieldPath, next));
-    },
-  };
-}
-
-function setupConfigController(endpoint: string, fieldPath: string[]): ToggleController {
-  return {
-    async read(guildId) {
-      const config = await getSetupConfig(guildId, endpoint);
-      return readBoolPath(config, fieldPath, false);
-    },
-    async write(guildId, next) {
-      const current = await getSetupConfig(guildId, endpoint);
-      await saveSetupConfig(guildId, endpoint, setPathValue(current, fieldPath, next) as Record<string, unknown>);
-    },
-  };
-}
-
-function setupBodyController(endpoint: string, fieldPath: string[]): ToggleController {
-  return {
-    async read(guildId) {
-      const config = await getSetupConfig(guildId, endpoint);
-      return readBoolPath(config, fieldPath, false);
-    },
-    async write(guildId, next) {
-      const current = await getSetupConfig(guildId, endpoint);
-      await saveSetupBody(guildId, endpoint, setPathValue(current, fieldPath, next) as Record<string, unknown>);
-    },
-  };
-}
-
-function entityController(engineId: string): ToggleController {
-  return {
-    async read(guildId) {
-      const config = await getEntityConfig(guildId, engineId);
-      return readBoolPath(config, ["active"], true);
-    },
-    async write(guildId, next) {
-      await saveEntityActive(guildId, engineId, next);
-    },
-  };
-}
-
-function moduleController(moduleId: string): ToggleController {
-  return {
-    async read(guildId) {
-      const config = await getSetupConfig(guildId, "/api/setup/module-loader-config");
-      const modules = Array.isArray(config?.modules) ? config.modules : [];
-      const match = modules.find((row: any) => String(row?.id || "").trim() === moduleId);
-      return typeof match?.enabled === "boolean" ? match.enabled : readBoolPath(config, ["active"], true);
-    },
-    async write(guildId, next) {
-      const current = await getSetupConfig(guildId, "/api/setup/module-loader-config");
-      const modules = Array.isArray(current?.modules) ? [...current.modules] : [];
-      const index = modules.findIndex((row: any) => String(row?.id || "").trim() === moduleId);
-      if (index >= 0) {
-        modules[index] = { ...modules[index], enabled: next };
-      } else {
-        modules.push({
-          id: moduleId,
-          label: moduleId,
-          enabled: next,
-          bootOrder: modules.length + 1,
-          warmupMs: 50,
-          retryCount: 2,
-        });
-      }
-      await saveSetupBody(guildId, "/api/setup/module-loader-config", {
-        ...current,
-        modules,
-      });
-    },
-  };
-}
-
 const birthdayController: ToggleController = {
   async read(guildId) {
-    const config = await getSetupConfig(guildId, "/api/setup/radio-birthday-config");
-    return readBoolPath(config, ["birthday", "enabled"], false);
+    const [dashboardConfig, engineConfig] = await Promise.all([
+      getDashboardConfig(guildId),
+      getEngineConfig(guildId, "radio"),
+    ]);
+    return readBoolPath(dashboardConfig, ["features", "birthdayEnabled"], false) && readBoolPath(engineConfig, ["birthday", "enabled"], false);
   },
   async write(guildId, next) {
     await saveDashboardFeature(guildId, "birthdayEnabled", next);
-    await saveSetupPatch(guildId, "/api/setup/radio-birthday-config", buildPatch(["birthday", "enabled"], next));
+    await saveEngineConfig(guildId, "radio", { birthday: { enabled: next } });
   },
 };
 
@@ -376,23 +232,23 @@ const CARDS: Card[] = [
   { href: "/dashboard/tickets", title: "Tickets", description: "Support ticket engine controls.", toggle: engineController("tickets", ["active"]) },
   { href: "/dashboard/selfroles", title: "Selfroles", description: "Self-role panel configuration and role mapping.", toggle: engineController("selfroles", ["active"]) },
   { href: "/dashboard/invite-tracker", title: "Invite Tracker", description: "Invite tracking tiers and command behavior.", toggle: engineController("inviteTracker") },
-  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: featureController("ttsEnabled"), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
-  { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: setupPatchController("/api/setup/progression-config", ["active"]) },
+  { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: engineController("progression", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },
   { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
   { href: "/dashboard/music", title: "Music", description: "Always-free multi-route music playback, route binding, and live queue control.", toggle: musicController },
   { href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, entrants, rerolls, and controls.", toggle: engineController("giveaways", ["active"]) },
   { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true, category: "premium" },
-  { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", toggle: moduleController("games") },
+  { href: "/dashboard/gta-ops", title: "GTA Ops", description: "GTA operations entity, separate from Heist.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
   { href: "/dashboard/contracts", title: "Contracts", description: "Objective progression, task tracking, and contract reward flow.", toggle: engineController("contracts") },
   { href: "/dashboard/profile", title: "Profile", description: "Profile display, rank surfaces, and stat aggregation controls.", toggle: engineController("profile") },
   { href: "/dashboard/halloffame", title: "Hall of Fame", description: "Recognition layer for top achievers and prestige-ready members.", toggle: engineController("hallOfFame") },
-  { href: "/dashboard/achievements", title: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic.", toggle: setupPatchController("/api/setup/achievements-config", ["active"]) },
-  { href: "/dashboard/loyalty", title: "Loyalty", description: "Retention timing, tenure rewards, and VIP-adjacent loyalty benefits.", toggle: setupPatchController("/api/setup/loyalty-config", ["active"]) },
+  { href: "/dashboard/achievements", title: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic.", toggle: engineController("achievements", ["active"]) },
+  { href: "/dashboard/loyalty", title: "Loyalty", description: "Retention timing, tenure rewards, and VIP-adjacent loyalty benefits.", toggle: engineController("loyalty", ["active"]) },
   { href: "/dashboard/catdrop", title: "Cat Drop", description: "Cat spawn/catch and drop tuning.", toggle: engineController("catDrop") },
   { href: "/dashboard/rarespawn", title: "Rare Spawn", description: "Rare event spawn/claim settings.", toggle: rareSpawnController },
   { href: "/dashboard/range", title: "Range", description: "Range game interactions and limits.", toggle: engineController("range") },
@@ -400,14 +256,14 @@ const CARDS: Card[] = [
   { href: "/dashboard/pokemon-catching", title: "Pokemon Catching", description: "Wild spawn lanes, catch rates, reward tuning, and catch logs.", toggle: pokemonCatchingController },
   { href: "/dashboard/pokemon-battle", title: "Pokemon Battle", description: "Battle lane, battle logging, and duel availability.", toggle: pokemonBattleController },
   { href: "/dashboard/pokemon-trade", title: "Pokemon Trade", description: "Trade gate and trade log routing.", toggle: pokemonTradeController },
-  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
-  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: featureController("governanceEnabled"), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]), premiumRequired: true, category: "premium" },
+  { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]), premiumRequired: true, category: "premium" },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: engineController("blacklist") },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
   { href: "/dashboard/panels", title: "Panel Hub", description: "Jump to the engine tabs that own their own panel layouts and run shared deploys.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
   { href: "/dashboard/jed", title: "Jed", description: "Sticker/emote/gif steal and deploy engine.", toggle: engineController("jed") },
-  { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", toggle: setupPatchController("/api/setup/runtime-safety-config", ["active"]) },
+  { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/vip", title: "VIP", description: "VIP tiers, grants, and expiry sync.", toggle: engineController("vip", ["active"]) },
 ];
 

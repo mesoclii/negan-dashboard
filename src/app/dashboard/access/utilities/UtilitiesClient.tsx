@@ -1,407 +1,485 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import {
+  fetchDashboardConfig,
+  fetchGuildData,
+  fetchRuntimeEngine,
+  resolveGuildContext,
+  runRuntimeEngineAction,
+  saveDashboardConfig,
+  saveRuntimeEngine,
+} from "@/lib/liveRuntime";
 
-import { useEffect, useState } from "react";
+type GuildRole = { id: string; name: string; position?: number };
+type GuildChannel = { id: string; name: string; type?: number | string };
+type RuntimePayload = { config?: Record<string, any>; summary?: Array<{ label?: string; value?: string }> };
+type EngineKey = "store" | "tickets" | "selfroles" | "botPersonalizer" | "tts" | "radio" | "loyalty";
+type RuntimeMap = Record<EngineKey, RuntimePayload>;
 
-type GuildChannel = { id: string; name: string };
-type GuildRole = { id: string; name: string };
+const box: CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 14 };
+const input: CSSProperties = { width: "100%", padding: 10, borderRadius: 8, border: "1px solid #6f0000", background: "#0a0a0a", color: "#ffd6d6" };
+const action: CSSProperties = { ...input, width: "auto", cursor: "pointer", fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.06em" };
 
-type Tier = { name: string; days: number; roleId: string; rewardCoins: number; enabled: boolean };
-
-type UtilitiesCfg = {
-  store: {
-    enabled: boolean;
-    panelChannelId: string;
-    currencyName: string;
-    featuredItemIds: string[];
-    maxItemsPerPage: number;
-    purchaseCooldownSeconds: number;
-    refundWindowMinutes: number;
-    logsChannelId: string;
-    notes: string;
-  };
-  ticketsPolicy: {
-    enabled: boolean;
-    requireReasonOnOpen: boolean;
-    requireReasonOnClose: boolean;
-    maxOpenPerUser: number;
-    cooldownSeconds: number;
-    autoCloseHours: number;
-    autoArchiveHours: number;
-    transcriptRetentionDays: number;
-    denyRoleIds: string[];
-    priorityRoleIds: string[];
-    notes: string;
-  };
-  selfroles: {
-    enabled: boolean;
-    panelChannelId: string;
-    panelMessageId: string;
-    maxRolesPerUser: number;
-    allowedRoleIds: string[];
-    blockedRoleIds: string[];
-    logsChannelId: string;
-    notes: string;
-  };
-  persona: {
-    enabled: boolean;
-    useWebhookPersona: boolean;
-    webhookName: string;
-    webhookAvatarUrl: string;
-    guildNickname: string;
-    allowedChannelIds: string[];
-    blockedChannelIds: string[];
-    cooldownSeconds: number;
-    notes: string;
-  };
-  tts: {
-    enabled: boolean;
-    voiceDefault: string;
-    maxCharsPerMessage: number;
-    cooldownSeconds: number;
-    allowedChannelIds: string[];
-    blockedChannelIds: string[];
-    logsChannelId: string;
-    notes: string;
-  };
-  radio: {
-    enabled: boolean;
-    birthdayRewardsEnabled: boolean;
-    birthdayRewardCoins: number;
-    birthdayRoleId: string;
-    announcementChannelId: string;
-    dailyBonusEnabled: boolean;
-    dailyBonusCoins: number;
-    notes: string;
-  };
-  loyalty: {
-    enabled: boolean;
-    autoAssignRoles: boolean;
-    backfillOnEnable: boolean;
-    announceChannelId: string;
-    tiers: Tier[];
-    notes: string;
-  };
-  notes: string;
+const DEFAULT_RUNTIME: RuntimeMap = {
+  store: { config: {} },
+  tickets: { config: {} },
+  selfroles: { config: {} },
+  botPersonalizer: { config: {} },
+  tts: { config: {} },
+  radio: { config: {} },
+  loyalty: { config: {} },
 };
 
-const DEFAULT_CFG: UtilitiesCfg = {
-  store: { enabled: false, panelChannelId: "", currencyName: "Coins", featuredItemIds: [], maxItemsPerPage: 10, purchaseCooldownSeconds: 3, refundWindowMinutes: 30, logsChannelId: "", notes: "" },
-  ticketsPolicy: { enabled: true, requireReasonOnOpen: false, requireReasonOnClose: false, maxOpenPerUser: 1, cooldownSeconds: 0, autoCloseHours: 72, autoArchiveHours: 24, transcriptRetentionDays: 30, denyRoleIds: [], priorityRoleIds: [], notes: "" },
-  selfroles: { enabled: false, panelChannelId: "", panelMessageId: "", maxRolesPerUser: 5, allowedRoleIds: [], blockedRoleIds: [], logsChannelId: "", notes: "" },
-  persona: { enabled: false, useWebhookPersona: false, webhookName: "", webhookAvatarUrl: "", guildNickname: "", allowedChannelIds: [], blockedChannelIds: [], cooldownSeconds: 5, notes: "" },
-  tts: { enabled: false, voiceDefault: "en-US", maxCharsPerMessage: 300, cooldownSeconds: 5, allowedChannelIds: [], blockedChannelIds: [], logsChannelId: "", notes: "" },
-  radio: { enabled: false, birthdayRewardsEnabled: true, birthdayRewardCoins: 100, birthdayRoleId: "", announcementChannelId: "", dailyBonusEnabled: false, dailyBonusCoins: 10, notes: "" },
-  loyalty: { enabled: false, autoAssignRoles: true, backfillOnEnable: false, announceChannelId: "", tiers: [{ name: "30 Days", days: 30, roleId: "", rewardCoins: 50, enabled: true }, { name: "90 Days", days: 90, roleId: "", rewardCoins: 200, enabled: true }, { name: "365 Days", days: 365, roleId: "", rewardCoins: 1000, enabled: true }], notes: "" },
-  notes: ""
-};
+const engineKeys: EngineKey[] = ["store", "tickets", "selfroles", "botPersonalizer", "tts", "radio", "loyalty"];
 
-const box: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 10, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
-const input: React.CSSProperties = { width: "100%", padding: 10, borderRadius: 8, border: "1px solid #6f0000", background: "#0a0a0a", color: "#ffd6d6" };
-
-function getGuildIdClient() {
-  if (typeof window === "undefined") return "";
-  const q = new URLSearchParams(window.location.search).get("guildId") || "";
-  const s = localStorage.getItem("activeGuildId") || "";
-  const gid = (q || s).trim();
-  if (gid) localStorage.setItem("activeGuildId", gid);
-  return gid;
+function toggleId(list: string[], id: string) {
+  return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
 }
 
-function addUnique(list: string[], id: string) {
-  const v = String(id || "").trim();
-  if (!v) return list;
-  return list.includes(v) ? list : [...list, v];
+function summaryText(payload?: RuntimePayload) {
+  const items = Array.isArray(payload?.summary) ? payload.summary.slice(0, 4) : [];
+  return items.length ? items.map((item) => `${String(item.label || "State")}: ${String(item.value || "-")}`).join(" | ") : "Live runtime connected.";
 }
 
-export default function UtilitiesPage() {
+function RoleChips({ label, roles, selected, onToggle }: { label: string; roles: GuildRole[]; selected: string[]; onToggle: (roleId: string) => void }) {
+  return (
+    <div>
+      <div style={{ color: "#ffb5b5", fontSize: 12, marginBottom: 6 }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {roles.map((role) => {
+          const active = selected.includes(role.id);
+          return (
+            <button
+              key={`${label}:${role.id}`}
+              type="button"
+              onClick={() => onToggle(role.id)}
+              style={{
+                borderRadius: 999,
+                border: active ? "1px solid #ff5555" : "1px solid #553030",
+                background: active ? "rgba(255,0,0,.24)" : "rgba(255,255,255,.03)",
+                color: active ? "#fff" : "#ffb3b3",
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              {role.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function UtilitiesClient() {
   const [guildId, setGuildId] = useState("");
-  const [cfg, setCfg] = useState<UtilitiesCfg>(DEFAULT_CFG);
+  const [guildName, setGuildName] = useState("");
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [roles, setRoles] = useState<GuildRole[]>([]);
-  const [pick, setPick] = useState<Record<string, string>>({});
+  const [dashboardConfig, setDashboardConfig] = useState<Record<string, any>>({});
+  const [runtime, setRuntime] = useState<RuntimeMap>(DEFAULT_RUNTIME);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => setGuildId(getGuildIdClient()), []);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!guildId) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
+    const resolved = resolveGuildContext();
+    setGuildId(resolved.guildId);
+    setGuildName(resolved.guildName);
+  }, []);
+
+  useEffect(() => {
+    async function loadAll(targetGuildId: string) {
+      if (!targetGuildId) {
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        setMsg("");
-        const [uRes, gRes] = await Promise.all([
-          fetch(`/api/setup/utilities-config?guildId=${encodeURIComponent(guildId)}`),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
+        setMessage("");
+        const [guildJson, dashboardJson, ...runtimeJson] = await Promise.all([
+          fetchGuildData(targetGuildId),
+          fetchDashboardConfig(targetGuildId),
+          ...engineKeys.map((engine) => fetchRuntimeEngine(targetGuildId, engine)),
         ]);
-        const uj = await uRes.json();
-        const gj = await gRes.json();
-        setCfg({ ...DEFAULT_CFG, ...(uj?.config || {}) });
-        setChannels(Array.isArray(gj?.channels) ? gj.channels : []);
-        setRoles(Array.isArray(gj?.roles) ? gj.roles : []);
-      } catch {
-        setMsg("Failed to load engine runtime config.");
+        setChannels(Array.isArray(guildJson.channels) ? guildJson.channels : []);
+        setRoles(Array.isArray(guildJson.roles) ? guildJson.roles : []);
+        setDashboardConfig(dashboardJson || {});
+        setRuntime({
+          store: runtimeJson[0] || { config: {} },
+          tickets: runtimeJson[1] || { config: {} },
+          selfroles: runtimeJson[2] || { config: {} },
+          botPersonalizer: runtimeJson[3] || { config: {} },
+          tts: runtimeJson[4] || { config: {} },
+          radio: runtimeJson[5] || { config: {} },
+          loyalty: runtimeJson[6] || { config: {} },
+        });
+      } catch (err: any) {
+        setMessage(err?.message || "Failed to load live utility engines.");
       } finally {
         setLoading(false);
       }
-    })();
+    }
+    void loadAll(guildId);
   }, [guildId]);
 
-  function setSection<K extends keyof UtilitiesCfg>(section: K, patch: Partial<any>) {
-    setCfg((prev) => ({ ...prev, [section]: { ...(prev as any)[section], ...patch } }));
+  function setEngineConfig(engine: EngineKey, updater: (current: Record<string, any>) => Record<string, any>) {
+    setRuntime((prev) => ({ ...prev, [engine]: { ...(prev[engine] || { config: {} }), config: updater((prev[engine]?.config as Record<string, any>) || {}) } }));
   }
 
-  function addId(section: keyof UtilitiesCfg, field: string, id: string) {
-    setCfg((prev: any) => {
-      const sec = { ...(prev[section] || {}) };
-      sec[field] = addUnique(sec[field] || [], id);
-      return { ...prev, [section]: sec };
-    });
-  }
-
-  function removeId(section: keyof UtilitiesCfg, field: string, id: string) {
-    setCfg((prev: any) => {
-      const sec = { ...(prev[section] || {}) };
-      sec[field] = (sec[field] || []).filter((x: string) => x !== id);
-      return { ...prev, [section]: sec };
-    });
-  }
-
-  function updateTier(i: number, patch: Partial<Tier>) {
-    setCfg((prev) => {
-      const tiers = [...prev.loyalty.tiers];
-      tiers[i] = { ...tiers[i], ...patch };
-      return { ...prev, loyalty: { ...prev.loyalty, tiers } };
-    });
-  }
-
-  function addTier() {
-    setCfg((prev) => ({
-      ...prev,
-      loyalty: {
-        ...prev.loyalty,
-        tiers: [...prev.loyalty.tiers, { name: "New Tier", days: 30, roleId: "", rewardCoins: 0, enabled: true }]
-      }
-    }));
-  }
-
-  function removeTier(i: number) {
-    setCfg((prev) => {
-      const tiers = [...prev.loyalty.tiers];
-      tiers.splice(i, 1);
-      return { ...prev, loyalty: { ...prev.loyalty, tiers } };
-    });
-  }
-
-  async function saveAll() {
+  async function saveEngine(engine: EngineKey, okLabel: string) {
     if (!guildId) return;
-    setSaving(true);
-    setMsg("");
-
     try {
-      const saveRes = await fetch("/api/setup/utilities-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg })
-      });
-      const saveJson = await saveRes.json();
-      if (!saveRes.ok || saveJson?.success === false) throw new Error(saveJson?.error || "Save failed");
-
-      await Promise.allSettled([
-        fetch("/api/bot/dashboard-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            guildId,
-            patch: {
-              features: {
-                ticketsEnabled: cfg.ticketsPolicy.enabled,
-                ttsEnabled: cfg.tts.enabled
-              },
-              persona: {
-                guildNickname: cfg.persona.guildNickname,
-                webhookName: cfg.persona.webhookName,
-                webhookAvatarUrl: cfg.persona.webhookAvatarUrl,
-                useWebhookPersona: cfg.persona.useWebhookPersona
-              }
-            }
-          })
-        })
-      ]);
-
-      setMsg("Engine runtime saved.");
-    } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
+      setSaving(true);
+      setMessage("");
+      const json = await saveRuntimeEngine(guildId, engine, (runtime[engine]?.config as Record<string, unknown>) || {});
+      setRuntime((prev) => ({ ...prev, [engine]: json as RuntimePayload }));
+      setMessage(okLabel);
+    } catch (err: any) {
+      setMessage(err?.message || "Save failed.");
     } finally {
       setSaving(false);
     }
   }
 
-  if (!guildId) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from /guilds first.</div>;
+  async function runAction(engine: EngineKey, actionName: string, okLabel: string) {
+    if (!guildId) return;
+    try {
+      setSaving(true);
+      setMessage("");
+      await runRuntimeEngineAction(guildId, engine, actionName);
+      const refreshed = await fetchRuntimeEngine(guildId, engine);
+      setRuntime((prev) => ({ ...prev, [engine]: refreshed as RuntimePayload }));
+      setMessage(okLabel);
+    } catch (err: any) {
+      setMessage(err?.message || "Action failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveFeaturePatch(patch: Record<string, boolean>, okLabel: string) {
+    if (!guildId) return;
+    try {
+      setSaving(true);
+      setMessage("");
+      await saveDashboardConfig(guildId, { features: patch });
+      setDashboardConfig((prev) => ({ ...prev, features: { ...(prev.features || {}), ...patch } }));
+      setMessage(okLabel);
+    } catch (err: any) {
+      setMessage(err?.message || "Feature gate save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const textChannels = useMemo(() => channels.filter((channel) => Number(channel.type) === 0 || Number(channel.type) === 5), [channels]);
+  const categoryChannels = useMemo(() => channels.filter((channel) => Number(channel.type) === 4), [channels]);
+  const voiceChannels = useMemo(() => channels.filter((channel) => Number(channel.type) === 2 || Number(channel.type) === 13), [channels]);
+
+  const store = (runtime.store?.config as Record<string, any>) || {};
+  const tickets = (runtime.tickets?.config as Record<string, any>) || {};
+  const selfroles = (runtime.selfroles?.config as Record<string, any>) || {};
+  const botPersonalizer = (runtime.botPersonalizer?.config as Record<string, any>) || {};
+  const tts = (runtime.tts?.config as Record<string, any>) || {};
+  const radio = (runtime.radio?.config as Record<string, any>) || {};
+  const loyalty = (runtime.loyalty?.config as Record<string, any>) || {};
+
+  if (!guildId && !loading) return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from `/guilds` first.</div>;
 
   return (
-    <div style={{ color: "#ff5c5c", padding: 20, maxWidth: 1300 }}>
-      <h1 style={{ marginTop: 0, letterSpacing: "0.14em", textTransform: "uppercase" }}>Engine Runtime Studio</h1>
-      <p style={{ marginTop: -4, opacity: 0.9 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
+    <div style={{ color: "#ff5c5c", padding: 20, maxWidth: 1320 }}>
+      <div style={box}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <div>
+            <h1 style={{ marginTop: 0, letterSpacing: "0.14em", textTransform: "uppercase" }}>Utilities Runtime</h1>
+            <p style={{ marginTop: 6 }}>Guild: {guildName || guildId}</p>
+            <div style={{ color: "#ffb3b3", fontSize: 12 }}>This page now edits the live utility engines the bot actually runs. No utility shadow file remains here.</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href={`/dashboard/channels?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Channels</Link>
+            <Link href={`/dashboard/slash-commands?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Slash Commands</Link>
+          </div>
+        </div>
+        {message ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{message}</div> : null}
+      </div>
 
-      {loading ? <p>Loading...</p> : (
+      {loading ? <div style={box}>Loading utility engines...</div> : null}
+
+      {!loading ? (
         <>
           <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Store Engine</h3>
-            <label><input type="checkbox" checked={cfg.store.enabled} onChange={(e) => setSection("store", { enabled: e.target.checked })} /> Enabled</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <div><div>Panel Channel</div><select style={input} value={cfg.store.panelChannelId} onChange={(e) => setSection("store", { panelChannelId: e.target.value })}><option value="">None</option>{channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-              <div><div>Logs Channel</div><select style={input} value={cfg.store.logsChannelId} onChange={(e) => setSection("store", { logsChannelId: e.target.value })}><option value="">None</option>{channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-              <div><div>Currency Name</div><input style={input} value={cfg.store.currencyName} onChange={(e) => setSection("store", { currencyName: e.target.value })} /></div>
-              <div><div>Max Items/Page</div><input type="number" style={input} value={cfg.store.maxItemsPerPage} onChange={(e) => setSection("store", { maxItemsPerPage: Number(e.target.value || 0) })} /></div>
-              <div><div>Purchase Cooldown (sec)</div><input type="number" style={input} value={cfg.store.purchaseCooldownSeconds} onChange={(e) => setSection("store", { purchaseCooldownSeconds: Number(e.target.value || 0) })} /></div>
-              <div><div>Refund Window (min)</div><input type="number" style={input} value={cfg.store.refundWindowMinutes} onChange={(e) => setSection("store", { refundWindowMinutes: Number(e.target.value || 0) })} /></div>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Feature Gates</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10 }}>
+              <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.economyEnabled)} onChange={(event) => void saveFeaturePatch({ economyEnabled: event.target.checked }, `Economy feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> Economy</label>
+              <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.ttsEnabled)} onChange={(event) => void saveFeaturePatch({ ttsEnabled: event.target.checked }, `TTS feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> TTS</label>
+              <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.birthdayEnabled)} onChange={(event) => void saveFeaturePatch({ birthdayEnabled: event.target.checked }, `Birthday feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> Birthdays</label>
             </div>
-            <div style={{ marginTop: 8 }}><div>Store Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.store.notes} onChange={(e) => setSection("store", { notes: e.target.value })} /></div>
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Tickets Policy</h3>
-            <label><input type="checkbox" checked={cfg.ticketsPolicy.enabled} onChange={(e) => setSection("ticketsPolicy", { enabled: e.target.checked })} /> Enabled</label>
-            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <label><input type="checkbox" checked={cfg.ticketsPolicy.requireReasonOnOpen} onChange={(e) => setSection("ticketsPolicy", { requireReasonOnOpen: e.target.checked })} /> Require reason on open</label>
-              <label><input type="checkbox" checked={cfg.ticketsPolicy.requireReasonOnClose} onChange={(e) => setSection("ticketsPolicy", { requireReasonOnClose: e.target.checked })} /> Require reason on close</label>
-              <div><div>Max Open/User</div><input type="number" style={input} value={cfg.ticketsPolicy.maxOpenPerUser} onChange={(e) => setSection("ticketsPolicy", { maxOpenPerUser: Number(e.target.value || 0) })} /></div>
-              <div><div>Cooldown (sec)</div><input type="number" style={input} value={cfg.ticketsPolicy.cooldownSeconds} onChange={(e) => setSection("ticketsPolicy", { cooldownSeconds: Number(e.target.value || 0) })} /></div>
-              <div><div>Auto Close (hours)</div><input type="number" style={input} value={cfg.ticketsPolicy.autoCloseHours} onChange={(e) => setSection("ticketsPolicy", { autoCloseHours: Number(e.target.value || 0) })} /></div>
-              <div><div>Auto Archive (hours)</div><input type="number" style={input} value={cfg.ticketsPolicy.autoArchiveHours} onChange={(e) => setSection("ticketsPolicy", { autoArchiveHours: Number(e.target.value || 0) })} /></div>
-            </div>
-
-            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Store</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.store)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10 }}>
+              <label><input type="checkbox" checked={Boolean(store.active)} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, active: event.target.checked }))} /> Active</label>
+              <label><input type="checkbox" checked={Boolean(store.panel?.enabled)} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, panel: { ...(current.panel || {}), enabled: event.target.checked } }))} /> Panel Enabled</label>
+              <label><input type="checkbox" checked={Boolean(store.policies?.requireStaffApproval)} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, policies: { ...(current.policies || {}), requireStaffApproval: event.target.checked } }))} /> Staff Approval</label>
               <div>
-                <div>Deny Roles</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}>
-                  <select style={input} value={pick.denyRole || ""} onChange={(e) => setPick((p) => ({ ...p, denyRole: e.target.value }))}>
-                    <option value="">Select role</option>
-                    {roles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
-                  </select>
-                  <button onClick={() => addId("ticketsPolicy", "denyRoleIds", pick.denyRole || "")}>Add</button>
-                </div>
-                <div style={{ marginTop: 6 }}>{cfg.ticketsPolicy.denyRoleIds.map((id) => <button key={id} style={{ marginRight: 6, marginBottom: 6 }} onClick={() => removeId("ticketsPolicy", "denyRoleIds", id)}>{id} x</button>)}</div>
+                <label>Panel channel</label>
+                <select style={input} value={String(store.panel?.channelId || "")} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, panel: { ...(current.panel || {}), channelId: event.target.value } }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
               </div>
-
               <div>
-                <div>Priority Roles</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 6 }}>
-                  <select style={input} value={pick.priorityRole || ""} onChange={(e) => setPick((p) => ({ ...p, priorityRole: e.target.value }))}>
-                    <option value="">Select role</option>
-                    {roles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
-                  </select>
-                  <button onClick={() => addId("ticketsPolicy", "priorityRoleIds", pick.priorityRole || "")}>Add</button>
-                </div>
-                <div style={{ marginTop: 6 }}>{cfg.ticketsPolicy.priorityRoleIds.map((id) => <button key={id} style={{ marginRight: 6, marginBottom: 6 }} onClick={() => removeId("ticketsPolicy", "priorityRoleIds", id)}>{id} x</button>)}</div>
+                <label>Panel title</label>
+                <input style={input} value={String(store.panel?.title || "")} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, panel: { ...(current.panel || {}), title: event.target.value } }))} />
+              </div>
+              <div>
+                <label>Log channel</label>
+                <select style={input} value={String(store.policies?.logChannelId || "")} onChange={(event) => setEngineConfig("store", (current) => ({ ...current, policies: { ...(current.policies || {}), logChannelId: event.target.value } }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
               </div>
             </div>
-
-            <div style={{ marginTop: 8 }}><div>Tickets Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.ticketsPolicy.notes} onChange={(e) => setSection("ticketsPolicy", { notes: e.target.value })} /></div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("store", "Saved live store runtime.")}>Save Store</button>
+              <Link href={`/dashboard/economy/store?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Open Store Studio</Link>
+            </div>
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Selfroles Engine</h3>
-            <label><input type="checkbox" checked={cfg.selfroles.enabled} onChange={(e) => setSection("selfroles", { enabled: e.target.checked })} /> Enabled</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-              <div><div>Panel Channel</div><select style={input} value={cfg.selfroles.panelChannelId} onChange={(e) => setSection("selfroles", { panelChannelId: e.target.value })}><option value="">None</option>{channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-              <div><div>Logs Channel</div><select style={input} value={cfg.selfroles.logsChannelId} onChange={(e) => setSection("selfroles", { logsChannelId: e.target.value })}><option value="">None</option>{channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-              <div><div>Panel Message ID</div><input style={input} value={cfg.selfroles.panelMessageId} onChange={(e) => setSection("selfroles", { panelMessageId: e.target.value })} /></div>
-              <div><div>Max Roles/User</div><input type="number" style={input} value={cfg.selfroles.maxRolesPerUser} onChange={(e) => setSection("selfroles", { maxRolesPerUser: Number(e.target.value || 0) })} /></div>
-            </div>
-            <div style={{ marginTop: 8 }}><div>Selfroles Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.selfroles.notes} onChange={(e) => setSection("selfroles", { notes: e.target.value })} /></div>
-          </div>
-
-          <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Persona Controls</h3>
-            <label><input type="checkbox" checked={cfg.persona.enabled} onChange={(e) => setSection("persona", { enabled: e.target.checked })} /> Enabled</label>
-            <label style={{ marginLeft: 12 }}><input type="checkbox" checked={cfg.persona.useWebhookPersona} onChange={(e) => setSection("persona", { useWebhookPersona: e.target.checked })} /> Use Webhook Persona</label>
-            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div><div>Guild Nickname</div><input style={input} value={cfg.persona.guildNickname} onChange={(e) => setSection("persona", { guildNickname: e.target.value })} /></div>
-              <div><div>Webhook Name</div><input style={input} value={cfg.persona.webhookName} onChange={(e) => setSection("persona", { webhookName: e.target.value })} /></div>
-              <div><div>Webhook Avatar URL</div><input style={input} value={cfg.persona.webhookAvatarUrl} onChange={(e) => setSection("persona", { webhookAvatarUrl: e.target.value })} /></div>
-              <div><div>Cooldown (sec)</div><input type="number" style={input} value={cfg.persona.cooldownSeconds} onChange={(e) => setSection("persona", { cooldownSeconds: Number(e.target.value || 0) })} /></div>
-            </div>
-            <div style={{ marginTop: 8 }}><div>Persona Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.persona.notes} onChange={(e) => setSection("persona", { notes: e.target.value })} /></div>
-          </div>
-
-          <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>TTS Engine</h3>
-            <label><input type="checkbox" checked={cfg.tts.enabled} onChange={(e) => setSection("tts", { enabled: e.target.checked })} /> Enabled</label>
-            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-              <div><div>Voice Default</div><input style={input} value={cfg.tts.voiceDefault} onChange={(e) => setSection("tts", { voiceDefault: e.target.value })} /></div>
-              <div><div>Max Chars/Message</div><input type="number" style={input} value={cfg.tts.maxCharsPerMessage} onChange={(e) => setSection("tts", { maxCharsPerMessage: Number(e.target.value || 0) })} /></div>
-              <div><div>Cooldown (sec)</div><input type="number" style={input} value={cfg.tts.cooldownSeconds} onChange={(e) => setSection("tts", { cooldownSeconds: Number(e.target.value || 0) })} /></div>
-            </div>
-            <div style={{ marginTop: 8 }}><div>TTS Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.tts.notes} onChange={(e) => setSection("tts", { notes: e.target.value })} /></div>
-          </div>
-
-          <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Radio / Birthday</h3>
-            <label><input type="checkbox" checked={cfg.radio.enabled} onChange={(e) => setSection("radio", { enabled: e.target.checked })} /> Radio Enabled</label>
-            <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <label><input type="checkbox" checked={cfg.radio.birthdayRewardsEnabled} onChange={(e) => setSection("radio", { birthdayRewardsEnabled: e.target.checked })} /> Birthday Rewards</label>
-              <label><input type="checkbox" checked={cfg.radio.dailyBonusEnabled} onChange={(e) => setSection("radio", { dailyBonusEnabled: e.target.checked })} /> Daily Bonus</label>
-              <div><div>Birthday Reward Coins</div><input type="number" style={input} value={cfg.radio.birthdayRewardCoins} onChange={(e) => setSection("radio", { birthdayRewardCoins: Number(e.target.value || 0) })} /></div>
-              <div><div>Daily Bonus Coins</div><input type="number" style={input} value={cfg.radio.dailyBonusCoins} onChange={(e) => setSection("radio", { dailyBonusCoins: Number(e.target.value || 0) })} /></div>
-              <div><div>Birthday Role</div><select style={input} value={cfg.radio.birthdayRoleId} onChange={(e) => setSection("radio", { birthdayRoleId: e.target.value })}><option value="">None</option>{roles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}</select></div>
-              <div><div>Announcement Channel</div><select style={input} value={cfg.radio.announcementChannelId} onChange={(e) => setSection("radio", { announcementChannelId: e.target.value })}><option value="">None</option>{channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}</select></div>
-            </div>
-            <div style={{ marginTop: 8 }}><div>Radio Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.radio.notes} onChange={(e) => setSection("radio", { notes: e.target.value })} /></div>
-          </div>
-
-          <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Loyalty Engine</h3>
-            <label><input type="checkbox" checked={cfg.loyalty.enabled} onChange={(e) => setSection("loyalty", { enabled: e.target.checked })} /> Enabled</label>
-            <label style={{ marginLeft: 12 }}><input type="checkbox" checked={cfg.loyalty.autoAssignRoles} onChange={(e) => setSection("loyalty", { autoAssignRoles: e.target.checked })} /> Auto Assign Roles</label>
-            <label style={{ marginLeft: 12 }}><input type="checkbox" checked={cfg.loyalty.backfillOnEnable} onChange={(e) => setSection("loyalty", { backfillOnEnable: e.target.checked })} /> Backfill On Enable</label>
-
-            <div style={{ marginTop: 8 }}>
-              <div>Announce Channel</div>
-              <select style={input} value={cfg.loyalty.announceChannelId} onChange={(e) => setSection("loyalty", { announceChannelId: e.target.value })}>
-                <option value="">None</option>
-                {channels.map(c => <option key={c.id} value={c.id}>#{c.name}</option>)}
-              </select>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <h4 style={{ margin: "0 0 8px" }}>Loyalty Tiers</h4>
-              {cfg.loyalty.tiers.map((t, i) => (
-                <div key={i} style={{ border: "1px solid #6a0000", borderRadius: 8, padding: 10, marginBottom: 8 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 1fr 130px auto auto", gap: 8, alignItems: "center" }}>
-                    <input style={input} value={t.name} onChange={(e) => updateTier(i, { name: e.target.value })} />
-                    <input type="number" style={input} value={t.days} onChange={(e) => updateTier(i, { days: Number(e.target.value || 0) })} />
-                    <select style={input} value={t.roleId} onChange={(e) => updateTier(i, { roleId: e.target.value })}>
-                      <option value="">No Role</option>
-                      {roles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Tickets + Selfroles</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.tickets)} | {summaryText(runtime.selfroles)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(tickets.active)} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, active: event.target.checked }))} /> Tickets Active</label>
+                  <label><input type="checkbox" checked={Boolean(tickets.singleLogMode)} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, singleLogMode: event.target.checked }))} /> Single Log Mode</label>
+                  <div>
+                    <label>Panel channel</label>
+                    <select style={input} value={String(tickets.panelChannelId || "")} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, panelChannelId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
                     </select>
-                    <input type="number" style={input} value={t.rewardCoins} onChange={(e) => updateTier(i, { rewardCoins: Number(e.target.value || 0) })} />
-                    <label><input type="checkbox" checked={t.enabled} onChange={(e) => updateTier(i, { enabled: e.target.checked })} /> On</label>
-                    <button onClick={() => removeTier(i)}>Remove</button>
+                  </div>
+                  <div>
+                    <label>Transcript log</label>
+                    <select style={input} value={String(tickets.transcriptLogId || "")} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, transcriptLogId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Open category</label>
+                    <select style={input} value={String(tickets.openCategoryId || "")} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, openCategoryId: event.target.value }))}>
+                      <option value="">Select category</option>
+                      {categoryChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Closed category</label>
+                    <select style={input} value={String(tickets.closedCategoryId || "")} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, closedCategoryId: event.target.value }))}>
+                      <option value="">Select category</option>
+                      {categoryChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}
+                    </select>
                   </div>
                 </div>
-              ))}
-              <button onClick={addTier}>+ Add Tier</button>
+                <RoleChips label="Staff roles" roles={roles} selected={Array.isArray(tickets.staffRoleIds) ? tickets.staffRoleIds : []} onToggle={(roleId) => setEngineConfig("tickets", (current) => ({ ...current, staffRoleIds: toggleId(Array.isArray(current.staffRoleIds) ? current.staffRoleIds : [], roleId) }))} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("tickets", "Saved live tickets runtime.")}>Save Tickets</button>
+                  <button type="button" disabled={saving} style={action} onClick={() => void runAction("tickets", "deployPanel", "Deployed tickets panel.")}>Deploy Panel</button>
+                </div>
+              </div>
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(selfroles.active)} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, active: event.target.checked }))} /> Selfroles Active</label>
+                  <label><input type="checkbox" checked={Boolean(selfroles.requireVerification)} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, requireVerification: event.target.checked }))} /> Require Verification</label>
+                  <div>
+                    <label>Verification role</label>
+                    <select style={input} value={String(selfroles.verificationRoleId || "")} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, verificationRoleId: event.target.value }))}>
+                      <option value="">Select role</option>
+                      {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Log channel</label>
+                    <select style={input} value={String(selfroles.logChannelId || "")} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, logChannelId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("selfroles", "Saved live selfroles runtime.")}>Save Selfroles</button>
+                  <button type="button" disabled={saving} style={action} onClick={() => void runAction("selfroles", "deployPanels", "Deployed selfroles panels.")}>Deploy Panels</button>
+                </div>
+              </div>
             </div>
-
-            <div style={{ marginTop: 8 }}><div>Loyalty Notes</div><textarea style={{ ...input, minHeight: 60 }} value={cfg.loyalty.notes} onChange={(e) => setSection("loyalty", { notes: e.target.value })} /></div>
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Global Notes</h3>
-            <textarea style={{ ...input, minHeight: 80 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Bot Personalizer + TTS</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.botPersonalizer)} | {summaryText(runtime.tts)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(botPersonalizer.enabled)} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, enabled: event.target.checked }))} /> Personalizer Enabled</label>
+                  <label><input type="checkbox" checked={Boolean(botPersonalizer.useWebhookPersona)} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, useWebhookPersona: event.target.checked }))} /> Webhook Persona</label>
+                  <div>
+                    <label>Guild nickname</label>
+                    <input style={input} value={String(botPersonalizer.guildNickname || "")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, guildNickname: event.target.value }))} />
+                  </div>
+                  <div>
+                    <label>Webhook name</label>
+                    <input style={input} value={String(botPersonalizer.webhookName || "")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, webhookName: event.target.value }))} />
+                  </div>
+                  <div>
+                    <label>Status</label>
+                    <select style={input} value={String(botPersonalizer.status || "online")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, status: event.target.value }))}>
+                      <option value="online">Online</option>
+                      <option value="idle">Idle</option>
+                      <option value="dnd">Do Not Disturb</option>
+                      <option value="invisible">Invisible</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Activity type</label>
+                    <select style={input} value={String(botPersonalizer.activityType || "LISTENING")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, activityType: event.target.value }))}>
+                      <option value="PLAYING">Playing</option>
+                      <option value="LISTENING">Listening</option>
+                      <option value="WATCHING">Watching</option>
+                      <option value="COMPETING">Competing</option>
+                      <option value="STREAMING">Streaming</option>
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label>Activity text</label>
+                    <input style={input} value={String(botPersonalizer.activityText || "")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, activityText: event.target.value }))} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("botPersonalizer", "Saved live bot personalizer runtime.")}>Save Personalizer</button>
+                  <button type="button" disabled={saving} style={action} onClick={() => void runAction("botPersonalizer", "applyProfile", "Applied bot profile live.")}>Apply Live</button>
+                  <Link href={`/dashboard/bot-personalizer?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Open Personalizer</Link>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(tts.enabled)} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, enabled: event.target.checked }))} /> TTS Enabled</label>
+                  <label><input type="checkbox" checked={Boolean(tts.commandEnabled)} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, commandEnabled: event.target.checked }))} /> Command Enabled</label>
+                  <label><input type="checkbox" checked={Boolean(tts.autoRouteEnabled)} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, autoRouteEnabled: event.target.checked }))} /> Auto Route</label>
+                  <label><input type="checkbox" checked={Boolean(tts.voiceChannelOnly)} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, voiceChannelOnly: event.target.checked }))} /> Voice Only</label>
+                  <div>
+                    <label>Default voice</label>
+                    <input style={input} value={String(tts.defaultVoice || "female")} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, defaultVoice: event.target.value }))} />
+                  </div>
+                  <div>
+                    <label>Max chars</label>
+                    <input style={input} type="number" value={Number(tts.maxCharsPerMessage || 0)} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, maxCharsPerMessage: Number(event.target.value || 0) }))} />
+                  </div>
+                  <div>
+                    <label>Auto text channel</label>
+                    <select style={input} value={String(tts.autoTextChannelId || "")} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, autoTextChannelId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Auto voice channel</label>
+                    <select style={input} value={String(tts.autoVoiceChannelId || "")} onChange={(event) => setEngineConfig("tts", (current) => ({ ...current, autoVoiceChannelId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {voiceChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("tts", "Saved live TTS runtime.")}>Save TTS</button>
+                  <Link href={`/dashboard/tts?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Open TTS</Link>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <button onClick={saveAll} disabled={saving}>{saving ? "Saving..." : "Save Engine Runtime Studio"}</button>
-          {msg ? <p style={{ marginTop: 10 }}>{msg}</p> : null}
+          <div style={box}>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Radio Birthday + Loyalty</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.radio)} | {summaryText(runtime.loyalty)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(radio.active)} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, active: event.target.checked }))} /> Engine Active</label>
+                  <label><input type="checkbox" checked={Boolean(radio.birthday?.enabled)} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, birthday: { ...(current.birthday || {}), enabled: event.target.checked } }))} /> Birthday Enabled</label>
+                  <div>
+                    <label>Birthday role</label>
+                    <select style={input} value={String(radio.birthday?.roleId || "")} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, birthday: { ...(current.birthday || {}), roleId: event.target.value } }))}>
+                      <option value="">Select role</option>
+                      {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Broadcast channel</label>
+                    <select style={input} value={String(radio.birthday?.broadcastChannelId || "")} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, birthday: { ...(current.birthday || {}), broadcastChannelId: event.target.value } }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Radio announce channel</label>
+                    <select style={input} value={String(radio.radio?.announceChannelId || "")} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), announceChannelId: event.target.value } }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Default volume</label>
+                    <input style={input} type="number" value={Number(radio.radio?.volumeDefault || 0)} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), volumeDefault: Number(event.target.value || 0) } }))} />
+                  </div>
+                </div>
+                <RoleChips label="DJ roles" roles={roles} selected={Array.isArray(radio.radio?.djRoleIds) ? radio.radio.djRoleIds : []} onToggle={(roleId) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), djRoleIds: toggleId(Array.isArray(current.radio?.djRoleIds) ? current.radio.djRoleIds : [], roleId) } }))} />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("radio", "Saved live radio/birthday runtime.")}>Save Radio</button>
+                  <Link href={`/dashboard/economy/radio-birthday?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Open Radio Birthday</Link>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <label><input type="checkbox" checked={Boolean(loyalty.active)} onChange={(event) => setEngineConfig("loyalty", (current) => ({ ...current, active: event.target.checked }))} /> Loyalty Active</label>
+                  <div>
+                    <label>Timezone</label>
+                    <input style={input} value={String(loyalty.timezone || "America/Los_Angeles")} onChange={(event) => setEngineConfig("loyalty", (current) => ({ ...current, timezone: event.target.value }))} />
+                  </div>
+                  <div>
+                    <label>Announce channel</label>
+                    <select style={input} value={String(loyalty.announceChannelId || "")} onChange={(event) => setEngineConfig("loyalty", (current) => ({ ...current, announceChannelId: event.target.value }))}>
+                      <option value="">Select channel</option>
+                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Heist exempt role</label>
+                    <select style={input} value={String(loyalty.heistExemptRoleId || "")} onChange={(event) => setEngineConfig("loyalty", (current) => ({ ...current, heistExemptRoleId: event.target.value }))}>
+                      <option value="">Select role</option>
+                      {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("loyalty", "Saved live loyalty runtime.")}>Save Loyalty</button>
+                  <button type="button" disabled={saving} style={action} onClick={() => void runAction("loyalty", "syncMembers", "Queued loyalty member sync.")}>Sync Members</button>
+                  <button type="button" disabled={saving} style={action} onClick={() => void runAction("loyalty", "processRewards", "Processed loyalty rewards.")}>Process Rewards</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

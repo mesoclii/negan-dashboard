@@ -200,7 +200,7 @@ export default function ProgressionPage() {
       try {
         setLoading(true);
         const [cfgRes, guildRes] = await Promise.all([
-          fetch(`/api/setup/progression-config?guildId=${encodeURIComponent(guildId)}`),
+          fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=progression`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
         ]);
         const cfgJson = await cfgRes.json();
@@ -210,7 +210,7 @@ export default function ProgressionPage() {
         setRoles(Array.isArray(guildJson?.roles) ? guildJson.roles.map((r: any) => ({ id: String(r.id), name: String(r.name) })) : []);
         setChannels(Array.isArray(guildJson?.channels) ? guildJson.channels.map((c: any) => ({ id: String(c.id), name: String(c.name) })) : []);
       } catch {
-        setMsg("Failed to load progression config.");
+        setMsg("Failed to load live progression runtime.");
       } finally {
         setLoading(false);
       }
@@ -222,14 +222,15 @@ export default function ProgressionPage() {
     try {
       setSaving(true);
       setMsg("");
-      const res = await fetch("/api/setup/progression-config", {
+      const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, patch: cfg })
+        body: JSON.stringify({ guildId, engine: "progression", patch: cfg })
       });
       const json = await res.json();
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
-      setMsg("Progression saved.");
+      setCfg(mergeCfg(json?.config || cfg));
+      setMsg("Saved live progression runtime.");
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
     } finally {
