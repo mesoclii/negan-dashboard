@@ -1,95 +1,94 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { promises as fs } from "fs";
-import path from "path";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 
-type LoyaltyConfig = {
-  active: boolean;
-  timezone: string;
-  announceChannelId: string;
-  heistExemptRoleId: string;
-  heistExemptDays: number;
-  yearRewardRoleId: string;
-  yearRewardDays: number;
-  notes: string;
-  updatedAt: string;
-};
+type AnyObj = Record<string, any>;
 
-const FILE = path.join(process.cwd(), "data", "setup", "loyalty-config.json");
-
-const DEFAULT_CONFIG: LoyaltyConfig = {
-  active: true,
-  timezone: "America/Los_Angeles",
-  announceChannelId: "",
-  heistExemptRoleId: "",
-  heistExemptDays: 7,
-  yearRewardRoleId: "",
-  yearRewardDays: 30,
-  notes: "",
-  updatedAt: "",
-};
-
-function toBool(v: any, d: boolean) {
-  return typeof v === "boolean" ? v : d;
-}
-function toStr(v: any, d = "") {
-  return typeof v === "string" ? v : d;
-}
-function toNum(v: any, d: number, min = 0, max = 100000) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return d;
-  return Math.min(max, Math.max(min, Math.floor(n)));
-}
-
-function merge(base?: Partial<LoyaltyConfig>, patch?: Partial<LoyaltyConfig>): LoyaltyConfig {
-  const b = base || {};
-  const p = patch || {};
+function defaultConfig() {
   return {
-    active: toBool(p.active, toBool(b.active, DEFAULT_CONFIG.active)),
-    timezone: toStr(p.timezone, toStr(b.timezone, DEFAULT_CONFIG.timezone)),
-    announceChannelId: toStr(p.announceChannelId, toStr(b.announceChannelId, DEFAULT_CONFIG.announceChannelId)),
-    heistExemptRoleId: toStr(p.heistExemptRoleId, toStr(b.heistExemptRoleId, DEFAULT_CONFIG.heistExemptRoleId)),
-    heistExemptDays: toNum(p.heistExemptDays, toNum(b.heistExemptDays, DEFAULT_CONFIG.heistExemptDays, 0, 3650), 0, 3650),
-    yearRewardRoleId: toStr(p.yearRewardRoleId, toStr(b.yearRewardRoleId, DEFAULT_CONFIG.yearRewardRoleId)),
-    yearRewardDays: toNum(p.yearRewardDays, toNum(b.yearRewardDays, DEFAULT_CONFIG.yearRewardDays, 0, 3650), 0, 3650),
-    notes: toStr(p.notes, toStr(b.notes, DEFAULT_CONFIG.notes)),
-    updatedAt: new Date().toISOString(),
+    active: true,
+    timezone: "America/Los_Angeles",
+    announceChannelId: "",
+    heistExemptRoleId: "",
+    heistExemptDays: 7,
+    yearRewardRoleId: "",
+    yearRewardDays: 30,
+    notes: "",
   };
 }
 
-async function readStore(): Promise<Record<string, LoyaltyConfig>> {
-  try {
-    const raw = await fs.readFile(FILE, "utf8");
-    const parsed = JSON.parse(raw || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
+function deepMerge(base: any, patch: any): any {
+  if (Array.isArray(patch)) return patch;
+  if (!patch || typeof patch !== "object") return patch ?? base;
+  const out: AnyObj = { ...(base && typeof base === "object" ? base : {}) };
+  for (const key of Object.keys(patch)) {
+    out[key] = deepMerge(out[key], patch[key]);
   }
+  return out;
 }
 
-async function writeStore(store: Record<string, LoyaltyConfig>) {
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(store, null, 2), "utf8");
+async function readRemoteConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=loyalty`,
+    {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    }
+  );
+  const data = await readJsonSafe(upstream);
+  return {
+    upstream,
+    data,
+    config: data?.config && typeof data.config === "object" ? data.config : {},
+  };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
-      const store = await readStore();
-      return res.status(200).json({ success: true, guildId, config: merge(store[guildId]) });
+    const guildId =
+      req.method === "GET"
+        ? String(req.query.guildId || "").trim()
+        : String(req.body?.guildId || "").trim();
+
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: "guildId is required" });
     }
 
-    if (req.method === "POST") {
-      const guildId = String(req.body?.guildId || "").trim();
-      const patch = (req.body?.patch || {}) as Partial<LoyaltyConfig>;
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+    if (req.method === "GET") {
+      const remote = await readRemoteConfig(req, guildId);
+      return res.status(remote.upstream.status).json({
+        success: remote.upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), remote.config),
+        error: remote.data?.error,
+      });
+    }
 
-      const store = await readStore();
-      const next = merge(store[guildId], patch);
-      store[guildId] = next;
-      await writeStore(store);
-      return res.status(200).json({ success: true, guildId, config: next });
+    if (req.method === "POST" || req.method === "PUT") {
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
+
+      const remote = await readRemoteConfig(req, guildId);
+      if (!remote.upstream.ok) {
+        return res.status(remote.upstream.status).json(remote.data);
+      }
+
+      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.patch || req.body?.config || {});
+      const config = deepMerge(deepMerge(defaultConfig(), remote.config), patch);
+
+      const upstream = await fetch(`${BOT_API}/engine-runtime`, {
+        method: "POST",
+        headers: buildBotApiHeaders(req, { json: true }),
+        body: JSON.stringify({ guildId, engine: "loyalty", patch: config }),
+      });
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json({
+        success: upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), data?.config || config),
+        error: data?.error,
+      });
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });

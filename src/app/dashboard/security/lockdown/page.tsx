@@ -1,17 +1,15 @@
-import { Suspense } from "react";
-import LockdownClient from "./LockdownClient";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
-}
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <Suspense fallback={<Loading />}>
-      <LockdownClient />
-    </Suspense>
+    <CatalogEngineConsole
+      engineKey="lockdown"
+      title="Lockdown Engine"
+      description="Edit the live lockdown thresholds and exemption rules that the bot reads for this guild. This page now writes directly to the runtime engine config instead of dashboard mirrors."
+      links={[
+        { href: "/dashboard/security", label: "Security" },
+        { href: "/dashboard/security/raid", label: "Raid Engine" },
+      ]}
+    />
   );
 }

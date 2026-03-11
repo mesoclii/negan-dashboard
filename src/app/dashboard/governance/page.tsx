@@ -1,17 +1,15 @@
-import { Suspense } from "react";
-import GovernanceClient from "./GovernanceClient";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
-}
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <Suspense fallback={<Loading />}>
-      <GovernanceClient />
-    </Suspense>
+    <CatalogEngineConsole
+      engineKey="security.governance"
+      title="Security Governance"
+      description="Live governance state for enforcement approvals, staff-AFK emergency mode, and request queue observability. This page is now bound directly to the security governance engine path."
+      links={[
+        { href: "/dashboard/security", label: "Security" },
+        { href: "/dashboard/security-enforcer", label: "Security Enforcer" },
+      ]}
+    />
   );
 }

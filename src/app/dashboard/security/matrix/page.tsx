@@ -1,17 +1,13 @@
-import { Suspense } from "react";
-import MatrixClient from "./MatrixClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <MatrixClient />
-    </Suspense>
-  );
+export default function Page({
+  searchParams,
+}: {
+  searchParams?: { guildId?: string; guildid?: string };
+}) {
+  const guildId = String(searchParams?.guildId || searchParams?.guildid || "").trim();
+  redirect(guildId ? `/dashboard/security?guildId=${encodeURIComponent(guildId)}` : "/dashboard/security");
 }

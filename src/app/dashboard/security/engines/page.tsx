@@ -1,17 +1,13 @@
-import { Suspense } from "react";
-import EnginesClient from "./EnginesClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading engines...</div>;
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <EnginesClient />
-    </Suspense>
-  );
+export default function Page({
+  searchParams,
+}: {
+  searchParams?: { guildId?: string; guildid?: string };
+}) {
+  const guildId = String(searchParams?.guildId || searchParams?.guildid || "").trim();
+  redirect(guildId ? `/dashboard/security?guildId=${encodeURIComponent(guildId)}` : "/dashboard/security");
 }

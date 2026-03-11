@@ -69,10 +69,6 @@ function mergeCfg(raw: any): RadioBirthdayConfig {
   };
 }
 
-function toggleId(list: string[], id: string): string[] {
-  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-}
-
 const card: React.CSSProperties = {
   border: "1px solid rgba(255,0,0,.38)",
   borderRadius: 12,
@@ -168,11 +164,11 @@ export default function RadioBirthdayPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, color: "#ff4747", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-              Radio / Birthday Engine
+              Radio Birthday Engine
             </h1>
             <div style={{ marginTop: 6, color: "#ff9c9c", fontSize: 13 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</div>
             <div style={{ marginTop: 3, color: "#ffb5b5", fontSize: 12 }}>
-              Radio is the birthday engine surface. Config is saved here as one engine entity.
+              `/radio` in this bot is the birthday profile surface. This page only exposes the live birthday fields the runtime actually uses.
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -303,120 +299,9 @@ export default function RadioBirthdayPage() {
           </section>
 
           <section style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Radio Controls
-            </h3>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(220px,1fr))", gap: 10 }}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!!cfg.radio.enabled}
-                  onChange={(e) =>
-                    setCfg((p) => ({ ...p, radio: { ...p.radio, enabled: e.target.checked } }))
-                  }
-                />{" "}
-                Radio enabled
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!!cfg.radio.allowLinks}
-                  onChange={(e) =>
-                    setCfg((p) => ({ ...p, radio: { ...p.radio, allowLinks: e.target.checked } }))
-                  }
-                />{" "}
-                Allow links
-              </label>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10, marginTop: 10 }}>
-              <div>
-                <label style={{ display: "block", marginBottom: 5 }}>Queue limit</label>
-                <input
-                  style={input}
-                  type="number"
-                  value={cfg.radio.queueLimit}
-                  onChange={(e) =>
-                    setCfg((p) => ({ ...p, radio: { ...p.radio, queueLimit: Number(e.target.value || 0) } }))
-                  }
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", marginBottom: 5 }}>Default volume</label>
-                <input
-                  style={input}
-                  type="number"
-                  min={0}
-                  max={200}
-                  value={cfg.radio.volumeDefault}
-                  onChange={(e) =>
-                    setCfg((p) => ({ ...p, radio: { ...p.radio, volumeDefault: Number(e.target.value || 0) } }))
-                  }
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", marginBottom: 5 }}>Radio announce channel</label>
-                <select
-                  style={input}
-                  value={cfg.radio.announceChannelId || ""}
-                  onChange={(e) =>
-                    setCfg((p) => ({ ...p, radio: { ...p.radio, announceChannelId: e.target.value } }))
-                  }
-                >
-                  <option value="">No channel</option>
-                  {textChannels.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      #{c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                DJ Roles
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 180, overflowY: "auto", padding: 8, border: "1px solid rgba(255,0,0,.28)", borderRadius: 8 }}>
-                {roles.map((r) => {
-                  const selected = cfg.radio.djRoleIds.includes(r.id);
-                  return (
-                    <button
-                      type="button"
-                      key={r.id}
-                      onClick={() =>
-                        setCfg((p) => ({
-                          ...p,
-                          radio: { ...p.radio, djRoleIds: toggleId(p.radio.djRoleIds, r.id) },
-                        }))
-                      }
-                      style={{
-                        borderRadius: 999,
-                        border: selected ? "1px solid #ff5555" : "1px solid #553030",
-                        background: selected ? "rgba(255,0,0,.24)" : "rgba(255,255,255,.03)",
-                        color: selected ? "#fff" : "#ffb3b3",
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
-                    >
-                      {r.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => savePatch({ radio: cfg.radio }, "Saved radio settings.")}
-                disabled={saving}
-                style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }}
-              >
-                Save Radio
-              </button>
+            <div style={{ color: "#ffb3b3", fontSize: 13, lineHeight: 1.7 }}>
+              There is no separate live radio playback runtime behind this surface. Music routing lives in the dedicated
+              Music engine. This page now stays scoped to the actual `/radio` birthday workflow only.
             </div>
           </section>
         </>

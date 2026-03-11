@@ -1,37 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 import fs from "fs";
 import path from "path";
-import { appendAudit, deepMerge, readStore, writeStore } from "@/lib/setupStore";
-
-const FILE = "achievements-config.json";
 
 type AnyObj = Record<string, any>;
 
-const BOT_DEFINITION_PATHS = [
-  path.resolve(process.cwd(), "../Negan-Bot/modules/data/achievements.json"),
-  path.resolve(process.cwd(), "../negan-bot/modules/data/achievements.json"),
-  path.resolve(process.cwd(), "../Negan-Bot/modules/data/carol.json")
-];
-
-const BOT_EXPANSION_PATHS = [
-  path.resolve(process.cwd(), "../Negan-Bot/modules/data/achievements.expansion.json"),
-  path.resolve(process.cwd(), "../negan-bot/modules/data/achievements.expansion.json"),
-  path.resolve(process.cwd(), "../Negan-Bot/modules/data/carol.expansion.json")
-];
-
-function readJson(paths: string[], fallback: AnyObj = {}) {
-  for (const p of paths) {
-    try {
-      if (!fs.existsSync(p)) continue;
-      const raw = fs.readFileSync(p, "utf8");
-      const parsed = JSON.parse(raw || "{}");
-      if (parsed && typeof parsed === "object") return parsed;
-    } catch {}
-  }
-  return fallback;
-}
-
-function defaults() {
+function defaultConfig() {
   return {
     active: true,
     announceChannelId: "",
@@ -40,134 +15,175 @@ function defaults() {
       achievements: true,
       achievementsadmin: true,
       achpanel: true,
-      badge: true
+      badge: true,
     },
-    catalog: [] as AnyObj[]
+    catalog: [],
   };
 }
 
-function loadCatalogFromCarol() {
-  const base = readJson(BOT_DEFINITION_PATHS, {});
-  const expansion = readJson(BOT_EXPANSION_PATHS, {});
+function readDefinitions() {
+  const candidates = [
+    path.join(process.cwd(), "..", "modules", "data", "achievements.json"),
+    path.join(process.cwd(), "..", "modules", "data", "carol.json"),
+  ];
+  const expansionCandidates = [
+    path.join(process.cwd(), "..", "modules", "data", "achievements.expansion.json"),
+    path.join(process.cwd(), "..", "modules", "data", "carol.expansion.json"),
+  ];
 
-  const achievements = {
-    ...((base?.achievements && typeof base.achievements === "object") ? base.achievements : {}),
-    ...((expansion?.achievements && typeof expansion.achievements === "object") ? expansion.achievements : {})
-  } as Record<string, AnyObj>;
-
-  const triggers = [
-    ...(Array.isArray(base?.triggers) ? base.triggers : []),
-    ...(Array.isArray(expansion?.triggers) ? expansion.triggers : [])
-  ] as AnyObj[];
-
-  const trigById: Record<string, AnyObj[]> = {};
-  for (const t of triggers) {
-    const id = String(t?.achievementId || "").trim();
-    if (!id) continue;
-    if (!trigById[id]) trigById[id] = [];
-    trigById[id].push(t);
+  function readJson(paths: string[]) {
+    for (const candidate of paths) {
+      try {
+        if (!fs.existsSync(candidate)) continue;
+        return JSON.parse(fs.readFileSync(candidate, "utf8"));
+      } catch {}
+    }
+    return {};
   }
 
-  const rows = Object.entries(achievements).map(([id, ach]) => {
-    const list = trigById[id] || [];
-    const first = list[0] || {};
-
-    return {
-      id,
-      name: String(ach?.name || id),
-      description: String(ach?.description || ""),
-      source: String(ach?.source || "system"),
-      tier: String(ach?.tier || "standard"),
-      flavor: String(ach?.flavor || ""),
-      action: String(first?.type || ach?.triggerType || "manual"),
-      count: Number(first?.count || 1),
-      enabled: ach?.hidden ? false : true,
-      overrideAnnouncement: false,
-      announcementMessage: "",
-      rewards: {
-        giveRole: false,
-        giveRoleId: "",
-        removeRole: false,
-        removeRoleId: "",
-        giveXp: false,
-        xpAmount: 0,
-        giveCoins: false,
-        coinAmount: 0
-      },
-      settings: {
-        dontTrackProgress: false,
-        setColor: "",
-        sendThread: false
-      }
-    };
-  });
-
-  rows.sort((a, b) => a.name.localeCompare(b.name));
-  return rows;
-}
-
-function normalize(raw: AnyObj) {
-  const base = defaults();
-  const merged = deepMerge(base, raw || {});
-  const fromCarol = loadCatalogFromCarol();
-
-  const stored = Array.isArray(merged.catalog) ? merged.catalog : [];
-  const storedById = new Map(stored.map((x: AnyObj) => [String(x?.id || ""), x]));
-
-  const catalog = fromCarol.map((botAch) => {
-    const ov = storedById.get(botAch.id) || {};
-    return deepMerge(botAch, ov);
-  });
-
-  for (const row of stored) {
-    const id = String(row?.id || "").trim();
-    if (!id) continue;
-    if (catalog.some((c) => c.id === id)) continue;
-    catalog.push(row);
-  }
-
+  const base = readJson(candidates);
+  const extra = readJson(expansionCandidates);
   return {
-    active: !!merged.active,
-    announceChannelId: String(merged.announceChannelId || ""),
-    announcementTemplate: String(merged.announcementTemplate || "{{user}} unlocked {{achievement}}"),
-    commands: {
-      achievements: !!merged?.commands?.achievements,
-      achievementsadmin: !!merged?.commands?.achievementsadmin,
-      achpanel: !!merged?.commands?.achpanel,
-      badge: !!merged?.commands?.badge
+    achievements: {
+      ...((base?.achievements && typeof base.achievements === "object") ? base.achievements : {}),
+      ...((extra?.achievements && typeof extra.achievements === "object") ? extra.achievements : {}),
     },
-    catalog
+    triggers: [
+      ...(Array.isArray(base?.triggers) ? base.triggers : []),
+      ...(Array.isArray(extra?.triggers) ? extra.triggers : []),
+    ],
   };
 }
 
-function guildId(req: NextApiRequest) {
-  return String(req.query.guildId || req.body?.guildId || "").trim();
+function fallbackCatalogRows() {
+  const defs = readDefinitions();
+  const firstTriggerByAchievement = new Map<string, any>();
+  for (const trigger of defs.triggers) {
+    const achievementId = String(trigger?.achievementId || "").trim();
+    if (!achievementId || firstTriggerByAchievement.has(achievementId)) continue;
+    firstTriggerByAchievement.set(achievementId, trigger);
+  }
+
+  return Object.values(defs.achievements || {})
+    .map((achievement: any) => {
+      const trigger = firstTriggerByAchievement.get(String(achievement?.id || "").trim()) || null;
+      return {
+        id: String(achievement?.id || "").trim(),
+        name: String(achievement?.name || "").trim(),
+        description: String(achievement?.description || "").trim(),
+        source: String(achievement?.source || trigger?.type || "system").trim(),
+        tier: String(achievement?.tier || "standard").trim(),
+        flavor: String(achievement?.flavor || "").trim(),
+        action: String(trigger?.type || "manual").trim().toLowerCase(),
+        count: Math.max(1, Number(trigger?.count || 1) || 1),
+        enabled: achievement?.enabled !== false,
+        overrideAnnouncement: Boolean(achievement?.overrideAnnouncement),
+        announcementMessage: String(achievement?.announcementMessage || "").trim(),
+        rewards: {
+          giveRole: Boolean(achievement?.roleId),
+          giveRoleId: String(achievement?.roleId || "").trim(),
+          removeRole: Boolean(achievement?.removeRoleId),
+          removeRoleId: String(achievement?.removeRoleId || "").trim(),
+          giveXp: Number(achievement?.xpReward || 0) > 0,
+          xpAmount: Math.max(0, Number(achievement?.xpReward || 0) || 0),
+          giveCoins: Number(achievement?.coins || 0) > 0,
+          coinAmount: Math.max(0, Number(achievement?.coins || 0) || 0),
+        },
+        settings: {
+          dontTrackProgress: achievement?.dontTrackProgress === true,
+          setColor: String(achievement?.setColor || "").trim(),
+          sendThread: achievement?.sendThread === true,
+        },
+      };
+    })
+    .filter((row: any) => row.id)
+    .sort((left: any, right: any) => left.name.localeCompare(right.name));
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const gid = guildId(req);
-  if (!gid) return res.status(400).json({ success: false, error: "guildId required" });
-
-  const store = readStore(FILE);
-  const current = normalize(store[gid] || defaults());
-
-  if (req.method === "GET") {
-    return res.status(200).json({ success: true, guildId: gid, config: current });
+function withFallbackCatalog(config: AnyObj) {
+  const merged = deepMerge(defaultConfig(), config || {});
+  if (!Array.isArray(merged.catalog) || !merged.catalog.length) {
+    merged.catalog = fallbackCatalogRows();
   }
+  return merged;
+}
 
-  if (req.method === "POST") {
-    const patch = req.body?.patch || {};
-    const next = normalize(deepMerge(current, patch));
-    store[gid] = next;
-    writeStore(FILE, store);
-    appendAudit({
-      guildId: gid,
-      area: "achievements",
-      action: "save",
-      keys: Object.keys(patch || {})
-    });
-    return res.status(200).json({ success: true, guildId: gid, config: next });
+function deepMerge(base: any, patch: any): any {
+  if (Array.isArray(patch)) return patch;
+  if (!patch || typeof patch !== "object") return patch ?? base;
+  const out: AnyObj = { ...(base && typeof base === "object" ? base : {}) };
+  for (const key of Object.keys(patch)) {
+    out[key] = deepMerge(out[key], patch[key]);
   }
+  return out;
+}
 
-  return res.status(405).json({ success: false, error: "Method not allowed" });
+async function readRemoteConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=achievements`,
+    {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    }
+  );
+  const data = await readJsonSafe(upstream);
+  return {
+    upstream,
+    data,
+    config: data?.config && typeof data.config === "object" ? data.config : {},
+  };
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    const guildId =
+      req.method === "GET"
+        ? String(req.query.guildId || "").trim()
+        : String(req.body?.guildId || "").trim();
+
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: "guildId is required" });
+    }
+
+    if (req.method === "GET") {
+      const remote = await readRemoteConfig(req, guildId);
+      return res.status(remote.upstream.status).json({
+        success: remote.upstream.ok,
+        guildId,
+        config: withFallbackCatalog(remote.config),
+        error: remote.data?.error,
+      });
+    }
+
+    if (req.method === "POST" || req.method === "PUT") {
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
+
+      const remote = await readRemoteConfig(req, guildId);
+      if (!remote.upstream.ok) {
+        return res.status(remote.upstream.status).json(remote.data);
+      }
+
+      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.patch || req.body?.config || {});
+      const config = withFallbackCatalog(deepMerge(withFallbackCatalog(remote.config), patch));
+
+      const upstream = await fetch(`${BOT_API}/engine-runtime`, {
+        method: "POST",
+        headers: buildBotApiHeaders(req, { json: true }),
+        body: JSON.stringify({ guildId, engine: "achievements", patch: config }),
+      });
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json({
+        success: upstream.ok,
+        guildId,
+        config: withFallbackCatalog(data?.config || config),
+        error: data?.error,
+      });
+    }
+
+    return res.status(405).json({ success: false, error: "Method not allowed" });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || "Internal error" });
+  }
 }

@@ -61,6 +61,7 @@ export default function HallOfFameClient() {
   const [config, setConfig] = useState<EntityConfig>(EMPTY_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -77,21 +78,16 @@ export default function HallOfFameClient() {
       setLoading(true);
       setMessage("");
       try {
-        const [runtimeRes, configRes, guildRes] = await Promise.all([
+        const [runtimeRes, guildRes] = await Promise.all([
           fetch(`/api/setup/runtime-engine?guildId=${encodeURIComponent(guildId)}&engine=hallOfFame`, { cache: "no-store" }),
-          fetch(`/api/setup/engine-entity-config?guildId=${encodeURIComponent(guildId)}&engineId=${encodeURIComponent("engine/hallOfFameEngine.js")}`, { cache: "no-store" }),
           fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
         ]);
 
         const runtimeJson = await runtimeRes.json().catch(() => ({}));
-        const configJson = await configRes.json().catch(() => ({}));
         const guildJson = await guildRes.json().catch(() => ({}));
 
         if (!runtimeRes.ok || runtimeJson?.success === false) {
           throw new Error(runtimeJson?.error || "Failed loading hall of fame runtime.");
-        }
-        if (!configRes.ok || configJson?.success === false) {
-          throw new Error(configJson?.error || "Failed loading hall of fame config.");
         }
 
         const nextName = String(guildJson?.guild?.name || "").trim();
@@ -102,7 +98,7 @@ export default function HallOfFameClient() {
         setChannels((Array.isArray(guildJson?.channels) ? guildJson.channels : []).filter((row: Channel) => Number(row?.type) === 0 || Number(row?.type) === 5));
         setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
         setDetails(runtimeJson?.details && typeof runtimeJson.details === "object" ? runtimeJson.details : {});
-        setConfig({ ...EMPTY_CONFIG, ...(configJson?.config || {}) });
+        setConfig({ ...EMPTY_CONFIG, ...(runtimeJson?.config || {}) });
       } catch (err: any) {
         setMessage(err?.message || "Failed loading Hall of Fame.");
       } finally {
@@ -116,19 +112,13 @@ export default function HallOfFameClient() {
     setSaving(true);
     setMessage("");
     try {
-      const res = await fetch("/api/setup/engine-entity-config", {
+      const res = await fetch("/api/setup/runtime-engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guildId,
-          engineId: "engine/hallOfFameEngine.js",
-          patch: {
-            active: config.active,
-            primaryChannelId: config.primaryChannelId,
-            logChannelId: config.logChannelId,
-            messageTemplate: config.messageTemplate,
-            notes: config.notes,
-          },
+          engine: "hallOfFame",
+          patch: config,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -141,6 +131,34 @@ export default function HallOfFameClient() {
       setMessage(err?.message || "Save failed.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function publishNow() {
+    if (!guildId) return;
+    setPublishing(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/setup/runtime-engine-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "hallOfFame",
+          action: "publishNow",
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.error || "Publish failed");
+      }
+      if (Array.isArray(json?.summary)) setSummary(json.summary);
+      if (json?.details && typeof json.details === "object") setDetails(json.details);
+      setMessage("Hall Of Fame leaderboard published.");
+    } catch (err: any) {
+      setMessage(err?.message || "Publish failed.");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -244,7 +262,10 @@ export default function HallOfFameClient() {
             />
           </section>
 
-          <div style={{ ...card, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ ...card, display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={publishNow} disabled={publishing} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+              {publishing ? "Publishing..." : "Publish Leaderboard"}
+            </button>
             <button onClick={save} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
               {saving ? "Saving..." : "Save Hall Of Fame"}
             </button>

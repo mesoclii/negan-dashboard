@@ -306,6 +306,7 @@ export default function ModeratorClient() {
     ["memberRoleChanged", "Member roles changed"],
     ["memberJoined", "Member joined"],
     ["memberLeft", "Member left"],
+    ["userUpdated", "User profile updated"],
     ["channelCreated", "Channel created"],
     ["channelUpdated", "Channel updated"],
     ["channelDeleted", "Channel deleted"],

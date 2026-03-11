@@ -1,17 +1,8 @@
-import { Suspense } from "react";
-import CommandsClient from "./CommandsClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
-}
-
 export default function Page() {
-  return (
-    <Suspense fallback={<Loading />}>
-      <CommandsClient />
-    </Suspense>
-  );
+  redirect("/dashboard/slash-commands");
 }

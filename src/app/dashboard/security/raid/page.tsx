@@ -1,17 +1,15 @@
-import { Suspense } from "react";
-import RaidClient from "./RaidClient";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-function Loading() {
-  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
-}
+import CatalogEngineConsole from "@/components/possum/CatalogEngineConsole";
 
 export default function Page() {
   return (
-    <Suspense fallback={<Loading />}>
-      <RaidClient />
-    </Suspense>
+    <CatalogEngineConsole
+      engineKey="raid"
+      title="Raid Engine"
+      description="Edit the live anti-raid thresholds, exemption lists, and escalation preset that the bot reads for this guild. This page now writes directly to the runtime engine config."
+      links={[
+        { href: "/dashboard/security", label: "Security" },
+        { href: "/dashboard/security/lockdown", label: "Lockdown Engine" },
+      ]}
+    />
   );
 }

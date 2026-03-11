@@ -1,28 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
 
 type AnyObj = Record<string, any>;
-const DATA_FILE = path.join(process.cwd(), "data", "setup", "progression-config.json");
-
-function ensureDir() {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-}
-
-function readAll(): AnyObj {
-  try {
-    const raw = fs.readFileSync(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeAll(all: AnyObj) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(all, null, 2), "utf8");
-}
 
 function defaultConfig() {
   return {
@@ -37,14 +17,14 @@ function defaultConfig() {
       maxLevel: 200,
       ignoredChannelIds: [],
       ignoredRoleIds: [],
-      excludeBots: true
+      excludeBots: true,
     },
     levelUp: {
       enabled: true,
       announceChannelId: "",
       announceTemplate: "🎉 <@{{userId}}> reached level {{level}} in {{guildName}}!",
       dmOnLevelUp: false,
-      dmTemplate: "You reached level {{level}} in {{guildName}}."
+      dmTemplate: "You reached level {{level}} in {{guildName}}.",
     },
     achievements: {
       enabled: true,
@@ -55,23 +35,19 @@ function defaultConfig() {
         invites: true,
         economy: true,
         games: true,
-        governance: true
-      }
+        governance: true,
+      },
     },
     badges: {
       enabled: true,
       panelEnabled: false,
       panelChannelId: "",
       panelTitle: "Achievements & Badges",
-      roleSyncEnabled: true
+      roleSyncEnabled: true,
     },
     rewards: {
-      levelRoleRewards: [
-        { level: 5, roleId: "", oneTime: false, keepOnDowngrade: true }
-      ],
-      levelCoinRewards: [
-        { level: 10, coins: 250, oneTime: true }
-      ]
+      levelRoleRewards: [{ level: 5, roleId: "", oneTime: false, keepOnDowngrade: true }],
+      levelCoinRewards: [{ level: 10, coins: 250, oneTime: true }],
     },
     multipliers: {
       weekendBoostEnabled: false,
@@ -79,15 +55,15 @@ function defaultConfig() {
       vipRoleIds: [],
       vipMultiplier: 1.25,
       boosterRoleIds: [],
-      boosterMultiplier: 1.15
+      boosterMultiplier: 1.15,
     },
     antiAbuse: {
       enabled: true,
       antiSpamWindowSec: 30,
       antiSpamMaxMessages: 6,
-      maxXpPerMinute: 120
+      maxXpPerMinute: 120,
     },
-    notes: ""
+    notes: "",
   };
 }
 
@@ -95,30 +71,74 @@ function deepMerge(base: any, patch: any): any {
   if (Array.isArray(patch)) return patch;
   if (!patch || typeof patch !== "object") return patch ?? base;
   const out: AnyObj = { ...(base && typeof base === "object" ? base : {}) };
-  for (const k of Object.keys(patch)) out[k] = deepMerge(out[k], patch[k]);
+  for (const key of Object.keys(patch)) {
+    out[key] = deepMerge(out[key], patch[key]);
+  }
   return out;
 }
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+async function readRemoteConfig(req: NextApiRequest, guildId: string) {
+  const upstream = await fetch(
+    `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=progression`,
+    {
+      headers: buildBotApiHeaders(req),
+      cache: "no-store",
+    }
+  );
+  const data = await readJsonSafe(upstream);
+  return {
+    upstream,
+    data,
+    config: data?.config && typeof data.config === "object" ? data.config : {},
+  };
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const guildId =
+      req.method === "GET"
+        ? String(req.query.guildId || "").trim()
+        : String(req.body?.guildId || "").trim();
+
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: "guildId is required" });
+    }
+
     if (req.method === "GET") {
-      const guildId = String(req.query.guildId || "").trim();
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
-      const all = readAll();
-      const config = deepMerge(defaultConfig(), all[guildId] || {});
-      return res.status(200).json({ success: true, guildId, config });
+      const remote = await readRemoteConfig(req, guildId);
+      return res.status(remote.upstream.status).json({
+        success: remote.upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), remote.config),
+        error: remote.data?.error,
+      });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
-      const guildId = String(req.body?.guildId || "").trim();
-      if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
+      if (isWriteBlockedForGuild(guildId)) {
+        return res.status(403).json(stockLockError(guildId));
+      }
 
-      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.patch || {});
-      const all = readAll();
-      const merged = deepMerge(deepMerge(defaultConfig(), all[guildId] || {}), patch);
-      all[guildId] = merged;
-      writeAll(all);
-      return res.status(200).json({ success: true, guildId, config: merged });
+      const remote = await readRemoteConfig(req, guildId);
+      if (!remote.upstream.ok) {
+        return res.status(remote.upstream.status).json(remote.data);
+      }
+
+      const patch = req.body?.reset === true ? defaultConfig() : (req.body?.patch || req.body?.config || {});
+      const config = deepMerge(deepMerge(defaultConfig(), remote.config), patch);
+
+      const upstream = await fetch(`${BOT_API}/engine-runtime`, {
+        method: "POST",
+        headers: buildBotApiHeaders(req, { json: true }),
+        body: JSON.stringify({ guildId, engine: "progression", patch: config }),
+      });
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json({
+        success: upstream.ok,
+        guildId,
+        config: deepMerge(defaultConfig(), data?.config || config),
+        error: data?.error,
+      });
     }
 
     return res.status(405).json({ success: false, error: "Method not allowed" });

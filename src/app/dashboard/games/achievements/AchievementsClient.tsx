@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
+import { buildDashboardHref } from "@/lib/dashboardContext";
 
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type?: number | string };
@@ -473,25 +475,31 @@ export default function AchievementsClient() {
 
       {!loading && tab === "commands" ? (
         <section style={card}>
-          <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>Command Toggles</h3>
-          <div style={{ display: "grid", gap: 8 }}>
+          <h3 style={{ margin: "0 0 10px", color: "#fff", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 13 }}>Native Slash Routing</h3>
+          <div style={{ color: "#fca5a5", fontSize: 13, lineHeight: 1.7, maxWidth: 860 }}>
+            Achievement slash-command availability now lives in the separate native Slash Command Master. This keeps
+            command policy in one place and avoids overlap with the achievement catalog editor.
+          </div>
+          <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
             {([
               ["achievements", "Display all achievement progress"],
               ["achievementsadmin", "Staff achievement management"],
               ["achpanel", "Achievement panel command"],
               ["badge", "Member badge card display"]
             ] as Array<[keyof AchievementsConfig["commands"], string]>).map(([key, desc]) => (
-              <div key={key} style={{ border: "1px solid rgba(255,0,0,.22)", borderRadius: 8, padding: "10px 12px", background: "rgba(0,0,0,.28)", display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 8 }}>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>/ {key}</div>
-                  <div style={{ color: "#fca5a5", fontSize: 12 }}>{desc}</div>
-                </div>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700 }}>
-                  <input type="checkbox" checked={cfg.commands[key]} onChange={(e) => setCfg((p) => ({ ...p, commands: { ...p.commands, [key]: e.target.checked } }))} />
-                  {cfg.commands[key] ? "ON" : "OFF"}
-                </label>
+              <div key={key} style={{ border: "1px solid rgba(255,0,0,.22)", borderRadius: 8, padding: "10px 12px", background: "rgba(0,0,0,.28)" }}>
+                <div style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>/ {key}</div>
+                <div style={{ color: "#fca5a5", fontSize: 12, marginTop: 4 }}>{desc}</div>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <Link
+              href={buildDashboardHref("/dashboard/slash-commands")}
+              style={{ ...input, display: "inline-block", width: "auto", textDecoration: "none", fontWeight: 900, cursor: "pointer" }}
+            >
+              Open Slash Command Master
+            </Link>
           </div>
         </section>
       ) : null}
