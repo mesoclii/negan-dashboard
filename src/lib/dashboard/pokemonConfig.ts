@@ -1,5 +1,6 @@
 export type PokemonTierKey = "common" | "rare" | "epic" | "legendary" | "mythic";
 export type PokemonChannelWeight = { id: string; weight: number };
+type NormalizePokemonChannelOptions = { keepEmpty?: boolean };
 
 export type PokemonConfig = {
   enabled: boolean;
@@ -67,7 +68,10 @@ export const DEFAULT_POKEMON_CONFIG: PokemonConfig = {
   },
 };
 
-export function normalizePokemonChannels(raw: PokemonConfig["channels"] | undefined): PokemonChannelWeight[] {
+export function normalizePokemonChannels(
+  raw: PokemonConfig["channels"] | undefined,
+  options: NormalizePokemonChannelOptions = {}
+): PokemonChannelWeight[] {
   return Array.isArray(raw)
     ? raw
         .map((entry) => {
@@ -77,15 +81,19 @@ export function normalizePokemonChannels(raw: PokemonConfig["channels"] | undefi
             weight: Math.max(1, Number(entry?.weight || 1)),
           };
         })
-        .filter((entry) => entry.id)
+        .filter((entry) => options.keepEmpty ? true : Boolean(entry.id))
     : [];
+}
+
+export function compactPokemonChannels(raw: PokemonConfig["channels"] | undefined): PokemonChannelWeight[] {
+  return normalizePokemonChannels(raw);
 }
 
 export function normalizePokemonConfig(raw: Partial<PokemonConfig> | PokemonConfig): PokemonConfig {
   const next = { ...DEFAULT_POKEMON_CONFIG, ...(raw || {}) };
   return {
     ...next,
-    channels: normalizePokemonChannels(next.channels),
+    channels: normalizePokemonChannels(next.channels, { keepEmpty: true }),
     tierWeights: {
       ...DEFAULT_POKEMON_CONFIG.tierWeights,
       ...(next.tierWeights || {}),

@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import {
+  compactPokemonChannels,
   DEFAULT_POKEMON_CONFIG,
   normalizePokemonChannels,
   normalizePokemonConfig,
@@ -57,13 +58,17 @@ export default function PokemonCatchingPage() {
   } = useGuildEngineEditor<PokemonConfig>("pokemon", DEFAULT_POKEMON_CONFIG);
 
   const cfg = useMemo(() => normalizePokemonConfig(rawCfg), [rawCfg]);
+  const channelRows = useMemo(
+    () => normalizePokemonChannels(cfg.channels, { keepEmpty: true }),
+    [cfg.channels]
+  );
   const textChannels = useMemo(
     () => channels.filter((channel) => isTextLikeChannel(channel?.type)),
     [channels]
   );
 
   function updateChannel(index: number, patch: Partial<PokemonChannelWeight>) {
-    const next = normalizePokemonChannels(cfg.channels);
+    const next = normalizePokemonChannels(cfg.channels, { keepEmpty: true });
     next[index] = { ...next[index], ...patch };
     setCfg((prev) => ({ ...normalizePokemonConfig(prev), channels: next }));
   }
@@ -71,12 +76,12 @@ export default function PokemonCatchingPage() {
   function addChannel() {
     setCfg((prev) => ({
       ...normalizePokemonConfig(prev),
-      channels: [...normalizePokemonChannels(normalizePokemonConfig(prev).channels), { id: "", weight: 1 }],
+      channels: [...normalizePokemonChannels(normalizePokemonConfig(prev).channels, { keepEmpty: true }), { id: "", weight: 1 }],
     }));
   }
 
   function removeChannel(index: number) {
-    const next = normalizePokemonChannels(cfg.channels).filter((_, currentIndex) => currentIndex !== index);
+    const next = normalizePokemonChannels(cfg.channels, { keepEmpty: true }).filter((_, currentIndex) => currentIndex !== index);
     setCfg((prev) => ({ ...normalizePokemonConfig(prev), channels: next }));
   }
 
@@ -146,9 +151,9 @@ export default function PokemonCatchingPage() {
               <button onClick={addChannel} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }}>+ Add Lane</button>
             </div>
 
-            {normalizePokemonChannels(cfg.channels).length ? (
+            {channelRows.length ? (
               <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-                {normalizePokemonChannels(cfg.channels).map((row, index) => (
+                {channelRows.map((row, index) => (
                   <div key={`${row.id}_${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(240px,1fr) 140px 120px", gap: 10, alignItems: "end" }}>
                     <div>
                       <div style={{ marginBottom: 6 }}>Channel</div>
@@ -241,7 +246,7 @@ export default function PokemonCatchingPage() {
 
           <div style={{ ...card, display: "flex", justifyContent: "flex-end" }}>
             <button
-              onClick={() => save({ ...cfg, channels: normalizePokemonChannels(cfg.channels) })}
+              onClick={() => save({ ...cfg, channels: compactPokemonChannels(cfg.channels) })}
               disabled={saving}
               style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
             >
