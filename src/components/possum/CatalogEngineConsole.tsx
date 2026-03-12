@@ -19,6 +19,8 @@ type CatalogEngineConsoleProps = {
   commandId?: string;
   links?: QuickLink[];
   showHeader?: boolean;
+  showInsights?: boolean;
+  surfaceVariant?: "default" | "security";
 };
 
 type JsonRecord = Record<string, any>;
@@ -72,6 +74,13 @@ const card: CSSProperties = {
   padding: 16,
   background: "linear-gradient(180deg, rgba(120,0,0,0.12), rgba(0,0,0,0.72))",
   marginTop: 12,
+};
+
+const subtleCard: CSSProperties = {
+  border: "1px solid #3d0000",
+  borderRadius: 12,
+  padding: 12,
+  background: "#100000",
 };
 
 const input: CSSProperties = {
@@ -209,6 +218,22 @@ function getVoiceChannels(channels: GuildChannel[]) {
 
 function getCategories(channels: GuildChannel[]) {
   return channels.filter((channel) => Number(channel?.type) === 4 || String(channel?.type || "").toLowerCase().includes("category"));
+}
+
+function describeGroup(group: EngineFieldGroup, surfaceVariant: "default" | "security") {
+  const key = String(group.key || group.label || "group").toLowerCase();
+  if (surfaceVariant === "security") {
+    if (key.includes("role")) return { title: "Role Access", help: "Trusted, exempt, notify, and operator escalation roles." };
+    if (key.includes("channel")) return { title: "Channel Routing", help: "Alert, review, transcript, and monitored channel bindings." };
+    if (key.includes("advanced")) return { title: "Advanced Controls", help: "Deeper logic tuning that affects scoring, escalation, or enforcement behavior." };
+    if (key.includes("core")) return { title: "Core Policy", help: "Primary enablement, preset, threshold, and baseline notes." };
+  }
+  return {
+    title: String(group.label || humanize(String(group.key || "group"))),
+    help: surfaceVariant === "security"
+      ? "Live engine-backed controls for this security runtime section."
+      : "Live engine-backed controls for this section.",
+  };
 }
 
 async function fileToDataUrl(file: File) {
@@ -721,6 +746,8 @@ export default function CatalogEngineConsole({
   commandId = "",
   links = [],
   showHeader = true,
+  showInsights = true,
+  surfaceVariant = "default",
 }: CatalogEngineConsoleProps) {
   const [spec, setSpec] = useState<LiveEngineSpec | null>(null);
   const [fieldSchema, setFieldSchema] = useState<EngineFieldSchema | null>(null);
@@ -737,6 +764,8 @@ export default function CatalogEngineConsole({
     saving,
     message,
     save,
+    reload,
+    runAction,
   } = useGuildEngineEditor<JsonRecord>(engineKey, {});
 
   useEffect(() => {
@@ -770,6 +799,19 @@ export default function CatalogEngineConsole({
     () => (Array.isArray(fieldSchema?.groups) ? fieldSchema.groups.filter((group) => Array.isArray(group?.fields) && group.fields.length) : []),
     [fieldSchema]
   );
+
+  async function handleRuntimeAction(action: "enable" | "disable") {
+    await runAction(action);
+  }
+
+  async function handleReset() {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Reset this live engine back to its baseline config for the selected guild?");
+      if (!confirmed) return;
+    }
+    await runAction("resetConfig");
+  }
+
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
   }
@@ -810,13 +852,37 @@ export default function CatalogEngineConsole({
         <div style={card}>Loading engine runtime...</div>
       ) : (
         <>
-          <EngineInsights summary={summary} details={details} />
+          {showInsights ? <EngineInsights summary={summary} details={details} /> : null}
+
+          <div style={{ ...card, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button type="button" onClick={() => void handleRuntimeAction("enable")} disabled={saving} style={button}>
+              Enable Engine
+            </button>
+            <button type="button" onClick={() => void handleRuntimeAction("disable")} disabled={saving} style={button}>
+              Disable Engine
+            </button>
+            <button type="button" onClick={() => void reload()} disabled={saving || loading} style={button}>
+              Reload Runtime
+            </button>
+            <button type="button" onClick={() => void handleReset()} disabled={saving} style={button}>
+              Reset To Baseline
+            </button>
+            <button type="button" onClick={() => void save()} disabled={saving} style={button}>
+              {saving ? "Saving..." : surfaceVariant === "security" ? "Save Security Engine" : "Save Engine"}
+            </button>
+            <div style={{ color: "#ffbcbc", lineHeight: 1.7, flex: "1 1 320px" }}>
+              {surfaceVariant === "security"
+                ? "These controls write to the live security runtime path. Save validates first; enable, disable, and reset go through the runtime action surface."
+                : "These controls write to the live engine runtime path. Save validates first; enable, disable, and reset go through the runtime action surface."}
+            </div>
+          </div>
 
           {groupedSchema.length
             ? groupedSchema.map((group) => (
                 <div key={String(group.key || group.label || "group")} style={card}>
-                  <div style={{ ...label, marginBottom: 10 }}>{String(group.label || humanize(String(group.key || "group")))}</div>
-                  <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ ...label, marginBottom: 10 }}>{describeGroup(group, surfaceVariant).title}</div>
+                  <div style={{ color: "#ffbcbc", marginBottom: 12, lineHeight: 1.6 }}>{describeGroup(group, surfaceVariant).help}</div>
+                  <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" }}>
                     {(group.fields || []).map((field) => {
                       const path = String(field.key || "")
                         .split(".")
@@ -824,14 +890,15 @@ export default function CatalogEngineConsole({
                         .filter(Boolean);
                       if (!path.length) return null;
                       return (
-                        <SchemaField
-                          key={path.join(".")}
-                          field={field}
-                          value={getAtPath(config, path)}
-                          channels={channels}
-                          roles={roles}
-                          update={(nextValue) => setConfig((prev) => updateAtPath(prev, path, nextValue))}
-                        />
+                        <div key={path.join(".")} style={subtleCard}>
+                          <SchemaField
+                            field={field}
+                            value={getAtPath(config, path)}
+                            channels={channels}
+                            roles={roles}
+                            update={(nextValue) => setConfig((prev) => updateAtPath(prev, path, nextValue))}
+                          />
+                        </div>
                       );
                     })}
                   </div>
@@ -839,14 +906,15 @@ export default function CatalogEngineConsole({
               ))
             : entries.length
               ? entries.map(([key, value]) => (
-                  <ConfigField
-                    key={key}
-                    path={[key]}
-                    value={value}
-                    channels={channels}
-                    roles={roles}
-                    update={(nextValue) => setConfig((prev) => updateAtPath(prev, [key], nextValue))}
-                  />
+                  <div key={key} style={card}>
+                    <ConfigField
+                      path={[key]}
+                      value={value}
+                      channels={channels}
+                      roles={roles}
+                      update={(nextValue) => setConfig((prev) => updateAtPath(prev, [key], nextValue))}
+                    />
+                  </div>
                 ))
               : (
                 <div style={card}>
@@ -859,9 +927,14 @@ export default function CatalogEngineConsole({
               {spec?.premiumRequired ? "Premium engine." : "Standard engine."}
               {spec?.privateOnly ? " Private-only surface." : ""}
             </div>
-            <button type="button" onClick={() => save()} disabled={saving} style={button}>
-              {saving ? "Saving..." : "Save Engine"}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => void reload()} disabled={saving || loading} style={button}>
+                Reload Runtime
+              </button>
+              <button type="button" onClick={() => void save()} disabled={saving} style={button}>
+                {saving ? "Saving..." : surfaceVariant === "security" ? "Save Security Engine" : "Save Engine"}
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -485,6 +485,8 @@ export default function SecurityEngineOperator({
             description={description}
             links={links}
             showHeader={false}
+            showInsights={false}
+            surfaceVariant="security"
           />
         </>
       )}

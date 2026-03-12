@@ -895,7 +895,7 @@
   "dashboardSections": [
     {
       "key": "core-platform",
-      "label": "Core Platform",
+      "label": "Automation",
       "engineKeys": [
         "automation",
         "customCommands",
@@ -905,12 +905,12 @@
     },
     {
       "key": "ai-persona",
-      "label": "Persona AI",
+      "label": "Premium",
       "engineKeys": ["personaEngine"]
     },
     {
       "key": "ai-adaptive",
-      "label": "Adaptive AI",
+      "label": "Possum AI",
       "engineKeys": ["runtimeRouter"]
     },
     {
@@ -920,22 +920,22 @@
     },
     {
       "key": "economy-progression",
-      "label": "Economy and Progression",
+      "label": "Economy",
       "engineKeys": ["store", "contracts", "profile", "progression", "achievements", "hallOfFame", "loyalty"]
     },
     {
       "key": "gta-ops",
-      "label": "GTA Operations",
+      "label": "Fun + Games",
       "engineKeys": ["heist", "crew", "dominion"]
     },
     {
       "key": "events",
-      "label": "Events and Minigames",
+      "label": "Fun + Games",
       "engineKeys": ["catDrop", "rareSpawn", "pokemon", "pokemonStage2", "range", "truthDare", "giveaways"]
     },
     {
       "key": "security-governance",
-      "label": "Security and Governance",
+      "label": "Security",
       "engineKeys": [
         "blacklist",
         "security.accountIntegrity",
@@ -955,13 +955,14 @@
     },
     {
       "key": "experience",
-      "label": "Experience",
+      "label": "Premium",
       "engineKeys": ["tts", "radio"]
     },
     {
       "key": "operations",
-      "label": "Operations",
+      "label": "Guild Control",
       "engineKeys": ["jed"]
     }
   ]
 }
+
