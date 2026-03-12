@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { buildSupportServerUrl } from "@/lib/publicLinks";
 
 type LandingSession = {
   loggedIn: boolean;
@@ -146,6 +147,9 @@ export default function Home() {
               <a href="/features" style={secondaryButton}>
                 Features
               </a>
+              <a href={buildSupportServerUrl()} style={secondaryButton} target="_blank" rel="noreferrer">
+                Join Support Server
+              </a>
               <a href={entryHref} style={primaryButton}>
                 {entryLabel}
               </a>
@@ -158,8 +162,38 @@ export default function Home() {
                   ? "Login with Discord to unlock guild selection"
                   : "Discord OAuth is not configured yet on this deployment."}
             </div>
-            <div style={{ color: "#ff9a9a", fontSize: 12, marginTop: 8 }}>
-              Possum Bot is one of the most actively updated bots in development. Feature requests and fixes can be suggested in Possum Bot Support: 1480942991328809223.
+            <div
+              style={{
+                color: "#ffb3b3",
+                fontSize: 14,
+                marginTop: 12,
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <span>Possum Bot is one of the most actively updated bots in development.</span>
+              <a
+                href={buildSupportServerUrl()}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: "#ffd6a0",
+                  fontWeight: 900,
+                  textDecoration: "none",
+                  border: "1px solid rgba(255,140,90,0.6)",
+                  borderRadius: 999,
+                  padding: "8px 14px",
+                  background: "rgba(60,10,0,0.72)",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  fontSize: 13,
+                }}
+              >
+                Join Possum Bot Support
+              </a>
             </div>
           </div>
 
