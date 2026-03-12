@@ -42,7 +42,7 @@ export const PREMIUM_FEATURES: PremiumFeature[] = [
     id: "persona-ai",
     label: "Persona AI",
     route: "/dashboard/ai/persona",
-    summary: "Hosted generative persona replies, prompt shaping, access rules, persona photos, and custom backstory behavior.",
+    summary: "Hosted generative persona replies, prompt shaping, access rules, and persona photos on a path that stays separate from Possum AI and Bot Personalizer.",
     premiumLabel: "Premium Feature",
     includedIn: ["Pro", "Business", "Enterprise"],
     pricingNote: "Separate from Possum AI and Bot Personalizer."

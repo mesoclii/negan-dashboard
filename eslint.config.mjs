@@ -10,6 +10,7 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".next.previous/**",
+    ".next.cache.hold/**",
     ".backup_*/**",
     ".backup*/**",
     "out/**",

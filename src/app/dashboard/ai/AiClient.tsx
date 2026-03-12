@@ -64,7 +64,7 @@ const DEFAULT_CONFIG: AiRuntimeConfig = {
   personaAiEnabled: false,
   adaptiveAiEnabled: false,
   personaOnlyChannelIds: [],
-  personaKeywordTriggers: ["persona", "character", "backstory"],
+  personaKeywordTriggers: ["persona", "character"],
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
@@ -250,7 +250,7 @@ export default function AiClient() {
         <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 8, maxWidth: 900 }}>
               The AI stack is split by what it actually is. Possum AI owns the adaptive homemade path and knowledge base.
               Persona AI owns the premium hosted persona roster. Persona-triggered messages stay on the persona path, and all
-              other eligible adaptive traffic stays on the Possum AI path.
+              other eligible adaptive traffic stays on the Possum AI path. Guild backstory belongs to Possum AI, not Persona AI.
             </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
@@ -326,7 +326,7 @@ export default function AiClient() {
                   style={input}
                   value={keywordInput}
                   onChange={(e) => setKeywordInput(e.target.value)}
-                  placeholder="persona, character, backstory"
+                  placeholder="persona, character"
                 />
                 <button type="button" onClick={() => void saveKeywords()} disabled={saving} style={{ ...action, marginTop: 10 }}>
                   Save Keywords

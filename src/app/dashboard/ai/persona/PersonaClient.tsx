@@ -187,6 +187,7 @@ export default function PersonaClient() {
               The persona roster uses its own trigger rules, persona-only channels, access lists, photos, and direct OpenAI calls from the persona engine.
               The handcrafted Possum AI runs separately on the non-persona path and stays linked to Bot Personalizer, while provider pricing,
               public catalog, and billing belong to the OpenAI platform page instead.
+              Persona AI does not inherit Bot Personalizer webhook identity or the guild backstory.
             </div>
           </section>
 

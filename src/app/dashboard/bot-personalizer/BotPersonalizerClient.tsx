@@ -18,7 +18,6 @@ type PersonaConfig = {
   activityType: string;
   activityText: string;
   status: string;
-  backstory: string;
 };
 
 const DEFAULT_CFG: PersonaConfig = {
@@ -32,8 +31,23 @@ const DEFAULT_CFG: PersonaConfig = {
   activityType: "LISTENING",
   activityText: "/help",
   status: "online",
-  backstory: "",
 };
+
+function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): PersonaConfig {
+  const src = rawCfg && typeof rawCfg === "object" ? rawCfg : {};
+  return {
+    enabled: src.enabled !== false,
+    guildNickname: String(src.guildNickname || ""),
+    botName: String(src.botName || ""),
+    webhookName: String(src.webhookName || ""),
+    webhookAvatarUrl: String(src.webhookAvatarUrl || ""),
+    useWebhookPersona: Boolean(src.useWebhookPersona),
+    profileBannerUrl: String(src.profileBannerUrl || ""),
+    activityType: String(src.activityType || "LISTENING"),
+    activityText: String(src.activityText || "/help"),
+    status: String(src.status || "online"),
+  };
+}
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1320 };
 const card: CSSProperties = {
@@ -82,11 +96,15 @@ export default function BotPersonalizerClient() {
     runAction,
   } = useGuildEngineEditor<PersonaConfig>("botPersonalizer", DEFAULT_CFG);
 
-  const cfg = useMemo(() => ({ ...DEFAULT_CFG, ...(rawCfg || {}) }), [rawCfg]);
+  const cfg = useMemo(() => sanitizeConfig(rawCfg), [rawCfg]);
   const possumAiHref = buildDashboardHref("/dashboard/ai/learning");
   const previewAvatar = String(cfg.webhookAvatarUrl || "").trim();
   const previewBanner = String(cfg.profileBannerUrl || "").trim();
   const previewBotName = previewName(cfg);
+
+  function updateCfg(patch: Partial<PersonaConfig>) {
+    setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
+  }
 
   async function saveAndApply() {
     const saved = await save(cfg);
@@ -110,7 +128,7 @@ export default function BotPersonalizerClient() {
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
               Guild nickname applies live in this guild. Presence applies live across the bot account. Avatar, banner,
-              and backstory are stored per guild for webhook-backed Possum AI replies and guild identity presentation where supported.
+              webhook chat name, and webhook identity stay on the free Bot Personalizer layer for Possum AI replies where supported.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -137,8 +155,8 @@ export default function BotPersonalizerClient() {
                 Basics
               </h3>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 12 }}>
-                <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, enabled: e.target.checked }))} /> Personalizer enabled</label>
-                <label><input type="checkbox" checked={cfg.useWebhookPersona} onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, useWebhookPersona: e.target.checked }))} /> Use webhook identity</label>
+                <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => updateCfg({ enabled: e.target.checked })} /> Personalizer enabled</label>
+                <label><input type="checkbox" checked={cfg.useWebhookPersona} onChange={(e) => updateCfg({ useWebhookPersona: e.target.checked })} /> Use webhook identity</label>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
@@ -147,7 +165,7 @@ export default function BotPersonalizerClient() {
                   <input
                     style={input}
                     value={cfg.guildNickname || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, guildNickname: e.target.value }))}
+                    onChange={(e) => updateCfg({ guildNickname: e.target.value })}
                     placeholder="Possum"
                   />
                 </div>
@@ -156,7 +174,7 @@ export default function BotPersonalizerClient() {
                   <input
                     style={input}
                     value={cfg.botName || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, botName: e.target.value }))}
+                    onChange={(e) => updateCfg({ botName: e.target.value })}
                     placeholder="Possum"
                   />
                 </div>
@@ -165,7 +183,7 @@ export default function BotPersonalizerClient() {
                   <input
                     style={input}
                     value={cfg.webhookName || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, webhookName: e.target.value }))}
+                    onChange={(e) => updateCfg({ webhookName: e.target.value })}
                     placeholder="Possum"
                   />
                 </div>
@@ -174,7 +192,7 @@ export default function BotPersonalizerClient() {
                   <input
                     style={input}
                     value={cfg.webhookAvatarUrl || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, webhookAvatarUrl: e.target.value }))}
+                    onChange={(e) => updateCfg({ webhookAvatarUrl: e.target.value })}
                     placeholder="https://..."
                   />
                 </div>
@@ -183,7 +201,7 @@ export default function BotPersonalizerClient() {
                   <input
                     style={input}
                     value={cfg.profileBannerUrl || ""}
-                    onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, profileBannerUrl: e.target.value }))}
+                    onChange={(e) => updateCfg({ profileBannerUrl: e.target.value })}
                     placeholder="https://..."
                   />
                 </div>
@@ -234,12 +252,12 @@ export default function BotPersonalizerClient() {
 
           <section style={card}>
             <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Presence + Backstory
+              Presence
             </h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
               <div>
                 <label>Status</label>
-                <select style={input} value={cfg.status || "online"} onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, status: e.target.value }))}>
+                <select style={input} value={cfg.status || "online"} onChange={(e) => updateCfg({ status: e.target.value })}>
                   <option value="online">Online</option>
                   <option value="idle">Idle</option>
                   <option value="dnd">Do Not Disturb</option>
@@ -248,7 +266,7 @@ export default function BotPersonalizerClient() {
               </div>
               <div>
                 <label>Activity type</label>
-                <select style={input} value={cfg.activityType || "LISTENING"} onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, activityType: e.target.value }))}>
+                <select style={input} value={cfg.activityType || "LISTENING"} onChange={(e) => updateCfg({ activityType: e.target.value })}>
                   <option value="PLAYING">Playing</option>
                   <option value="LISTENING">Listening To</option>
                   <option value="WATCHING">Watching</option>
@@ -261,26 +279,32 @@ export default function BotPersonalizerClient() {
                 <input
                   style={input}
                   value={cfg.activityText || ""}
-                  onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, activityText: e.target.value }))}
+                  onChange={(e) => updateCfg({ activityText: e.target.value })}
                   placeholder="/help"
-                />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label>Backstory</label>
-                <textarea
-                  style={{ ...input, minHeight: 180 }}
-                  value={cfg.backstory || ""}
-                  onChange={(e) => setCfg((prev) => ({ ...DEFAULT_CFG, ...prev, backstory: e.target.value }))}
-                  placeholder="Describe how this guild wants the bot to feel, speak, and present itself."
                 />
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
               <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-                This page controls Possum AI identity, naming, webhook branding, and guild-facing presentation for this guild.
+                This page controls naming, presence, and webhook identity only. Possum AI now owns the guild backstory and adaptive identity notes.
               </div>
               <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
                 Open Possum AI
+              </Link>
+            </div>
+          </section>
+
+          <section style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Possum AI Backstory
+            </h3>
+            <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 860, lineHeight: 1.7 }}>
+              Guild backstory is no longer edited here. It belongs to the free Possum AI path so each server can tune its own adaptive identity without
+              tying that behavior to Persona AI or paid provider controls.
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
+                Edit Backstory In Possum AI
               </Link>
             </div>
           </section>

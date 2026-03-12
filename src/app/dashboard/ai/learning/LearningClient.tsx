@@ -23,6 +23,7 @@ type PossumSettings = {
   adaptiveReplyFrequency: number;
   personalityLabel: string;
   toneBank: string;
+  backstory: string;
 };
 
 type ChannelModeRow = {
@@ -48,6 +49,7 @@ const DEFAULT_SETTINGS: PossumSettings = {
   adaptiveReplyFrequency: 0.22,
   personalityLabel: "saviors",
   toneBank: "saviors",
+  backstory: "",
 };
 
 const wrap: CSSProperties = { color: "#ffd0d0", maxWidth: 1360 };
@@ -468,7 +470,7 @@ export default function LearningClient() {
             </div>
             <div style={card}>
               <div style={{ color: "#ff9c9c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Adaptive Identity</div>
-              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>Bot Knowledge Base</div>
+              <div style={{ color: "#ffdada", fontSize: 18, fontWeight: 800, marginTop: 6 }}>{settings.backstory ? "Configured" : "Not Set"}</div>
             </div>
           </section>
 
@@ -538,7 +540,7 @@ export default function LearningClient() {
                 </div>
                 <div style={{ color: "#ffbdbd", fontSize: 12, maxWidth: 900 }}>
                   These settings are specific to the selected guild. They control the adaptive Possum runtime, reply behavior,
-                  tone intensity, and stored guild profile for the homemade assistant path.
+                  tone intensity, and stored guild profile for the homemade assistant path. The custom bot backstory also lives here on the free Possum AI layer.
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -607,6 +609,18 @@ export default function LearningClient() {
                 </select>
                 <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
                   Selects the response bank used for Possum adaptive replies.
+                </div>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label>Guild backstory</label>
+                <textarea
+                  style={{ ...input, minHeight: 160 }}
+                  value={settings.backstory || ""}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, backstory: e.target.value }))}
+                  placeholder="Describe how this guild wants the free Possum AI bot to feel, speak, and present itself."
+                />
+                <div style={{ color: "#ff9c9c", fontSize: 11, marginTop: 6 }}>
+                  This is the free per-guild custom bot backstory. Persona AI does not own it and cannot claim it through persona routing.
                 </div>
               </div>
               <div>
@@ -840,8 +854,8 @@ export default function LearningClient() {
               </div>
               <div style={{ color: "#ffbdbd", fontSize: 12, lineHeight: 1.7 }}>
                 Possum AI owns the adaptive route only. Persona AI owns persona-only channels, persona keywords, and hosted
-                persona prompts. Possum AI stays tied to Bot Personalizer and the guild identity layer, and Persona AI
-                should never write into Possum adaptive profile tables.
+                persona prompts. Possum AI stays tied to Bot Personalizer and the guild identity layer, including the free guild backstory, and Persona AI
+                should never write into Possum adaptive profile tables or inherit bot-personalizer webhook identity.
               </div>
             </div>
           </section>

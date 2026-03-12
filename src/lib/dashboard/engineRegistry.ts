@@ -19,7 +19,7 @@ export type EngineDef = {
 export const SAVIORS_GUILD_ID = "1431799056211906582";
 
 export const ENGINE_REGISTRY: EngineDef[] = [
-  { id: "bot-personalizer", label: "Bot Personalizer", description: "Per-guild Possum AI identity, avatar, and backstory", group: "Guild Control", route: "/dashboard/bot-personalizer" },
+  { id: "bot-personalizer", label: "Bot Personalizer", description: "Per-guild Possum AI identity, avatar, presence, and webhook branding", group: "Guild Control", route: "/dashboard/bot-personalizer" },
   { id: "bot-masters", label: "Bot Masters", description: "Dashboard role/user access per guild", group: "Guild Control", route: "/dashboard/bot-masters" },
   { id: "channels", label: "Channels", description: "Centralized guild routing and channel assignment surface", group: "Guild Control", route: "/dashboard/channels" },
   { id: "possum-ai", label: "Possum AI", description: "Homemade adaptive AI, memory, and runtime reply routing", group: "Guild Control", route: "/dashboard/ai/learning" },

@@ -330,7 +330,7 @@ export default function UtilitiesClient() {
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <label><input type="checkbox" checked={Boolean(botPersonalizer.enabled)} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, enabled: event.target.checked }))} /> Personalizer Enabled</label>
-                  <label><input type="checkbox" checked={Boolean(botPersonalizer.useWebhookPersona)} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, useWebhookPersona: event.target.checked }))} /> Webhook Persona</label>
+                  <label><input type="checkbox" checked={Boolean(botPersonalizer.useWebhookPersona)} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, useWebhookPersona: event.target.checked }))} /> Webhook Identity</label>
                   <div>
                     <label>Guild nickname</label>
                     <input style={input} value={String(botPersonalizer.guildNickname || "")} onChange={(event) => setEngineConfig("botPersonalizer", (current) => ({ ...current, guildNickname: event.target.value }))} />

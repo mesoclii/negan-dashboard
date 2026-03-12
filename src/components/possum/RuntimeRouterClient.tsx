@@ -17,7 +17,7 @@ const DEFAULT_CFG: RuntimeRouterCfg = {
   personaAiEnabled: false,
   adaptiveAiEnabled: true,
   personaOnlyChannelIds: [],
-  personaKeywordTriggers: ["persona", "character", "backstory"],
+  personaKeywordTriggers: ["persona", "character"],
 };
 
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1360 };
@@ -85,7 +85,7 @@ export default function RuntimeRouterClient() {
         related={[
           { label: "Possum AI", route: "/dashboard/ai/learning", reason: "adaptive behavior, learning writes, and guild tone settings live there" },
           { label: "Persona AI", route: "/dashboard/ai/persona", reason: "persona-only channels and hosted persona logic must stay separate from adaptive routing" },
-          { label: "Bot Personalizer", route: "/dashboard/bot-personalizer", reason: "guild identity and webhook presentation should align with whichever path is active" },
+          { label: "Bot Personalizer", route: "/dashboard/bot-personalizer", reason: "free webhook identity belongs to Bot Personalizer and Possum AI only, not Persona AI" },
         ]}
       />
 
@@ -141,7 +141,7 @@ export default function RuntimeRouterClient() {
                         .filter(Boolean),
                     }))
                   }
-                  placeholder="persona, character, backstory"
+                  placeholder="persona, character"
                 />
               </div>
               <div>
@@ -189,7 +189,7 @@ export default function RuntimeRouterClient() {
 
           <section style={{ ...card, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ color: "#ffb8b8", lineHeight: 1.6, maxWidth: 840 }}>
-              Runtime Router now owns the actual routing boundaries and cleanup actions. Possum AI stays separate and deeper on its own page; this tab exists to control the live selection logic between adaptive and persona paths.
+              Runtime Router now owns the actual routing boundaries and cleanup actions. Possum AI stays separate and deeper on its own page; this tab exists to control the live selection logic between adaptive and persona paths. Backstory stays on Possum AI and is intentionally excluded from persona trigger keywords.
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link href={buildDashboardHref("/dashboard/ai/learning")} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
