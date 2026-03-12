@@ -63,20 +63,20 @@ export default function Home() {
 
   useEffect(() => {
     (async () => {
-      const [sessionRes, statusRes] = await Promise.all([
+      const [sessionRes, buildRes] = await Promise.all([
         fetch("/api/auth/session", { cache: "no-store" }).catch(() => null),
-        fetch("/api/status", { cache: "no-store" }).catch(() => null),
+        fetch("/api/build-info", { cache: "no-store" }).catch(() => null),
       ]);
       const json = await sessionRes?.json().catch(() => ({}));
-      const statusJson = await statusRes?.json().catch(() => ({}));
+      const buildJson = await buildRes?.json().catch(() => ({}));
       setSession({
         loggedIn: Boolean(json?.loggedIn),
         oauthConfigured: Boolean(json?.oauthConfigured),
         canEnterDashboard: Boolean(json?.canEnterDashboard),
         user: json?.user || null,
       });
-      const statusUpdatedAt = String(statusJson?.status?.updatedAt || "").trim();
-      setLastUpdatedAt(statusUpdatedAt || new Date(document.lastModified || Date.now()).toISOString());
+      const buildUpdatedAt = String(buildJson?.build?.updatedAt || "").trim();
+      setLastUpdatedAt(buildUpdatedAt || new Date(document.lastModified || Date.now()).toISOString());
     })();
   }, []);
 
