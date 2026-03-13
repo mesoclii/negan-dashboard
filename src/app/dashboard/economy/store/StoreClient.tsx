@@ -20,6 +20,7 @@ type StoreItem = {
   stock: number;
   oneTime: boolean;
   enabled: boolean;
+  imageUrl: string;
 };
 
 type StoreConfig = {
@@ -72,9 +73,49 @@ const DEFAULT_CONFIG: StoreConfig = {
       stock: -1,
       oneTime: true,
       enabled: true,
+      imageUrl: "",
     },
   ],
 };
+
+function createDraftItem(id = `item-${Date.now()}`): StoreItem {
+  return {
+    id,
+    name: "",
+    description: "",
+    type: "item",
+    roleId: "",
+    priceCoins: 0,
+    stock: -1,
+    oneTime: false,
+    enabled: true,
+    imageUrl: "",
+  };
+}
+
+function normalizeItems(raw: unknown): StoreItem[] {
+  if (!Array.isArray(raw)) return DEFAULT_CONFIG.items.map((item) => ({ ...item }));
+  return raw.map((entry, index) => {
+    const item = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+    const meta = item.meta && typeof item.meta === "object" ? (item.meta as Record<string, unknown>) : {};
+    const rawType = String(item.type || "item");
+    const type: StoreItem["type"] = rawType === "role" || rawType === "perk" ? rawType : "item";
+    const rawPrice = Number(item.priceCoins ?? item.price ?? 0);
+    const rawStock = Number(item.stock);
+    return {
+      id: String(item.id || `item-${index + 1}`).trim() || `item-${index + 1}`,
+      name: String(item.name || "").trim(),
+      description: String(item.description || "").trim(),
+      type,
+      roleId: String(item.roleId || "").trim(),
+      priceCoins: Number.isFinite(rawPrice) ? Math.max(0, rawPrice) : 0,
+      stock: Number.isFinite(rawStock) ? rawStock : -1,
+      oneTime: Boolean(item.oneTime ?? meta.oneTime),
+      enabled: item.enabled !== false,
+      imageUrl: String(item.imageUrl || meta.imageUrl || "").trim(),
+    };
+  });
+}
 
 function normalizeLibrary(raw: unknown): StoreImage[] {
   if (!Array.isArray(raw)) return [];
@@ -105,7 +146,7 @@ function mergeConfig(raw: Partial<StoreConfig> | null | undefined): StoreConfig 
       ...DEFAULT_CONFIG.policies,
       ...(raw?.policies || {}),
     },
-    items: Array.isArray(raw?.items) ? raw.items : DEFAULT_CONFIG.items,
+    items: raw?.items !== undefined ? normalizeItems(raw.items) : DEFAULT_CONFIG.items.map((item) => ({ ...item })),
   };
 }
 
@@ -146,10 +187,13 @@ export default function StorePage() {
   const [localMsg, setLocalMsg] = useState("");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newImageLabel, setNewImageLabel] = useState("");
+  const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const visibleMessage = localMsg || message;
   const textChannels = (channels as Channel[]).filter(
     (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
   );
+  const activeItemIndex = cfg.items.length ? Math.max(0, Math.min(selectedItemIndex, cfg.items.length - 1)) : -1;
+  const activeItem = activeItemIndex >= 0 ? cfg.items[activeItemIndex] : null;
 
   async function saveStore(nextConfig: StoreConfig = cfg) {
     setLocalMsg("");
@@ -195,23 +239,15 @@ export default function StorePage() {
   }
 
   function addItem() {
+    const nextIndex = cfg.items.length;
     setCfg((prev) => ({
       ...prev,
       items: [
         ...prev.items,
-        {
-          id: `item-${Date.now()}`,
-          name: "",
-          description: "",
-          type: "item",
-          roleId: "",
-          priceCoins: 0,
-          stock: -1,
-          oneTime: false,
-          enabled: true,
-        },
+        createDraftItem(),
       ],
     }));
+    setSelectedItemIndex(nextIndex);
     setLocalMsg("");
   }
 
@@ -228,6 +264,7 @@ export default function StorePage() {
       ...prev,
       items: prev.items.filter((_, itemIndex) => itemIndex !== index),
     }));
+    setSelectedItemIndex((prev) => Math.max(0, prev > index ? prev - 1 : prev === index ? index - 1 : prev));
     setLocalMsg("");
   }
 
@@ -383,7 +420,10 @@ export default function StorePage() {
             {cfg.panel.imageLibrary.length ? (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                 {cfg.panel.imageLibrary.map((img) => (
-                  <div key={img.url} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 8, display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
+                  <div key={img.url} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 8, display: "grid", gridTemplateColumns: "88px 1fr auto auto", gap: 8, alignItems: "center" }}>
+                    <div style={{ width: 88, height: 56, borderRadius: 8, overflow: "hidden", border: "1px solid #3a0000", background: "#0a0a0a" }}>
+                      <img src={img.url} alt={img.label || "Store library image"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
                     <div>
                       <div style={{ color: "#ffd6d6", fontWeight: 700 }}>{img.label || "Store background"}</div>
                       <div style={{ color: "#ff9f9f", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{img.url}</div>
@@ -445,90 +485,250 @@ export default function StorePage() {
 
           <div style={box}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Store Items</h3>
-            {cfg.items.map((item, index) => (
-              <div key={item.id || index} style={{ border: "1px solid #5f0000", borderRadius: 8, padding: 10, marginBottom: 10 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr auto", gap: 8 }}>
-                  <input
-                    style={input}
-                    placeholder="Name"
-                    value={item.name}
-                    onChange={(e) => updateItem(index, { name: e.target.value })}
-                  />
-                  <select
-                    style={input}
-                    value={item.type}
-                    onChange={(e) => updateItem(index, { type: e.target.value as StoreItem["type"] })}
-                  >
-                    <option value="item">Item</option>
-                    <option value="role">Role</option>
-                    <option value="perk">Perk</option>
-                  </select>
-                  <input
-                    style={input}
-                    type="number"
-                    placeholder="Price"
-                    value={item.priceCoins}
-                    onChange={(e) => updateItem(index, { priceCoins: Number(e.target.value || 0) })}
-                  />
-                  <input
-                    style={input}
-                    type="number"
-                    placeholder="Stock (-1 infinite)"
-                    value={item.stock}
-                    onChange={(e) => updateItem(index, { stock: Number(e.target.value || -1) })}
-                  />
-                  <button type="button" onClick={() => removeItem(index)} style={{ ...input, width: "auto", cursor: "pointer" }}>
-                    Remove
-                  </button>
+            <div style={{ color: "#ffb7b7", marginBottom: 10, lineHeight: 1.5 }}>
+              Build each catalog entry like a visual shop card first, then tune the behavior underneath. The image library above doubles as a quick asset picker for each item.
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              <button type="button" onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 700 }}>
+                + Add Item
+              </button>
+              <button
+                type="button"
+                onClick={() => activeItemIndex >= 0 && removeItem(activeItemIndex)}
+                disabled={activeItemIndex < 0}
+                style={{ ...input, width: "auto", cursor: activeItemIndex >= 0 ? "pointer" : "not-allowed", opacity: activeItemIndex >= 0 ? 1 : 0.6 }}
+              >
+                Remove Selected
+              </button>
+            </div>
+
+            {cfg.items.length ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
+                  {cfg.items.map((item, index) => {
+                    const selected = index === activeItemIndex;
+                    return (
+                      <button
+                        key={item.id || index}
+                        type="button"
+                        onClick={() => setSelectedItemIndex(index)}
+                        style={{
+                          border: selected ? "1px solid #ff6b6b" : "1px solid #5f0000",
+                          borderRadius: 12,
+                          padding: 8,
+                          background: selected ? "rgba(255,70,70,0.12)" : "rgba(120,0,0,0.05)",
+                          color: "#ffd7d7",
+                          textAlign: "left",
+                          cursor: "pointer"
+                        }}
+                      >
+                        <div style={{ height: 110, borderRadius: 8, border: "1px solid #3a0000", overflow: "hidden", background: "linear-gradient(180deg, #1b1b1b, #090909)", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={`${item.name || "Store item"} card`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ff8e8e" }}>No Image</div>
+                          )}
+                        </div>
+                        <div style={{ fontWeight: 800, color: "#fff0f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.name || "Untitled Item"}
+                        </div>
+                        <div style={{ marginTop: 4, color: "#ffb3b3", fontSize: 12 }}>
+                          {item.priceCoins} coins | {item.type}
+                        </div>
+                        <div style={{ marginTop: 4, color: item.enabled ? "#9cffb0" : "#ff9d9d", fontSize: 12 }}>
+                          {item.enabled ? "Live" : "Disabled"}{item.oneTime ? " | one-time" : ""}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <textarea
-                    style={{ ...input, minHeight: 58 }}
-                    placeholder="Description"
-                    value={item.description}
-                    onChange={(e) => updateItem(index, { description: e.target.value })}
-                  />
-                  <div>
-                    <select
-                      style={input}
-                      value={item.roleId}
-                      onChange={(e) => updateItem(index, { roleId: e.target.value })}
-                      disabled={item.type !== "role"}
-                    >
-                      <option value="">{item.type === "role" ? "Select role" : "Role not needed"}</option>
-                      {(roles as Role[]).map((role) => (
-                        <option key={role.id} value={role.id}>
-                          @{role.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div style={{ marginTop: 8 }}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={item.oneTime}
-                          onChange={(e) => updateItem(index, { oneTime: e.target.checked })}
-                        />{" "}
-                        One-time purchase
-                      </label>{" "}
-                      <label style={{ marginLeft: 12 }}>
-                        <input
-                          type="checkbox"
-                          checked={item.enabled}
-                          onChange={(e) => updateItem(index, { enabled: e.target.checked })}
-                        />{" "}
-                        Enabled
-                      </label>
+                {activeItem ? (
+                  <div style={{ border: "1px solid #5f0000", borderRadius: 12, padding: 12, background: "rgba(120,0,0,0.05)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+                      <div>
+                        <div style={{ border: "1px solid #5f0000", borderRadius: 12, overflow: "hidden", background: "#090909" }}>
+                          <div style={{ height: 180, background: "linear-gradient(180deg, #171717, #090909)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {activeItem.imageUrl ? (
+                              <img src={activeItem.imageUrl} alt={`${activeItem.name || "Store item"} preview`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                              <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ff8e8e" }}>No Item Art</div>
+                            )}
+                          </div>
+                          <div style={{ padding: 10 }}>
+                            <div style={{ fontWeight: 900, color: "#fff2f2" }}>{activeItem.name || "Untitled Item"}</div>
+                            <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>{activeItem.priceCoins} coins</div>
+                            <div style={{ color: "#ff9f9f", fontSize: 12, marginTop: 6 }}>{activeItem.description || "Add a short description for this item."}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                          <div>
+                            <label>Item ID</label>
+                            <input
+                              style={input}
+                              placeholder="vip-pass"
+                              value={activeItem.id}
+                              onChange={(e) => updateItem(activeItemIndex, { id: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label>Type</label>
+                            <select
+                              style={input}
+                              value={activeItem.type}
+                              onChange={(e) => updateItem(activeItemIndex, { type: e.target.value as StoreItem["type"] })}
+                            >
+                              <option value="item">Item</option>
+                              <option value="role">Role</option>
+                              <option value="perk">Perk</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label>Stock (-1 infinite)</label>
+                            <input
+                              style={input}
+                              type="number"
+                              value={activeItem.stock}
+                              onChange={(e) => updateItem(activeItemIndex, { stock: Number(e.target.value || -1) })}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8, marginTop: 8 }}>
+                          <div>
+                            <label>Display name</label>
+                            <input
+                              style={input}
+                              placeholder="VIP Pass"
+                              value={activeItem.name}
+                              onChange={(e) => updateItem(activeItemIndex, { name: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label>Price</label>
+                            <input
+                              style={input}
+                              type="number"
+                              value={activeItem.priceCoins}
+                              onChange={(e) => updateItem(activeItemIndex, { priceCoins: Number(e.target.value || 0) })}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 8 }}>
+                          <label>Description</label>
+                          <textarea
+                            style={{ ...input, minHeight: 84 }}
+                            placeholder="Describe the role, perk, or item benefit."
+                            value={activeItem.description}
+                            onChange={(e) => updateItem(activeItemIndex, { description: e.target.value })}
+                          />
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8, marginTop: 8 }}>
+                          <div>
+                            <label>Role grant</label>
+                            <select
+                              style={input}
+                              value={activeItem.roleId}
+                              onChange={(e) => updateItem(activeItemIndex, { roleId: e.target.value })}
+                              disabled={activeItem.type !== "role"}
+                            >
+                              <option value="">{activeItem.type === "role" ? "Select role" : "Role not needed"}</option>
+                              {(roles as Role[]).map((role) => (
+                                <option key={role.id} value={role.id}>
+                                  @{role.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label>Image source</label>
+                            <div style={{ ...input, display: "flex", alignItems: "center", minHeight: 42 }}>
+                              {cfg.panel.imageLibrary.some((img) => img.url === activeItem.imageUrl) ? "Using saved library image" : activeItem.imageUrl ? "Using custom URL" : "No image selected"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 8 }}>
+                          <label>Item image URL</label>
+                          <input
+                            style={input}
+                            placeholder="https://cdn.example.com/store/vip-pass.png"
+                            value={activeItem.imageUrl}
+                            onChange={(e) => updateItem(activeItemIndex, { imageUrl: e.target.value })}
+                          />
+                        </div>
+
+                        {cfg.panel.imageLibrary.length ? (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ color: "#ffb3b3", marginBottom: 6, fontSize: 12 }}>Choose from saved images</div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+                              {cfg.panel.imageLibrary.map((img) => {
+                                const selected = activeItem.imageUrl === img.url;
+                                return (
+                                  <button
+                                    key={`${activeItem.id}-tile-${img.url}`}
+                                    type="button"
+                                    onClick={() => updateItem(activeItemIndex, { imageUrl: selected ? "" : img.url })}
+                                    style={{
+                                      border: selected ? "1px solid #ff6b6b" : "1px solid #5f0000",
+                                      borderRadius: 10,
+                                      padding: 6,
+                                      background: selected ? "rgba(255,70,70,0.14)" : "rgba(120,0,0,0.05)",
+                                      color: "#ffd7d7",
+                                      textAlign: "left",
+                                      cursor: "pointer"
+                                    }}
+                                  >
+                                    <div style={{ height: 72, borderRadius: 8, overflow: "hidden", border: "1px solid #3a0000", background: "#0a0a0a" }}>
+                                      <img src={img.url} alt={img.label || "Saved store item art"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    </div>
+                                    <div style={{ marginTop: 6, fontSize: 12, fontWeight: 800, color: "#fff0f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      {img.label || "Saved image"}
+                                    </div>
+                                    <div style={{ marginTop: 2, fontSize: 11, color: selected ? "#ffc9c9" : "#ff9f9f" }}>
+                                      {selected ? "Selected" : "Use image"}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={activeItem.oneTime}
+                              onChange={(e) => updateItem(activeItemIndex, { oneTime: e.target.checked })}
+                            />{" "}
+                            One-time purchase
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={activeItem.enabled}
+                              onChange={(e) => updateItem(activeItemIndex, { enabled: e.target.checked })}
+                            />{" "}
+                            Enabled
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : null}
+              </>
+            ) : (
+              <div style={{ border: "1px dashed #5f0000", borderRadius: 12, padding: 18, color: "#ffb3b3" }}>
+                No items yet. Add your first item to start building the catalog cards.
               </div>
-            ))}
-
-            <button type="button" onClick={addItem} style={{ ...input, width: "auto", cursor: "pointer" }}>
-              + Add Item
-            </button>
+            )}
           </div>
 
           <ConfigJsonEditor
