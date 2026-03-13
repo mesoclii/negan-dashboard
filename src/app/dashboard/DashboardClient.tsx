@@ -33,6 +33,7 @@ type ToggleState = {
 type DashboardSection =
   | "Guild Control"
   | "Automation"
+  | "Community + Feeds"
   | "Security"
   | "Economy"
   | "Fun + Games"
@@ -41,6 +42,7 @@ type DashboardSection =
 const SECTION_ORDER: DashboardSection[] = [
   "Guild Control",
   "Automation",
+  "Community + Feeds",
   "Security",
   "Economy",
   "Fun + Games",
@@ -167,6 +169,13 @@ function getCardSection(card: Card): DashboardSection {
     href === "/dashboard/runtime-router"
   ) {
     return "Automation";
+  }
+  if (
+    href === "/dashboard/community-studio" ||
+    href === "/dashboard/channel-flow" ||
+    href === "/dashboard/signal-relay"
+  ) {
+    return "Community + Feeds";
   }
   if (
     href === "/dashboard/security" ||
@@ -324,6 +333,9 @@ const CARDS: Card[] = [
   { href: "/dashboard/slash-commands", title: "Slash Commands", description: "Native built-in slash command master per guild.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/event-reactor", title: "Event Reactor", description: "Scheduled event reactor controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/runtime-router", title: "Runtime Router", description: "Gun/possum/vip runtime routing controls.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
+  { href: "/dashboard/community-studio", title: "Community Studio", description: "Bulletin drops, pulse polls, reminder loops, and lookup shelf answers.", toggle: engineController("communityStudio", ["active"]) },
+  { href: "/dashboard/channel-flow", title: "Channel Flow", description: "Live counter channels and room-flow temporary voice spaces.", toggle: engineController("channelFlow", ["active"]) },
+  { href: "/dashboard/signal-relay", title: "Signal Relay", description: "Feed-based community dispatches for creators, channels, and update streams.", toggle: engineController("signalRelay", ["active"]) },
   { href: "/dashboard/moderator", title: "Moderator", description: "Separate automod, audit logging, and moderation controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite tracking tiers, recruiter thresholds, and leaderboard behavior.", toggle: engineController("inviteTracker") },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },

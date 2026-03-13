@@ -13,13 +13,14 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: rootDir,
   experimental: {
     serverMinification: false,
-    webpackBuildWorker: true,
+    webpackBuildWorker: isLowMemoryBuild ? false : true,
     webpackMemoryOptimizations: true,
     turbopackFileSystemCacheForBuild: true,
     ...(isLowMemoryBuild
       ? {
-          staticGenerationMaxConcurrency: 2,
-          staticGenerationMinPagesPerWorker: 28,
+          cpus: 1,
+          staticGenerationMaxConcurrency: 1,
+          staticGenerationMinPagesPerWorker: 64,
           staticGenerationRetryCount: 1,
         }
       : {}),

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/safe-next-build.js",
+    "build": "node scripts/safe-next-build.js --auto",
     "build:vm": "node scripts/safe-next-build.js --vm",
     "build:raw": "node --max-old-space-size=512 ./node_modules/next/dist/bin/next build --webpack",
     "build:turbo": "node ./node_modules/next/dist/bin/next build --turbopack",

@@ -2,6 +2,7 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
@@ -12,8 +13,21 @@ const rollbackDir = path.join(rootDir, ".next.previous");
 const cacheHoldDir = path.join(rootDir, ".next.cache.hold");
 const rollbackMetaPath = path.join(rootDir, ".next.rollback.json");
 const args = new Set(process.argv.slice(2));
-const vmMode = args.has("--vm");
-const memoryAttempts = vmMode ? [448, 512] : [448];
+
+function detectHostMemoryMb() {
+  try {
+    const total = Number(os.totalmem() || 0);
+    if (!Number.isFinite(total) || total <= 0) return 0;
+    return Math.floor(total / (1024 * 1024));
+  } catch {
+    return 0;
+  }
+}
+
+const hostMemoryMb = detectHostMemoryMb();
+const autoVmMode = args.has("--auto") && hostMemoryMb > 0 && hostMemoryMb <= 1536;
+const vmMode = args.has("--vm") || autoVmMode;
+const memoryAttempts = vmMode ? [384, 448] : [448];
 
 function log(message) {
   process.stdout.write(`[safe-next-build] ${message}\n`);
@@ -50,6 +64,10 @@ if (!fs.existsSync(nextBin)) {
   process.exit(1);
 }
 
+if (hostMemoryMb > 0) {
+  log(`Detected host memory: ${hostMemoryMb} MB.${autoVmMode ? " Enabling low-memory VM build mode automatically." : ""}`);
+}
+
 const hadCachedBuildData = stashBuildCache(buildDir);
 if (hadCachedBuildData) {
   log("Captured existing Next build cache for reuse.");
@@ -75,6 +93,7 @@ for (const memoryMb of memoryAttempts) {
     CI: process.env.CI || "1",
     NEXT_TELEMETRY_DISABLED: "1",
     NEGAN_LOW_MEMORY_BUILD: vmMode ? "1" : "0",
+    NEGAN_HOST_MEMORY_MB: hostMemoryMb ? String(hostMemoryMb) : "",
     NODE_OPTIONS: nodeOptions,
   };
 
@@ -117,6 +136,8 @@ if (!buildSucceeded) {
 const meta = {
   builtAt: new Date().toISOString(),
   vmMode,
+  autoVmMode,
+  hostMemoryMb,
   memoryMb: finalMemoryMb,
   rollbackAvailable: fs.existsSync(rollbackDir),
 };

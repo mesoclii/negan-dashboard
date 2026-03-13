@@ -19,6 +19,9 @@ const ENGINE_ROUTE_MAP: Record<string, string> = {
   tickets: "/dashboard/tickets",
   runtimeRouter: "/dashboard/runtime-router",
   failsafe: "/dashboard/failsafe",
+  communityStudio: "/dashboard/community-studio",
+  channelFlow: "/dashboard/channel-flow",
+  signalRelay: "/dashboard/signal-relay",
 };
 
 function severityColor(status: string) {

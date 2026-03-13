@@ -385,6 +385,60 @@
       "failureModes": ["missing permissions to fetch invites", "log channel missing"]
     },
     {
+      "key": "communityStudio",
+      "name": "Community Studio",
+      "category": "community-tools",
+      "featureFlag": "",
+      "configKey": "communityStudio",
+      "premiumRequired": false,
+      "privateOnly": false,
+      "enabledByDefault": false,
+      "triggerTypes": ["message", "button", "scheduled"],
+      "entrypoints": ["engine/communityStudioEngine.js"],
+      "dependencies": {"services": ["engineConfigService"]},
+      "decisionLogic": "Publishes bulletin drops, manages pulse polls, sends reminder loop cards, and answers lookup shelf prompts from guild-configured content.",
+      "stateMutations": ["poll vote state", "reminder delivery history"],
+      "persistence": ["engine config", "data/communityStudioState.json"],
+      "outputs": ["bulletin messages", "poll cards", "reminder cards", "lookup replies"],
+      "failureModes": ["missing channel targets", "poll options incomplete", "disabled community surfaces"]
+    },
+    {
+      "key": "channelFlow",
+      "name": "Channel Flow",
+      "category": "community-tools",
+      "featureFlag": "",
+      "configKey": "channelFlow",
+      "premiumRequired": false,
+      "privateOnly": false,
+      "enabledByDefault": false,
+      "triggerTypes": ["voice", "scheduled"],
+      "entrypoints": ["engine/channelFlowEngine.js"],
+      "dependencies": {"services": ["engineConfigService"]},
+      "decisionLogic": "Refreshes live counter channel names and creates temporary room-flow voice channels when members join a configured lobby.",
+      "stateMutations": ["temporary room tracking", "counter refresh state"],
+      "persistence": ["engine config", "data/channelFlowState.json"],
+      "outputs": ["channel renames", "temporary voice rooms"],
+      "failureModes": ["missing lobby channel", "channel rename permissions missing", "cleanup timing drift"]
+    },
+    {
+      "key": "signalRelay",
+      "name": "Signal Relay",
+      "category": "live-signals",
+      "featureFlag": "",
+      "configKey": "signalRelay",
+      "premiumRequired": false,
+      "privateOnly": false,
+      "enabledByDefault": false,
+      "triggerTypes": ["scheduled"],
+      "entrypoints": ["engine/signalRelayEngine.js"],
+      "dependencies": {"services": ["engineConfigService"]},
+      "decisionLogic": "Polls configured feed sources, deduplicates seen items, and dispatches styled updates into the selected guild channels.",
+      "stateMutations": ["seen item memory", "source polling timestamps"],
+      "persistence": ["engine config", "data/signalRelayState.json"],
+      "outputs": ["feed dispatch cards", "feed dispatch messages"],
+      "failureModes": ["feed URL unreachable", "dispatch channel missing", "duplicate suppression mismatch"]
+    },
+    {
       "key": "crew",
       "name": "Crew Engine",
       "category": "gta-ops",
@@ -1015,6 +1069,16 @@
       "key": "ai-persona",
       "label": "Premium",
       "engineKeys": ["personaEngine"]
+    },
+    {
+      "key": "community-tools",
+      "label": "Community + Feeds",
+      "engineKeys": ["communityStudio", "channelFlow"]
+    },
+    {
+      "key": "live-signals",
+      "label": "Community + Feeds",
+      "engineKeys": ["signalRelay"]
     },
     {
       "key": "ai-adaptive",
