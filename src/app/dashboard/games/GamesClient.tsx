@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { resolveGuildContext, fetchRuntimeEngine, saveRuntimeEngine } from "@/lib/liveRuntime";
+import GameSocialClient from "@/components/possum/GameSocialClient";
 
 type EnginePayload = {
   config?: Record<string, any>;
@@ -147,6 +148,8 @@ export default function GamesClient() {
 
       {!loading ? (
         <>
+          <GameSocialClient guildId={guildId} guildName={guildName} />
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 12 }}>
             {[
               ["Rare Spawn", (engines.rareSpawn.summary || [])[0]?.value || "Unknown"],
