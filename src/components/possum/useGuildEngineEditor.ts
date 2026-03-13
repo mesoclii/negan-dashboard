@@ -159,14 +159,17 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       const warnings = Array.isArray(json?.result?.warnings) ? json.result.warnings.filter(Boolean) : [];
+      const appliedLabels = [
+        json?.result?.username?.applied ? "bot username" : "",
+        json?.result?.nickname?.applied ? "guild nickname" : "",
+        json?.result?.presence?.applied ? "live presence" : "",
+        json?.result?.avatar?.applied ? "bot avatar" : "",
+        json?.result?.banner?.applied ? "bot banner" : "",
+      ].filter(Boolean);
       if (warnings.length) {
         setMessage(warnings.join(" | "));
-      } else if (json?.result?.nickname?.applied && json?.result?.presence?.applied) {
-        setMessage("Guild nickname and live presence applied.");
-      } else if (json?.result?.nickname?.applied) {
-        setMessage("Guild nickname applied.");
-      } else if (json?.result?.presence?.applied) {
-        setMessage("Live presence applied.");
+      } else if (appliedLabels.length) {
+        setMessage(`${appliedLabels.join(", ")} applied.`);
       } else {
         setMessage("Action completed.");
       }

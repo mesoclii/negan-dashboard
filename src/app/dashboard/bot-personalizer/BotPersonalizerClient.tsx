@@ -110,10 +110,14 @@ export default function BotPersonalizerClient() {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
   }
 
+  async function applyLiveNow() {
+    await runAction("applyProfile", { patch: cfg });
+  }
+
   async function saveAndApply() {
     const saved = await save(cfg);
     if (saved) {
-      await runAction("applyProfile");
+      await runAction("applyProfile", { patch: cfg });
     }
   }
 
@@ -136,7 +140,7 @@ export default function BotPersonalizerClient() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => void runAction("applyProfile")} disabled={saving} style={action}>
+            <button onClick={() => void applyLiveNow()} disabled={saving} style={action}>
               {saving ? "Applying..." : "Apply Live Now"}
             </button>
             <button onClick={() => void saveAndApply()} disabled={saving} style={action}>
