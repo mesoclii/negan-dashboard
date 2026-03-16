@@ -360,7 +360,7 @@ export default function BotPersonalizerClient() {
                     </div>
                     <div style={hint}>
                       Save per-guild avatar art here and reuse it instead of pasting links every time. Webhook replies can use these saved avatars per guild.
-                      Applying the real bot account avatar still affects the whole bot globally.
+                      These webhook avatars stay guild-scoped and do not overwrite the shared bot account avatar.
                     </div>
                   </div>
                   <button
