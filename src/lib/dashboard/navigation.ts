@@ -42,8 +42,8 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/slash-commands", label: "Slash Commands" },
         { href: "/dashboard/commands", label: "!Command Studio" },
         { href: "/dashboard/automations/studio", label: "Automation Studio" },
-        { href: "/dashboard/event-reactor", label: "Event Reactor" },
-        { href: "/dashboard/runtime-router", label: "Runtime Router" },
+        { href: "/dashboard/event-reactor", label: "Event Alerts" },
+        { href: "/dashboard/runtime-router", label: "AI Talking Rules" },
       ],
     },
     {

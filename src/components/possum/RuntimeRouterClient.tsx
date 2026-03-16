@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
@@ -36,6 +35,15 @@ const input: React.CSSProperties = {
   borderRadius: 10,
   padding: "10px 12px",
 };
+const action: React.CSSProperties = {
+  ...input,
+  width: "auto",
+  cursor: "pointer",
+  fontWeight: 900,
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+};
 const label: React.CSSProperties = {
   color: "#ffb9b9",
   fontSize: 12,
@@ -59,7 +67,6 @@ export default function RuntimeRouterClient() {
     setConfig: setCfg,
     channels,
     summary,
-    details,
     loading,
     saving,
     message,
@@ -67,11 +74,8 @@ export default function RuntimeRouterClient() {
     runAction,
   } = useGuildEngineEditor<RuntimeRouterCfg>("runtimeRouter", DEFAULT_CFG);
 
-  const textChannels = channels.filter((c) => Number(c?.type) === 0 || String(c?.type || "").toLowerCase().includes("text"));
-
-  function keywordText() {
-    return (cfg.personaKeywordTriggers || []).join(", ");
-  }
+  const textChannels = channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text"));
+  const keywordText = (cfg.personaKeywordTriggers || []).join(", ");
 
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
@@ -79,59 +83,66 @@ export default function RuntimeRouterClient() {
 
   return (
     <div style={shell}>
-      <EngineContractPanel
-        engineKey="runtimeRouter"
-        intro="Runtime Router is the live arbitration layer between adaptive Possum AI and persona-triggered routing. This page owns routing boundaries, persona-only channels, trigger keywords, and live memory resets."
-        related={[
-          { label: "Possum AI", route: "/dashboard/ai/learning", reason: "adaptive behavior, learning writes, and guild tone settings live there" },
-          { label: "Persona AI", route: "/dashboard/ai/persona", reason: "persona-only channels and hosted persona logic must stay separate from adaptive routing" },
-          { label: "Bot Personalizer", route: "/dashboard/bot-personalizer", reason: "free webhook identity belongs to Bot Personalizer and Possum AI only, not Persona AI" },
-        ]}
-      />
-
-      <div style={{ color: "#ff9999", marginTop: -2, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
+      <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>AI Talking Rules</h1>
+      <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 10 }}>Guild: {guildName || guildId}</div>
+      <div style={{ ...card, color: "#ffb8b8", lineHeight: 1.7 }}>
+        This page only decides <strong>who talks where</strong>.
+        <br />
+        Free <strong>Possum AI</strong> handles your normal homemade bot replies.
+        <br />
+        <strong>Persona AI</strong> is separate and should only be turned on if you want paid persona-style channels or trigger words.
+      </div>
       {message ? <div style={{ marginBottom: 10, color: "#ffd27a" }}>{message}</div> : null}
 
       {loading ? (
-        <div style={card}>Loading runtime router...</div>
+        <div style={card}>Loading AI talking rules...</div>
       ) : (
         <>
-          <EngineInsights summary={summary} details={details} />
+          <EngineInsights summary={summary} details={{}} />
 
-          <section style={{ ...card, marginTop: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
-              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Who Is Allowed To Answer
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+              <label style={{ color: "#ffdcdc", fontWeight: 700, display: "block" }}>
                 <input
                   type="checkbox"
                   checked={cfg.adaptiveAiEnabled !== false}
                   onChange={(e) => setCfg((prev) => ({ ...prev, adaptiveAiEnabled: e.target.checked }))}
                 />{" "}
-                Adaptive Possum runtime enabled
+                Free Possum AI can answer in this guild
+                <div style={{ color: "#ffb8b8", fontSize: 12, fontWeight: 500, marginTop: 8 }}>
+                  Leave this on for your normal homemade Possum replies.
+                </div>
               </label>
-              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+              <label style={{ color: "#ffdcdc", fontWeight: 700, display: "block" }}>
                 <input
                   type="checkbox"
                   checked={!!cfg.personaAiEnabled}
                   onChange={(e) => setCfg((prev) => ({ ...prev, personaAiEnabled: e.target.checked }))}
                 />{" "}
-                Persona runtime enabled
+                Persona AI can answer in this guild
+                <div style={{ color: "#ffb8b8", fontSize: 12, fontWeight: 500, marginTop: 8 }}>
+                  Turn this on only if you want the paid persona path to take over in special channels or on special trigger words.
+                </div>
               </label>
             </div>
-            <div style={{ color: "#ffb8b8", fontSize: 12, lineHeight: 1.6, marginTop: 10 }}>
-              The adaptive and persona paths are intentionally separate. Adaptive handles the homemade Possum AI route; persona handles hosted persona channels, keywords, and prompt-driven interactions.
+            <div style={{ color: "#ffb8b8", fontSize: 13, lineHeight: 1.7, marginTop: 12 }}>
+              Best default for most guilds: keep <strong>Free Possum AI on</strong>, keep <strong>Persona AI off</strong>, and only reserve persona channels if you actually use the paid persona feature.
             </div>
           </section>
 
           <section style={card}>
             <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-              Persona Routing Boundaries
+              Persona AI Rules
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>
               <div>
-                <div style={label}>Persona Trigger Keywords</div>
+                <div style={label}>Words That Switch To Persona AI</div>
                 <textarea
-                  style={{ ...input, minHeight: 90 }}
-                  value={keywordText()}
+                  style={{ ...input, minHeight: 110 }}
+                  value={keywordText}
                   onChange={(e) =>
                     setCfg((prev) => ({
                       ...prev,
@@ -143,11 +154,14 @@ export default function RuntimeRouterClient() {
                   }
                   placeholder="persona, character"
                 />
+                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 8 }}>
+                  Separate each word with a comma. If someone uses one of these words, the bot can switch over to Persona AI.
+                </div>
               </div>
               <div>
-                <div style={label}>Persona-Only Channels</div>
-                <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid #500000", borderRadius: 10, padding: 10, background: "#0a0a0a" }}>
-                  {textChannels.map((channel) => (
+                <div style={label}>Channels Reserved For Persona AI</div>
+                <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #500000", borderRadius: 10, padding: 10, background: "#0a0a0a" }}>
+                  {textChannels.length ? textChannels.map((channel) => (
                     <label key={channel.id} style={{ display: "block", color: "#ffdcdc", marginBottom: 6 }}>
                       <input
                         type="checkbox"
@@ -161,42 +175,43 @@ export default function RuntimeRouterClient() {
                       />{" "}
                       #{channel.name}
                     </label>
-                  ))}
+                  )) : <div style={{ color: "#ffb8b8", fontSize: 12 }}>No text channels loaded yet.</div>}
+                </div>
+                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 8 }}>
+                  Messages in these channels stay on the Persona AI side so your free Possum AI does not step on them.
                 </div>
               </div>
             </div>
           </section>
 
-          <section style={card}>
-            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-              Live Memory + Learning Actions
-            </div>
-            <div style={{ color: "#ffb8b8", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
-              Use these carefully. They act on the real runtime and persistence for the selected guild.
+          <details style={card}>
+            <summary style={{ cursor: "pointer", fontWeight: 800, color: "#ffdada" }}>Advanced cleanup tools</summary>
+            <div style={{ color: "#ffb8b8", fontSize: 12, lineHeight: 1.7, marginTop: 12, marginBottom: 12 }}>
+              These are reset buttons for live memory. Use them only when you want the bot to forget what it recently learned in this guild.
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={() => void runAction("clearReplyMemory")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-                Clear Reply Memory
+              <button onClick={() => void runAction("clearReplyMemory")} disabled={saving} style={action}>
+                Forget Recent Reply Memory
               </button>
-              <button onClick={() => void runAction("wipeProfiles")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-                Wipe Learned Profiles
+              <button onClick={() => void runAction("wipeProfiles")} disabled={saving} style={action}>
+                Erase Learned Member Vibes
               </button>
-              <button onClick={() => void runAction("wipeKnowledge")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-                Wipe Knowledge Base
+              <button onClick={() => void runAction("wipeKnowledge")} disabled={saving} style={action}>
+                Clear Stored Knowledge
               </button>
             </div>
-          </section>
+          </details>
 
           <section style={{ ...card, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ color: "#ffb8b8", lineHeight: 1.6, maxWidth: 840 }}>
-              Runtime Router now owns the actual routing boundaries and cleanup actions. Possum AI stays separate and deeper on its own page; this tab exists to control the live selection logic between adaptive and persona paths. Backstory stays on Possum AI and is intentionally excluded from persona trigger keywords.
+            <div style={{ color: "#ffb8b8", lineHeight: 1.7, maxWidth: 820 }}>
+              Need the deeper free AI settings like backstory, knowledge banks, or learning style? Go to <strong>Possum AI</strong>. This tab is only the traffic cop for who answers where.
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href={buildDashboardHref("/dashboard/ai/learning")} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+              <Link href={buildDashboardHref("/dashboard/ai/learning")} style={action}>
                 Open Possum AI
               </Link>
-              <button onClick={() => save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
-                {saving ? "Saving..." : "Save Runtime Router"}
+              <button onClick={() => void save()} disabled={saving} style={action}>
+                {saving ? "Saving..." : "Save Talking Rules"}
               </button>
             </div>
           </section>

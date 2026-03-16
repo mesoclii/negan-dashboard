@@ -44,8 +44,8 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "automation-studio", label: "Automation Studio", description: "Visual automation builder and runtime editor", group: "Automation", route: "/dashboard/automations/studio" },
   { id: "commands", label: "!Command Studio", description: "Custom bang-command builder", group: "Automation", route: "/dashboard/commands" },
   { id: "slash-commands", label: "Slash Commands", description: "Native built-in slash command master", group: "Automation", route: "/dashboard/slash-commands" },
-  { id: "event-reactor", label: "Event Reactor", description: "Scheduled event reactor controls", group: "Automation", route: "/dashboard/event-reactor" },
-  { id: "runtime-router", label: "Runtime Router", description: "Gun/possum/vip runtime routing", group: "Automation", route: "/dashboard/runtime-router" },
+  { id: "event-reactor", label: "Event Alerts", description: "Discord event watching, failed-job routing, and extra alert posts", group: "Automation", route: "/dashboard/event-reactor" },
+  { id: "runtime-router", label: "AI Talking Rules", description: "Simple split between free Possum AI replies and Persona AI channels", group: "Automation", route: "/dashboard/runtime-router" },
 
   { id: "economy", label: "Economy", description: "Economy/store/progression baseline", group: "Economy", route: "/dashboard/economy", featureKey: "economyEnabled" },
   { id: "birthday", label: "Birthday/Radio", description: "Birthday engine controls", group: "Economy", route: "/dashboard/economy/radio-birthday", featureKey: "birthdayEnabled" },

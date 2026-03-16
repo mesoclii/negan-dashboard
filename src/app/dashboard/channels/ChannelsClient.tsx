@@ -19,6 +19,8 @@ type Section = {
   note?: string;
 };
 
+const SAVIORS_GUILD_ID = "1431799056211906582";
+
 const SECTIONS: Section[] = [
   {
     key: "tickets",
@@ -137,9 +139,9 @@ const SECTIONS: Section[] = [
   },
   {
     key: "eventReactor",
-    label: "Event Reactor",
+    label: "Event Alerts",
     engine: "eventReactor",
-    fields: [{ key: "deadLetter.channelId", label: "Dead Letter Channel", type: "text" }],
+    fields: [{ key: "deadLetter.channelId", label: "Failed Jobs Channel", type: "text" }],
   },
   {
     key: "music",
@@ -220,6 +222,7 @@ export default function ChannelsClient() {
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [configs, setConfigs] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [savingAll, setSavingAll] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => setGuildId(getGuildId()), []);
@@ -260,6 +263,7 @@ export default function ChannelsClient() {
     () => channels.filter((c) => Number(c?.type) === 4 || String(c?.type || "").toLowerCase().includes("category")),
     [channels]
   );
+  const isSaviorsGuild = guildId === SAVIORS_GUILD_ID;
 
   function getOptions(field: Field) {
     if (field.type === "voice") return voiceChannels;
@@ -289,6 +293,34 @@ export default function ChannelsClient() {
       setMsg(e?.message || "Save failed.");
     } finally {
       setSaving((prev) => ({ ...prev, [section.key]: false }));
+    }
+  }
+
+  async function saveAllSections() {
+    if (!guildId || savingAll) return;
+    setSavingAll(true);
+    setMsg("");
+    try {
+      for (const section of SECTIONS) {
+        const res = await fetch("/api/runtime/engine", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            guildId,
+            engine: section.engine,
+            patch: configs[section.key] || {},
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json?.success === false) {
+          throw new Error(json?.error || `Failed to save ${section.label}.`);
+        }
+      }
+      setMsg("All channel sections saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to save all channels.");
+    } finally {
+      setSavingAll(false);
     }
   }
 
@@ -345,7 +377,21 @@ export default function ChannelsClient() {
   return (
     <div style={{ color: "#ffb3b3", padding: 14, maxWidth: 1300 }}>
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Channel Setup</h1>
-      <p style={{ marginTop: 0 }}>Guild: {typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId}</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <p style={{ marginTop: 0, marginBottom: 6 }}>Guild: {typeof window !== "undefined" ? (localStorage.getItem("activeGuildName") || guildId) : guildId}</p>
+          <div style={{ color: "#ffb7b7", fontSize: 13, lineHeight: 1.6, maxWidth: 920 }}>
+            Pick where each system should post. For Saviors Gaming, blank legacy slots are auto-filled from the bot&apos;s built-in server defaults so you do not have to hunt IDs down by hand.
+          </div>
+        </div>
+        <button
+          onClick={() => void saveAllSections()}
+          disabled={savingAll}
+          style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}
+        >
+          {savingAll ? "Saving Everything..." : isSaviorsGuild ? "Save All Saviors Channels" : "Save All Channels"}
+        </button>
+      </div>
       {msg ? <div style={{ color: "#ffd27a", marginBottom: 12 }}>{msg}</div> : null}
 
       {SECTIONS.map((section) => {
