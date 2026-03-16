@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
 import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
-import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
+import { buildServerBotApiHeaders, fetchServerBotApi, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
 import { fetchDiscordGuilds, hasGuildManageAccess, isDiscordOauthConfigured } from "@/lib/discordOAuth";
 
 export async function GET(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const upstream = await fetch(`${SERVER_BOT_API}/guilds?userId=${encodeURIComponent(actorUserId)}`, {
+    const upstream = await fetchServerBotApi(`${SERVER_BOT_API}/guilds?userId=${encodeURIComponent(actorUserId)}`, {
       headers: buildServerBotApiHeaders(actorUserId),
       cache: "no-store",
     });

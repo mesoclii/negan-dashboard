@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { BOT_API, buildBotApiHeaders, readActorUserId, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readActorUserId, readJsonSafe } from "@/lib/botApi";
+import { readServerCache, writeServerCache } from "@/lib/serverCache";
+
+const GUILD_ACCESS_PROXY_TTL_MS = Math.max(1_000, Number(process.env.GUILD_ACCESS_PROXY_TTL_MS || 30_000));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -14,7 +17,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const upstream = await fetch(
+    const cacheKey = `bot-guild-access:${guildId}:${userId}`;
+    const cached = readServerCache<{ status: number; body: unknown }>(cacheKey);
+    if (cached) {
+      return res.status(cached.status).json(cached.body);
+    }
+
+    const upstream = await fetchBotApi(
       `${BOT_API}/guild-access?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`,
       {
         headers: buildBotApiHeaders(req),
@@ -23,6 +32,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     const data = await readJsonSafe(upstream);
+    if (upstream.ok) {
+      writeServerCache(cacheKey, { status: upstream.status, body: data }, GUILD_ACCESS_PROXY_TTL_MS);
+    }
     return res.status(upstream.status).json(data);
   } catch (err: any) {
     return res.status(500).json({

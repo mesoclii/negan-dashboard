@@ -1,6 +1,7 @@
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 export const SERVER_BOT_API = String(process.env.BOT_API_URL || "http://127.0.0.1:3001").trim();
+const SERVER_BOT_API_TIMEOUT_MS = Math.max(1_000, Number(process.env.BOT_API_TIMEOUT_MS || 6_000));
 
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
@@ -17,5 +18,23 @@ export async function readServerBotApiJson(response: Response) {
     return text ? JSON.parse(text) : {};
   } catch {
     return { success: false, error: text || "Invalid upstream JSON" };
+  }
+}
+
+export async function fetchServerBotApi(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = SERVER_BOT_API_TIMEOUT_MS
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      cache: init.cache ?? "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
   }
 }

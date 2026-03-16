@@ -2,6 +2,7 @@ import type { NextApiRequest } from "next";
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 export const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
+const BOT_API_TIMEOUT_MS = Math.max(1_000, Number(process.env.BOT_API_TIMEOUT_MS || 6_000));
 
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
@@ -73,4 +74,22 @@ export function getRequestOrigin(req: NextApiRequest): string {
     readFirst(req.headers.host as string | string[] | undefined);
 
   return host ? `${protocol}://${host}` : "";
+}
+
+export async function fetchBotApi(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = BOT_API_TIMEOUT_MS
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      cache: init.cache ?? "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }

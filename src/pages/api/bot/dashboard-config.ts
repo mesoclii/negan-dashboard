@@ -14,7 +14,18 @@ import {
   normalizeFeaturePatch,
   withLegacyFeatureAliases,
 } from "@/lib/dashboard/featureKeys";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
+import { deleteServerCache, deleteServerCachePrefix, readServerCache, writeServerCache } from "@/lib/serverCache";
+
+const DASHBOARD_CONFIG_PROXY_TTL_MS = Math.max(1_000, Number(process.env.DASHBOARD_CONFIG_PROXY_TTL_MS || 15_000));
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "4mb",
+    },
+  },
+};
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return !!input && typeof input === "object" && !Array.isArray(input);
@@ -139,13 +150,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       if (!guildId) return res.status(400).json({ success: false, error: "guildId is required" });
 
-      const upstream = await fetch(
+      const cacheKey = `bot-dashboard-config:${guildId}`;
+      const cached = readServerCache<{ status: number; body: unknown }>(cacheKey);
+      if (cached) {
+        return res.status(cached.status).json(cached.body);
+      }
+
+      const upstream = await fetchBotApi(
         `${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`,
         { headers: buildBotApiHeaders(req), cache: "no-store" }
       );
       const data = await readJsonSafe(upstream);
       if (isRecord(data) && isRecord(data.config)) {
         data.config = enrichDashboardFeatures(data.config, guildId);
+      }
+      if (upstream.ok) {
+        writeServerCache(cacheKey, { status: upstream.status, body: data }, DASHBOARD_CONFIG_PROXY_TTL_MS);
       }
       return res.status(upstream.status).json(data);
     }
@@ -157,12 +177,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const normalized = normalizeWriteBody(req, guildId);
-      const upstream = await fetch(`${BOT_API}/dashboard-config`, {
+      const upstream = await fetchBotApi(`${BOT_API}/dashboard-config`, {
         method: "POST",
         headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(normalized.body),
       });
       const data = await readJsonSafe(upstream);
+      deleteServerCache(`bot-dashboard-config:${guildId}`);
+      deleteServerCachePrefix(`bot-guild-access:${guildId}:`);
       if (isRecord(data) && normalized.ignoredFeatureKeys.length > 0) {
         data.ignoredFeatureKeys = normalized.ignoredFeatureKeys;
       }
