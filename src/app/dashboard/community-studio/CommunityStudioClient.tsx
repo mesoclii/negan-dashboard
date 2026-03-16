@@ -70,6 +70,9 @@ type CommunityStudioConfig = {
   active: boolean;
   styleName: string;
   imageLibrary: StudioImage[];
+  bulletinsEnabled: boolean;
+  pollsEnabled: boolean;
+  remindersEnabled: boolean;
   bulletins: Bulletin[];
   polls: Poll[];
   reminders: Reminder[];
@@ -82,6 +85,9 @@ const DEFAULT_CONFIG: CommunityStudioConfig = {
   active: false,
   styleName: "Operator Canvas",
   imageLibrary: [],
+  bulletinsEnabled: true,
+  pollsEnabled: true,
+  remindersEnabled: true,
   bulletins: [],
   polls: [],
   reminders: [],
@@ -219,6 +225,9 @@ function normalizeConfig(raw: Partial<CommunityStudioConfig> | null | undefined)
     active: next.active === true,
     styleName: String(next.styleName || DEFAULT_CONFIG.styleName).trim() || DEFAULT_CONFIG.styleName,
     imageLibrary: normalizeImages(next.imageLibrary),
+    bulletinsEnabled: next.bulletinsEnabled !== false,
+    pollsEnabled: next.pollsEnabled !== false,
+    remindersEnabled: next.remindersEnabled !== false,
     bulletins: Array.isArray(next.bulletins)
       ? next.bulletins.map((entry, index) => ({
           ...createBulletin(),
@@ -504,9 +513,12 @@ export default function CommunityStudioClient() {
         <>
           <EngineInsights summary={summary} details={details} showDetails />
 
-          <section style={card}>
+          <section id="images" style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, alignItems: "end" }}>
               <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((prev) => ({ ...normalizeConfig(prev), active: e.target.checked }))} /> Community Studio Active</label>
+              <label><input type="checkbox" checked={cfg.bulletinsEnabled} onChange={(e) => setCfg((prev) => ({ ...normalizeConfig(prev), bulletinsEnabled: e.target.checked }))} /> Bulletins Enabled</label>
+              <label><input type="checkbox" checked={cfg.pollsEnabled} onChange={(e) => setCfg((prev) => ({ ...normalizeConfig(prev), pollsEnabled: e.target.checked }))} /> Pulse Polls Enabled</label>
+              <label><input type="checkbox" checked={cfg.remindersEnabled} onChange={(e) => setCfg((prev) => ({ ...normalizeConfig(prev), remindersEnabled: e.target.checked }))} /> Reminder Loop Enabled</label>
               <label><input type="checkbox" checked={cfg.lookup.enabled} onChange={(e) => setCfg((prev) => ({ ...normalizeConfig(prev), lookup: { ...normalizeConfig(prev).lookup, enabled: e.target.checked } }))} /> Lookup Replies Enabled</label>
               <div>
                 <div style={{ marginBottom: 6 }}>Style Name</div>
@@ -523,7 +535,7 @@ export default function CommunityStudioClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="bulletins" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Saved Studio Images</div>
@@ -554,18 +566,19 @@ export default function CommunityStudioClient() {
             ) : null}
           </section>
 
-          <section style={card}>
+          <section id="bulletins" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Bulletins</div>
                 <div style={micro}>Operator announcements with role pings, thumbnails, and full-width artwork.</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" style={button} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), bulletins: [...normalizeConfig(prev).bulletins, createBulletin()] })); setBulletinIndex(cfg.bulletins.length); }}>Add Bulletin</button>
-                <button type="button" style={button} disabled={saving || !activeBulletin} onClick={() => activeBulletin ? void runAction("deployBulletin", { bulletinId: activeBulletin.id }) : undefined}>Deploy Now</button>
+                <button type="button" style={button} disabled={!cfg.bulletinsEnabled} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), bulletins: [...normalizeConfig(prev).bulletins, createBulletin()] })); setBulletinIndex(cfg.bulletins.length); }}>Add Bulletin</button>
+                <button type="button" style={button} disabled={saving || !activeBulletin || !cfg.bulletinsEnabled} onClick={() => activeBulletin ? void runAction("deployBulletin", { bulletinId: activeBulletin.id }) : undefined}>Deploy Now</button>
                 <button type="button" style={button} disabled={!activeBulletin} onClick={() => { if (activeBulletin) { removeListItem("bulletins", activeBulletinIndex); setBulletinIndex((prev) => Math.max(0, prev - 1)); } }}>Remove</button>
               </div>
             </div>
+            {!cfg.bulletinsEnabled ? <div style={{ ...micro, marginTop: 8 }}>Bulletins are paused for this guild. Saved bulletin rows stay intact until you turn them back on.</div> : null}
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: 14 }}>
               <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
                 {cfg.bulletins.length ? cfg.bulletins.map((entry, index) => (
@@ -637,18 +650,19 @@ export default function CommunityStudioClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="polls" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Pulse Polls</div>
                 <div style={micro}>Interactive vote drops with artwork, multivote rules, and deploy-now control.</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" style={button} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), polls: [...normalizeConfig(prev).polls, createPoll()] })); setPollIndex(cfg.polls.length); }}>Add Poll</button>
-                <button type="button" style={button} disabled={saving || !activePoll} onClick={() => activePoll ? void runAction("deployPoll", { pollId: activePoll.id }) : undefined}>Deploy Poll</button>
+                <button type="button" style={button} disabled={!cfg.pollsEnabled} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), polls: [...normalizeConfig(prev).polls, createPoll()] })); setPollIndex(cfg.polls.length); }}>Add Poll</button>
+                <button type="button" style={button} disabled={saving || !activePoll || !cfg.pollsEnabled} onClick={() => activePoll ? void runAction("deployPoll", { pollId: activePoll.id }) : undefined}>Deploy Poll</button>
                 <button type="button" style={button} disabled={!activePoll} onClick={() => { if (activePoll) { removeListItem("polls", activePollIndex); setPollIndex((prev) => Math.max(0, prev - 1)); } }}>Remove</button>
               </div>
             </div>
+            {!cfg.pollsEnabled ? <div style={{ ...micro, marginTop: 8 }}>Pulse Polls are paused for this guild. Saved poll layouts stay ready until you turn them back on.</div> : null}
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: 14 }}>
               <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
                 {cfg.polls.length ? cfg.polls.map((entry, index) => (
@@ -733,19 +747,20 @@ export default function CommunityStudioClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="reminders" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Reminder Loop</div>
                 <div style={micro}>Time-based posts with direct fire-now and history reset controls.</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" style={button} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), reminders: [...normalizeConfig(prev).reminders, createReminder()] })); setReminderIndex(cfg.reminders.length); }}>Add Reminder</button>
-                <button type="button" style={button} disabled={saving || !activeReminder} onClick={() => activeReminder ? void runAction("sendReminderNow", { reminderId: activeReminder.id }) : undefined}>Send Now</button>
-                <button type="button" style={button} disabled={saving} onClick={() => void runAction("clearReminderHistory")}>Clear History</button>
+                <button type="button" style={button} disabled={!cfg.remindersEnabled} onClick={() => { setCfg((prev) => ({ ...normalizeConfig(prev), reminders: [...normalizeConfig(prev).reminders, createReminder()] })); setReminderIndex(cfg.reminders.length); }}>Add Reminder</button>
+                <button type="button" style={button} disabled={saving || !activeReminder || !cfg.remindersEnabled} onClick={() => activeReminder ? void runAction("sendReminderNow", { reminderId: activeReminder.id }) : undefined}>Send Now</button>
+                <button type="button" style={button} disabled={saving || !cfg.remindersEnabled} onClick={() => void runAction("clearReminderHistory")}>Clear History</button>
                 <button type="button" style={button} disabled={!activeReminder} onClick={() => { if (activeReminder) { removeListItem("reminders", activeReminderIndex); setReminderIndex((prev) => Math.max(0, prev - 1)); } }}>Remove</button>
               </div>
             </div>
+            {!cfg.remindersEnabled ? <div style={{ ...micro, marginTop: 8 }}>Reminder Loop is paused for this guild. Saved schedule rows stay ready until you turn it back on.</div> : null}
             <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: 14 }}>
               <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
                 {cfg.reminders.length ? cfg.reminders.map((entry, index) => (
@@ -827,7 +842,7 @@ export default function CommunityStudioClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="lookup" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Lookup Cards</div>

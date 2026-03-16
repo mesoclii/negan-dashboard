@@ -21,6 +21,7 @@ type CustomCommand = {
 
 type ActionType =
   | "SEND_MESSAGE"
+  | "SEND_EMBED"
   | "REPLY"
   | "DM"
   | "ADD_ROLE"
@@ -35,6 +36,12 @@ type ActionDraft = {
   type: ActionType;
   channelId: string;
   content: string;
+  embedTitle: string;
+  embedDescription: string;
+  embedColor: string;
+  embedImageUrl: string;
+  embedThumbnailUrl: string;
+  embedFooterText: string;
   roleId: string;
   emoji: string;
   delayMs: string;
@@ -59,6 +66,7 @@ type CommandDraft = {
 
 const ACTION_LIBRARY: Array<{ type: ActionType; title: string; desc: string }> = [
   { type: "SEND_MESSAGE", title: "Send Message to Channel", desc: "Post in a selected channel" },
+  { type: "SEND_EMBED", title: "Embed Messages", desc: "Post a styled embed in-channel or in a target channel" },
   { type: "REPLY", title: "Reply in Current Channel", desc: "Reply where command was used" },
   { type: "DM", title: "Send Direct Message", desc: "DM the user who ran command" },
   { type: "ADD_ROLE", title: "Give Role", desc: "Grant role to user" },
@@ -184,6 +192,12 @@ function emptyAction(type: ActionType): ActionDraft {
     type,
     channelId: "",
     content: "",
+    embedTitle: "",
+    embedDescription: "",
+    embedColor: "#ff5a5a",
+    embedImageUrl: "",
+    embedThumbnailUrl: "",
+    embedFooterText: "",
     roleId: "",
     emoji: "",
     delayMs: "1000",
@@ -212,6 +226,19 @@ function apiActionToDraft(a: any): ActionDraft {
   const c = a?.config || {};
 
   if (type === "SEND_MESSAGE") return { ...emptyAction("SEND_MESSAGE"), channelId: String(c.channelId || ""), content: String(c.content || "") };
+  if (type === "SEND_EMBED")
+    return {
+      ...emptyAction("SEND_EMBED"),
+      channelId: String(c.channelId || ""),
+      content: String(c.content || ""),
+      embedTitle: String(c.title || c.embedTitle || ""),
+      embedDescription: String(c.description || c.embedDescription || ""),
+      embedColor: String(c.color || c.embedColor || "#ff5a5a"),
+      embedImageUrl: String(c.imageUrl || c.embedImageUrl || ""),
+      embedThumbnailUrl: String(c.thumbnailUrl || c.embedThumbnailUrl || ""),
+      embedFooterText: String(c.footerText || c.embedFooterText || ""),
+      ephemeral: !!c.ephemeral,
+    };
   if (type === "REPLY") return { ...emptyAction("REPLY"), content: String(c.content || ""), ephemeral: !!c.ephemeral };
   if (type === "DM") return { ...emptyAction("DM"), content: String(c.content || "") };
   if (type === "ADD_ROLE") return { ...emptyAction("ADD_ROLE"), roleId: String(c.roleId || "") };
@@ -231,6 +258,21 @@ function apiActionToDraft(a: any): ActionDraft {
 function draftToApiAction(a: ActionDraft): any {
   if (a.type === "RAW" && a.rawAction) return a.rawAction;
   if (a.type === "SEND_MESSAGE") return { type: "SEND_MESSAGE", config: { channelId: a.channelId, content: a.content } };
+  if (a.type === "SEND_EMBED")
+    return {
+      type: "SEND_EMBED",
+      config: {
+        channelId: a.channelId,
+        content: a.content,
+        title: a.embedTitle,
+        description: a.embedDescription,
+        color: a.embedColor,
+        imageUrl: a.embedImageUrl,
+        thumbnailUrl: a.embedThumbnailUrl,
+        footerText: a.embedFooterText,
+        ephemeral: a.ephemeral,
+      }
+    };
   if (a.type === "REPLY") return { type: "REPLY", config: { content: a.content, ephemeral: a.ephemeral } };
   if (a.type === "DM") return { type: "DM", config: { content: a.content } };
   if (a.type === "ADD_ROLE") return { type: "ADD_ROLE", config: { roleId: a.roleId } };
@@ -772,6 +814,67 @@ export default function CustomCommandsPage() {
                         </button>
                       </div>
                       <div style={hintStyle}>Inserts mention tokens: <code>&lt;@&amp;ROLE_ID&gt;</code> and <code>&lt;#CHANNEL_ID&gt;</code></div>
+                    </div>
+                  )}
+
+                  {(a.type === "SEND_EMBED") && (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <div style={twoCol}>
+                        <select value={a.channelId} onChange={(e) => updateAction(a.id, { channelId: e.target.value })} style={inputStyle}>
+                          <option value="">Reply/current channel</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <input value={a.embedTitle} onChange={(e) => updateAction(a.id, { embedTitle: e.target.value })} placeholder="Embed title" style={inputStyle} />
+                      </div>
+                      <textarea rows={2} value={a.content} onChange={(e) => updateAction(a.id, { content: e.target.value })} placeholder="Optional message above the embed" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                      <textarea rows={4} value={a.embedDescription} onChange={(e) => updateAction(a.id, { embedDescription: e.target.value })} placeholder="Embed description" style={{ ...inputStyle, fontFamily: "inherit" }} />
+                      <div style={twoCol}>
+                        <input value={a.embedColor} onChange={(e) => updateAction(a.id, { embedColor: e.target.value })} placeholder="Color (#ff5a5a)" style={inputStyle} />
+                        <input value={a.embedFooterText} onChange={(e) => updateAction(a.id, { embedFooterText: e.target.value })} placeholder="Footer text" style={inputStyle} />
+                      </div>
+                      <div style={twoCol}>
+                        <input value={a.embedImageUrl} onChange={(e) => updateAction(a.id, { embedImageUrl: e.target.value })} placeholder="Hero image URL" style={inputStyle} />
+                        <input value={a.embedThumbnailUrl} onChange={(e) => updateAction(a.id, { embedThumbnailUrl: e.target.value })} placeholder="Thumbnail URL" style={inputStyle} />
+                      </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={a.ephemeral} onChange={(e) => updateAction(a.id, { ephemeral: e.target.checked })} />
+                        ephemeral when replying from slash context
+                      </label>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionRoleByAction[a.id] || ""}
+                          onChange={(e) => setMentionRoleByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select role to tag</option>
+                          {roles.map((r) => <option key={r.id} value={r.id}>@{r.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendRoleMentionToAction(a.id, mentionRoleByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionRoleByAction[a.id]}
+                        >
+                          Tag Role
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionChannelByAction[a.id] || ""}
+                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select channel to tag</option>
+                          {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                        </select>
+                        <button
+                          onClick={() => appendChannelMentionToAction(a.id, mentionChannelByAction[a.id] || "")}
+                          style={btnGhostMini}
+                          disabled={!mentionChannelByAction[a.id]}
+                        >
+                          Tag Channel
+                        </button>
+                      </div>
+                      <div style={hintStyle}>Use this for rule cards, announcements, and formatted command responses without dropping into raw JSON.</div>
                     </div>
                   )}
 

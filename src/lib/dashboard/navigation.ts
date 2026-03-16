@@ -47,10 +47,17 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       ],
     },
     {
-      label: "Community + Feeds",
+      label: "Utilities",
       items: [
+        { href: "/dashboard/utilities", label: "Utilities" },
         { href: "/dashboard/community-studio", label: "Community Studio" },
         { href: "/dashboard/channel-flow", label: "Channel Flow" },
+      ],
+    },
+    {
+      label: "Social Alerts",
+      items: [
+        { href: "/dashboard/social-alerts", label: "Social Alerts" },
         { href: "/dashboard/signal-relay", label: "Signal Relay" },
       ],
     },

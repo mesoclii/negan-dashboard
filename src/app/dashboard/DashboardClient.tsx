@@ -33,7 +33,8 @@ type ToggleState = {
 type DashboardSection =
   | "Guild Control"
   | "Automation"
-  | "Community + Feeds"
+  | "Utilities"
+  | "Social Alerts"
   | "Security"
   | "Economy"
   | "Fun + Games"
@@ -42,7 +43,8 @@ type DashboardSection =
 const SECTION_ORDER: DashboardSection[] = [
   "Guild Control",
   "Automation",
-  "Community + Feeds",
+  "Utilities",
+  "Social Alerts",
   "Security",
   "Economy",
   "Fun + Games",
@@ -217,11 +219,17 @@ function getCardSection(card: Card): DashboardSection {
     return "Automation";
   }
   if (
+    href === "/dashboard/utilities" ||
     href === "/dashboard/community-studio" ||
-    href === "/dashboard/channel-flow" ||
+    href === "/dashboard/channel-flow"
+  ) {
+    return "Utilities";
+  }
+  if (
+    href === "/dashboard/social-alerts" ||
     href === "/dashboard/signal-relay"
   ) {
-    return "Community + Feeds";
+    return "Social Alerts";
   }
   if (
     href === "/dashboard/security" ||
@@ -379,8 +387,10 @@ const CARDS: Card[] = [
   { href: "/dashboard/slash-commands", title: "Slash Commands", description: "Native built-in slash command master per guild.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/event-reactor", title: "Event Alerts", description: "Choose what Discord activity to watch, where failed jobs go, and any extra alert posts.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/runtime-router", title: "AI Talking Rules", description: "Simple split between free Possum AI replies and optional Persona AI channels.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
+  { href: "/dashboard/utilities", title: "Utilities", description: "Card-based utility overview for Jed, help, polls, reminders, embeds, counters, and temp channels.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/community-studio", title: "Community Studio", description: "Bulletin drops, pulse polls, reminder loops, and lookup shelf answers.", toggle: engineController("communityStudio", ["active"]) },
   { href: "/dashboard/channel-flow", title: "Channel Flow", description: "Live counter channels and room-flow temporary voice spaces.", toggle: engineController("channelFlow", ["active"]) },
+  { href: "/dashboard/social-alerts", title: "Social Alerts", description: "Provider cards for RSS, podcast, YouTube, Twitch, TikTok, X, Bluesky, Reddit, Instagram, and Kick.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/signal-relay", title: "Signal Relay", description: "Feed-based community dispatches for creators, channels, and update streams.", toggle: engineController("signalRelay", ["active"]) },
   { href: "/dashboard/moderator", title: "Moderator", description: "Separate automod, audit logging, and moderation controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite tracking tiers, recruiter thresholds, and leaderboard behavior.", toggle: engineController("inviteTracker") },

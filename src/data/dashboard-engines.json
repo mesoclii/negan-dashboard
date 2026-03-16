@@ -1072,12 +1072,12 @@
     },
     {
       "key": "community-tools",
-      "label": "Community + Feeds",
+      "label": "Utilities",
       "engineKeys": ["communityStudio", "channelFlow"]
     },
     {
       "key": "live-signals",
-      "label": "Community + Feeds",
+      "label": "Social Alerts",
       "engineKeys": ["signalRelay"]
     },
     {

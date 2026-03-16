@@ -157,7 +157,7 @@ export default function ChannelFlowClient() {
         <>
           <EngineInsights summary={summary} details={details} showDetails />
 
-          <section style={card}>
+          <section id="rooms" style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, alignItems: "end" }}>
               <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((prev) => ({ ...prev, active: e.target.checked }))} /> Channel Flow Active</label>
               <label><input type="checkbox" checked={cfg.counters.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, counters: { ...prev.counters, enabled: e.target.checked } }))} /> Live Counters Enabled</label>
@@ -222,7 +222,7 @@ export default function ChannelFlowClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="counters" style={card}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>Live Counters</div>
@@ -284,7 +284,7 @@ export default function ChannelFlowClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="room-snapshot" style={card}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Room Flow Snapshot</div>
             <div style={{ border: "1px solid #742222", borderRadius: 8, padding: 10 }}>
               <div style={{ fontWeight: 700 }}>{cfg.rooms.nameTemplate || "{{displayName}} Lounge"}</div>

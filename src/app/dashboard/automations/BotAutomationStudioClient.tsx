@@ -32,6 +32,7 @@ type ConditionType =
 
 type ActionType =
   | "SEND_MESSAGE"
+  | "SEND_EMBED"
   | "REPLY"
   | "REACT"
   | "ADD_ROLE"
@@ -117,6 +118,7 @@ const CONDITION_OPTIONS: Array<{ value: ConditionType; label: string }> = [
 
 const ACTION_OPTIONS: Array<{ value: ActionType; label: string }> = [
   { value: "SEND_MESSAGE", label: "Send a message" },
+  { value: "SEND_EMBED", label: "Embed Messages" },
   { value: "REPLY", label: "Reply to message" },
   { value: "REACT", label: "React with emoji" },
   { value: "ADD_ROLE", label: "Give role" },
@@ -209,6 +211,23 @@ function defaultCondition(type: ConditionType): ConditionDraft {
 
 function defaultAction(type: ActionType): ActionDraft {
   if (type === "SEND_MESSAGE") return { id: uid("act"), type, config: { channelId: "", content: "" } };
+  if (type === "SEND_EMBED") {
+    return {
+      id: uid("act"),
+      type,
+      config: {
+        channelId: "",
+        content: "",
+        title: "",
+        description: "",
+        color: "#ff5a5a",
+        imageUrl: "",
+        thumbnailUrl: "",
+        footerText: "",
+        ephemeral: false,
+      }
+    };
+  }
   if (type === "REPLY") return { id: uid("act"), type, config: { content: "", ephemeral: false } };
   if (type === "REACT") return { id: uid("act"), type, config: { emoji: "" } };
   if (type === "ADD_ROLE" || type === "REMOVE_ROLE") return { id: uid("act"), type, config: { roleId: "" } };
@@ -469,7 +488,7 @@ export default function BotAutomationStudioClient() {
     setActions((prev) =>
       prev.map((a) => {
         if (a.id !== actionId) return a;
-        if (!(a.type === "SEND_MESSAGE" || a.type === "REPLY" || a.type === "DM")) return a;
+        if (!(a.type === "SEND_MESSAGE" || a.type === "SEND_EMBED" || a.type === "REPLY" || a.type === "DM")) return a;
         const current = asString(a.config, "content", "");
         const mention = `<@&${rid}>`;
         const next = current.trim().length ? `${current} ${mention}` : mention;
@@ -484,7 +503,7 @@ export default function BotAutomationStudioClient() {
     setActions((prev) =>
       prev.map((a) => {
         if (a.id !== actionId) return a;
-        if (!(a.type === "SEND_MESSAGE" || a.type === "REPLY" || a.type === "DM")) return a;
+        if (!(a.type === "SEND_MESSAGE" || a.type === "SEND_EMBED" || a.type === "REPLY" || a.type === "DM")) return a;
         const current = asString(a.config, "content", "");
         const mention = `<#${cid}>`;
         const next = current.trim().length ? `${current} ${mention}` : mention;
@@ -987,6 +1006,111 @@ export default function BotAutomationStudioClient() {
                         style={{ ...inputStyle, minHeight: 72, resize: "vertical" }}
                         placeholder="Message content"
                       />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionRoleByAction[action.id] || ""}
+                          onChange={(e) => setMentionRoleByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select role to tag</option>
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>@{r.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          style={btnStyle}
+                          onClick={() => appendRoleMentionToAction(action.id, mentionRoleByAction[action.id] || "")}
+                        >
+                          Tag Role
+                        </button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                        <select
+                          value={mentionChannelByAction[action.id] || ""}
+                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
+                          style={inputStyle}
+                        >
+                          <option value="">Select channel to tag</option>
+                          {channels.map((c) => (
+                            <option key={c.id} value={c.id}>#{c.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          style={btnStyle}
+                          onClick={() => appendChannelMentionToAction(action.id, mentionChannelByAction[action.id] || "")}
+                        >
+                          Tag Channel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {action.type === "SEND_EMBED" ? (
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <select
+                        value={asString(action.config, "channelId", "")}
+                        onChange={(e) => updateActionConfig(action.id, { channelId: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Reply/current channel</option>
+                        {channels.map((c) => (
+                          <option key={c.id} value={c.id}>#{c.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={asString(action.config, "title", "")}
+                        onChange={(e) => updateActionConfig(action.id, { title: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Embed title"
+                      />
+                      <textarea
+                        value={asString(action.config, "content", "")}
+                        onChange={(e) => updateActionConfig(action.id, { content: e.target.value })}
+                        style={{ ...inputStyle, minHeight: 64, resize: "vertical" }}
+                        placeholder="Optional message above the embed"
+                      />
+                      <textarea
+                        value={asString(action.config, "description", "")}
+                        onChange={(e) => updateActionConfig(action.id, { description: e.target.value })}
+                        style={{ ...inputStyle, minHeight: 88, resize: "vertical" }}
+                        placeholder="Embed description"
+                      />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <input
+                          value={asString(action.config, "color", "#ff5a5a")}
+                          onChange={(e) => updateActionConfig(action.id, { color: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Color (#ff5a5a)"
+                        />
+                        <input
+                          value={asString(action.config, "footerText", "")}
+                          onChange={(e) => updateActionConfig(action.id, { footerText: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Footer text"
+                        />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        <input
+                          value={asString(action.config, "imageUrl", "")}
+                          onChange={(e) => updateActionConfig(action.id, { imageUrl: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Hero image URL"
+                        />
+                        <input
+                          value={asString(action.config, "thumbnailUrl", "")}
+                          onChange={(e) => updateActionConfig(action.id, { thumbnailUrl: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Thumbnail URL"
+                        />
+                      </div>
+                      <label style={toggleLabel}>
+                        <input
+                          type="checkbox"
+                          checked={asBoolean(action.config, "ephemeral", false)}
+                          onChange={(e) => updateActionConfig(action.id, { ephemeral: e.target.checked })}
+                        />
+                        Ephemeral when replying from slash context
+                      </label>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                         <select
                           value={mentionRoleByAction[action.id] || ""}

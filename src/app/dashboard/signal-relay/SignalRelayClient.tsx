@@ -174,7 +174,7 @@ export default function SignalRelayClient() {
         <>
           <EngineInsights summary={summary} details={details} showDetails />
 
-          <section style={card}>
+          <section id="defaults" style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, alignItems: "end" }}>
               <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg((prev) => ({ ...prev, active: e.target.checked }))} /> Signal Relay Active</label>
               <label><input type="checkbox" checked={cfg.sourceDefaults.includeSummary} onChange={(e) => setCfg((prev) => ({ ...prev, sourceDefaults: { ...prev.sourceDefaults, includeSummary: e.target.checked } }))} /> Include Summary By Default</label>
@@ -205,7 +205,7 @@ export default function SignalRelayClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="source-builder" style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>Run Relay</div>
@@ -229,7 +229,7 @@ export default function SignalRelayClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="sources" style={card}>
             <div style={{ fontWeight: 800, marginBottom: 8 }}>Configured Sources</div>
             <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: 14 }}>
               <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
