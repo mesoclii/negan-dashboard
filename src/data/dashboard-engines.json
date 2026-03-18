@@ -601,6 +601,24 @@
       "failureModes": ["provider unsupported", "identity cap reached", "visibility mismatch"]
     },
     {
+      "key": "privacyConsent",
+      "name": "Privacy + Consent Engine",
+      "category": "multi-game-social",
+      "featureFlag": "",
+      "configKey": "privacyConsent",
+      "premiumRequired": false,
+      "privateOnly": false,
+      "enabledByDefault": true,
+      "triggerTypes": ["dashboard", "api"],
+      "entrypoints": ["services/gamerEngineService.js"],
+      "dependencies": {"services": ["engineConfigService"]},
+      "decisionLogic": "Stores per-member consent for linked identities, stats, presence, showoff cards, provider sync, rank sync, and live-friend notifications.",
+      "stateMutations": ["member privacy profiles", "gamer notification inbox"],
+      "persistence": ["data/gamerEngine.json", "engine config"],
+      "outputs": ["member privacy controls", "consent-aware profiles", "notification summaries"],
+      "failureModes": ["self-service disabled", "sync attempted without consent", "notification watchlist drift"]
+    },
+    {
       "key": "presenceFusion",
       "name": "Presence Fusion Engine",
       "category": "multi-game-social",

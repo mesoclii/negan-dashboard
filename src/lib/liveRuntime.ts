@@ -30,18 +30,19 @@ export async function readJsonOrThrow(res: Response) {
 
 export function resolveGuildContext() {
   if (typeof window === "undefined") {
-    return { guildId: "", guildName: "" };
+    return { guildId: "", guildName: "", userId: "" };
   }
 
   const params = new URLSearchParams(window.location.search);
   const guildId = (params.get("guildId") || localStorage.getItem("activeGuildId") || "").trim();
   const guildName = (localStorage.getItem("activeGuildName") || guildId).trim();
+  const userId = (params.get("userId") || params.get("uid") || "").trim();
 
   if (guildId) {
     localStorage.setItem("activeGuildId", guildId);
   }
 
-  return { guildId, guildName };
+  return { guildId, guildName, userId };
 }
 
 export async function fetchGuildData(guildId: string) {
@@ -58,19 +59,19 @@ export async function fetchGuildData(guildId: string) {
   } as GuildDataPayload;
 }
 
-export async function fetchRuntimeEngine(guildId: string, engine: string) {
+export async function fetchRuntimeEngine(guildId: string, engine: string, userId = "") {
   const res = await fetch(
-    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
     { cache: "no-store" }
   );
   return await readJsonOrThrow(res);
 }
 
-export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
+export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
   const res = await fetch("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, patch }),
+    body: JSON.stringify({ guildId, engine, patch, userId }),
   });
   return await readJsonOrThrow(res);
 }
@@ -84,11 +85,11 @@ export async function validateRuntimeEngine(guildId: string, engine: string, pat
   return await readJsonOrThrow(res);
 }
 
-export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>) {
+export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>, userId = "") {
   const res = await fetch("/api/runtime/engine-action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, action, payload }),
+    body: JSON.stringify({ guildId, engine, action, payload, userId }),
   });
   return await readJsonOrThrow(res);
 }
