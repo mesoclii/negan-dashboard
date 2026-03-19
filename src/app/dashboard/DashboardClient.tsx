@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 import { SAVIORS_GUILD_ID } from "@/lib/dashboard/engineRegistry";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
+import { isPremiumEnforcementEnabled } from "@/lib/premiumMode";
 
 type ToggleController = {
   read: (guildId: string) => Promise<boolean>;
@@ -439,6 +440,7 @@ function pillClass(on: boolean | null) {
 }
 
 export default function DashboardClient() {
+  const premiumEnforced = isPremiumEnforcementEnabled();
   const [guildId, setGuildId] = useState("");
   const [states, setStates] = useState<Record<string, ToggleState>>({});
   const [loadingStates, setLoadingStates] = useState(false);
@@ -477,6 +479,10 @@ export default function DashboardClient() {
   }, [guildId]);
 
   useEffect(() => {
+    if (!premiumEnforced) {
+      setSubscription({ active: true, plan: "UNLOCKED", developerBypass: true });
+      return;
+    }
     if (!guildId) {
       setSubscription(null);
       return;
@@ -494,11 +500,11 @@ export default function DashboardClient() {
         developerBypass: Boolean(json?.status?.developerBypass),
       });
     })();
-  }, [guildId]);
+  }, [guildId, premiumEnforced]);
 
   async function toggleCard(card: Card) {
     if (!guildId || !card.toggle || !card.routeKey) return;
-    const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
+    const premiumUnlocked = !premiumEnforced || Boolean(subscription?.active || subscription?.developerBypass);
     if (card.premiumRequired && !premiumUnlocked) return;
     const current = states[card.routeKey]?.value ?? false;
     const next = !current;
@@ -539,7 +545,7 @@ export default function DashboardClient() {
     [cards]
   );
 
-  const premiumUnlocked = Boolean(subscription?.active || subscription?.developerBypass);
+  const premiumUnlocked = !premiumEnforced || Boolean(subscription?.active || subscription?.developerBypass);
   const groupedCards = useMemo(
     () =>
       SECTION_ORDER.map((section) => ({
@@ -560,7 +566,7 @@ export default function DashboardClient() {
             : "Cards are grouped by live engine category. Use toggles here to turn engines on or off for the active guild without leaving the dashboard. Studio/editor pages open directly with Go."}
         </p>
         <p className="mt-2 text-xs uppercase tracking-[0.14em] text-red-300/70">
-          Premium access: {subscription?.developerBypass ? "Developer Override" : subscription?.plan || "Free"}
+          Premium access: {!premiumEnforced ? "Disabled - all guilds currently run unlocked" : subscription?.developerBypass ? "Developer Override" : subscription?.plan || "Free"}
         </p>
       </header>
 
@@ -608,7 +614,7 @@ export default function DashboardClient() {
                 const state = card.state;
                 const toggleBusy = state.saving || loadingStates;
                 const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
-                const lockedPremium = Boolean(card.premiumRequired && !premiumUnlocked);
+                const lockedPremium = Boolean(premiumEnforced && card.premiumRequired && !premiumUnlocked);
 
                 return (
                   <div
@@ -652,7 +658,7 @@ export default function DashboardClient() {
 
                     {card.premiumRequired ? (
                       <p className="mt-2 text-xs text-amber-300/85">
-                        {premiumUnlocked ? "Premium-unlocked for this guild." : "Premium feature. Unlock required for live toggles."}
+                        {!premiumEnforced ? "Premium enforcement is currently off, so this stays unlocked for all guilds." : premiumUnlocked ? "Premium-unlocked for this guild." : "Premium feature. Unlock required for live toggles."}
                       </p>
                     ) : null}
                     {state.error ? <p className="mt-2 text-xs text-red-300/90">{state.error}</p> : null}

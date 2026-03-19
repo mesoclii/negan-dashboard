@@ -36,35 +36,15 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-const GAMES_BASELINE_FEATURES: Record<string, boolean> = {
-  onboardingEnabled: false,
-  verificationEnabled: false,
-  heistEnabled: false,
-  rareDropEnabled: true,
-  musicEnabled: true,
-  pokemonEnabled: false,
-  aiEnabled: true,
-  ttsEnabled: false,
-  birthdayEnabled: true,
-  economyEnabled: true,
-  governanceEnabled: false,
-  securityEnabled: false,
-};
+function buildUnlockedFeatureBaseline(): Record<string, boolean> {
+  return CANONICAL_FEATURE_KEYS.reduce<Record<string, boolean>>((out, key) => {
+    out[key] = true;
+    return out;
+  }, {});
+}
 
-const STANDARD_READY_FEATURES: Record<string, boolean> = {
-  onboardingEnabled: true,
-  verificationEnabled: true,
-  heistEnabled: false,
-  rareDropEnabled: true,
-  musicEnabled: true,
-  pokemonEnabled: false,
-  aiEnabled: true,
-  ttsEnabled: false,
-  birthdayEnabled: true,
-  economyEnabled: true,
-  governanceEnabled: true,
-  securityEnabled: false,
-};
+const GAMES_BASELINE_FEATURES = buildUnlockedFeatureBaseline();
+const STANDARD_READY_FEATURES = buildUnlockedFeatureBaseline();
 
 function enrichDashboardFeatures(configInput: unknown, guildId: string) {
   if (!isRecord(configInput)) return configInput;

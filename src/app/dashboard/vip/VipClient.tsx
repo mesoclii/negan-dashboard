@@ -92,7 +92,7 @@ export default function VipClient() {
         <div style={{ display: "grid", gap: 12 }}>
           <EngineInsights summary={summary} details={details} />
 
-          <section style={card}>
+          <section id="tiers" style={card}>
             <label>
               <input
                 type="checkbox"
@@ -187,9 +187,12 @@ export default function VipClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="rolesync" style={card}>
             <div style={{ fontWeight: 900, marginBottom: 8, color: "#ff6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Lifecycle Recovery
+            </div>
+            <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 10 }}>
+              VIP expiry cleanup, loyalty-linked sync behavior, and renewal recovery all run through the live VIP engine here.
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
@@ -211,9 +214,12 @@ export default function VipClient() {
             </div>
           </section>
 
-          <section style={card}>
+          <section id="clearance" style={card}>
             <div style={{ fontWeight: 900, marginBottom: 8, color: "#ff6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Linked Engines
+              Clearance + Linked Engines
+            </div>
+            <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 10 }}>
+              VIP clearance is role-driven in the live runtime. The roles you map above are the roles used by VIP grants, expiry cleanup, loyalty sync, and any command or panel flows that key off VIP membership.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
               <Link href={withGuild("/dashboard/loyalty", guildId)} style={{ ...input, textDecoration: "none", textAlign: "center", fontWeight: 900 }}>

@@ -2,6 +2,7 @@ import { MASTER_OWNER_USER_ID, isDashboardControlGuild, isDashboardControlOwner 
 import { writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import prisma from "@/lib/prisma";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
+import { isPremiumEnforcementEnabled } from "@/lib/premiumMode";
 
 const PREMIUM_FEATURES = new Set(["tts", "heist", "persona", "openai-platform", "advanced-security", "automation-suite"]);
 const SYNC_TTL_MS = 60_000;
@@ -15,7 +16,7 @@ function globalSubscriptionId(actorUserId?: string) {
 }
 
 export function featureRequiresPremium(featureKey: string) {
-  return PREMIUM_FEATURES.has(String(featureKey || "").trim());
+  return isPremiumEnforcementEnabled() && PREMIUM_FEATURES.has(String(featureKey || "").trim());
 }
 
 export function isDeveloperPremiumBypass(actorUserId?: string) {

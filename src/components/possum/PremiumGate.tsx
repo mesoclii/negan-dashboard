@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { DEV_MODE } from "@/lib/devMode";
+import { isPremiumEnforcementEnabled } from "@/lib/premiumMode";
 
 type PremiumGateProps = {
   featureKey: string;
@@ -40,6 +41,7 @@ function resolveGuildId() {
 }
 
 export default function PremiumGate({ featureKey, featureLabel, children }: PremiumGateProps) {
+  const premiumEnforced = isPremiumEnforcementEnabled();
   const [guildId, setGuildId] = useState("");
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -47,6 +49,13 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!premiumEnforced || DEV_MODE) {
+      setAllowed(true);
+      setPlan(premiumEnforced ? "DEVELOPER ACCESS" : "UNLOCKED");
+      setLoading(false);
+      return;
+    }
+
     const id = resolveGuildId();
     setGuildId(id);
     if (!id) {
@@ -78,7 +87,7 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
         setLoading(false);
       }
     })();
-  }, []);
+  }, [premiumEnforced]);
 
   if (loading) {
     return <div style={panel}>Checking premium access...</div>;
