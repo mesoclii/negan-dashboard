@@ -17,6 +17,8 @@ export type DiscordUser = {
 const DISCORD_API_BASE = "https://discord.com/api";
 const DISCORD_AUTH_BASE = "https://discord.com/oauth2/authorize";
 const DEFAULT_DISCORD_CLIENT_ID = "1472526506201841695";
+const DISCORD_PERMISSION_ADMINISTRATOR = BigInt("8");
+const DISCORD_PERMISSION_MANAGE_GUILD = BigInt("32");
 
 function getRequiredEnv(name: string) {
   const value = String(process.env[name] || "").trim();
@@ -178,7 +180,11 @@ export function hasGuildManageAccess(guild: DiscordGuild) {
   const raw = String(guild.permissions_new || guild.permissions || "0").trim();
   try {
     const permissions = BigInt(raw);
-    return guild.owner === true || (permissions & 0x8n) === 0x8n || (permissions & 0x20n) === 0x20n;
+    return (
+      guild.owner === true ||
+      (permissions & DISCORD_PERMISSION_ADMINISTRATOR) === DISCORD_PERMISSION_ADMINISTRATOR ||
+      (permissions & DISCORD_PERMISSION_MANAGE_GUILD) === DISCORD_PERMISSION_MANAGE_GUILD
+    );
   } catch {
     return guild.owner === true;
   }

@@ -5,7 +5,6 @@ const rootDir = path.resolve(__dirname);
 const isLowMemoryBuild = process.env.NEGAN_LOW_MEMORY_BUILD === "1";
 
 const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true },
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
   compress: true,

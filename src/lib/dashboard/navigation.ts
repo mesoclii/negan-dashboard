@@ -13,7 +13,8 @@ export type DashboardNavSection = {
 };
 
 export function getDashboardNavTopLinks(isMasterOwner = false): DashboardNavTopLink[] {
-  return [{ href: "/dashboard/system-health", label: "System Health" }].filter(
+  const topLinks: DashboardNavTopLink[] = [{ href: "/dashboard/system-health", label: "System Health" }];
+  return topLinks.filter(
     (item) => !item.creatorOnly || isMasterOwner
   );
 }
@@ -50,6 +51,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       label: "Utilities",
       items: [
         { href: "/dashboard/utilities", label: "Utilities" },
+        { href: "/dashboard/search-anything", label: "Search Anything" },
         { href: "/dashboard/community-studio", label: "Community Studio" },
         { href: "/dashboard/channel-flow", label: "Channel Flow" },
       ],

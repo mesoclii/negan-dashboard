@@ -131,7 +131,23 @@ export default function OnboardingPage() {
     (channel) => Number(channel?.type) === 4 || String(channel?.type || "").toLowerCase().includes("category")
   );
 
-  const channelFields: Array<{ key: keyof OnboardingConfig; label: string }> = [
+  const channelFields: Array<{ key: keyof Pick<
+    OnboardingConfig,
+    | "welcomeChannelId"
+    | "mainChatChannelId"
+    | "rulesChannelId"
+    | "idChannelId"
+    | "transcriptChannelId"
+    | "logChannelId"
+    | "hostingLegacyChannelId"
+    | "hostingEnhancedChannelId"
+    | "staffIntroChannelId"
+    | "selfRolesChannelId"
+    | "botGuideChannelId"
+    | "updatesChannelId"
+    | "funChannelId"
+    | "subscriptionChannelId"
+  >; label: string }> = [
     { key: "welcomeChannelId", label: "Welcome Channel" },
     { key: "mainChatChannelId", label: "Main Chat Channel" },
     { key: "rulesChannelId", label: "Rules Channel" },
@@ -175,7 +191,11 @@ export default function OnboardingPage() {
           {channelFields.map((field) => (
             <div key={field.key}>
               <label>{field.label}</label>
-              <select style={styles.input} value={cfg[field.key] || ""} onChange={(e) => setCfg({ ...cfg, [field.key]: e.target.value })}>
+              <select
+                style={styles.input}
+                value={cfg[field.key] ?? ""}
+                onChange={(e) => setCfg({ ...cfg, [field.key]: e.target.value })}
+              >
                 <option value="">Select channel</option>
                 {textChannels.map((channel) => (
                   <option key={channel.id} value={channel.id}>

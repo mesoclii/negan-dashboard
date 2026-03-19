@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default function Page({
+export default async function Page({
   searchParams,
 }: {
-  searchParams?: { guildId?: string; guildid?: string };
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const gid = String(searchParams?.guildId || searchParams?.guildid || "").trim();
+  const params = (await searchParams) || {};
+  const rawGuildId = params.guildId || params.guildid || "";
+  const gid = String(Array.isArray(rawGuildId) ? rawGuildId[0] || "" : rawGuildId).trim();
   if (gid) {
     redirect(`/dashboard/achievements?guildId=${encodeURIComponent(gid)}&guildid=${encodeURIComponent(gid)}`);
   }

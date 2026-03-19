@@ -270,7 +270,7 @@ export default function ChannelFlowClient() {
                     <div style={{ marginBottom: 6 }}>Channel Name Template</div>
                     <input style={input} value={String(activeCounter.template || "")} onChange={(e) => updateCounter(activeCounterIndex, { template: e.target.value })} />
                   </div>
-                  <div style={micro}>Use `{{count}}`, `{{metric}}`, and `{{guildName}}` in counter names.</div>
+                  <div style={micro}>Use <code>{"{{count}}"}</code>, <code>{"{{metric}}"}</code>, and <code>{"{{guildName}}"}</code> in counter names.</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button type="button" style={button} onClick={() => updateCounter(activeCounterIndex, { template: "Members: {{count}}" })}>Member Count</button>
                     <button type="button" style={button} onClick={() => updateCounter(activeCounterIndex, { template: "Voice Live: {{count}}" })}>Voice Live</button>

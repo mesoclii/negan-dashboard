@@ -7,6 +7,10 @@ import { fetchRuntimeEngine, resolveGuildContext, saveRuntimeEngine } from "@/li
 
 type RuntimePayload = { config?: Record<string, any>; summary?: Array<{ label?: string; value?: string }> };
 type JedConfig = { enabled?: boolean };
+type SearchAnythingConfig = {
+  enabled?: boolean;
+  providers?: Array<{ enabled?: boolean }>;
+};
 type CommunityStudioConfig = {
   active?: boolean;
   bulletinsEnabled?: boolean;
@@ -66,6 +70,7 @@ export default function UtilitiesHubClient() {
   const [guildId, setGuildId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [jed, setJed] = useState<JedConfig>({});
+  const [searchAnything, setSearchAnything] = useState<SearchAnythingConfig>({});
   const [communityStudio, setCommunityStudio] = useState<CommunityStudioConfig>({});
   const [channelFlow, setChannelFlow] = useState<ChannelFlowConfig>({});
   const [loading, setLoading] = useState(true);
@@ -86,12 +91,14 @@ export default function UtilitiesHubClient() {
     try {
       setLoading(true);
       setMessage("");
-      const [jedJson, studioJson, flowJson] = await Promise.all([
+      const [jedJson, searchJson, studioJson, flowJson] = await Promise.all([
         fetchRuntimeEngine(targetGuildId, "jed"),
+        fetchRuntimeEngine(targetGuildId, "searchAnything"),
         fetchRuntimeEngine(targetGuildId, "communityStudio"),
         fetchRuntimeEngine(targetGuildId, "channelFlow"),
       ]);
       setJed((jedJson as RuntimePayload)?.config || {});
+      setSearchAnything((searchJson as RuntimePayload)?.config || {});
       setCommunityStudio((studioJson as RuntimePayload)?.config || {});
       setChannelFlow((flowJson as RuntimePayload)?.config || {});
     } catch (err: any) {
@@ -140,6 +147,22 @@ export default function UtilitiesHubClient() {
     }
   }, [communityStudio, guildId]);
 
+  const saveSearchAnything = useCallback(async (nextValue: boolean) => {
+    if (!guildId) return;
+    try {
+      setSavingKey("search-anything");
+      setMessage("");
+      const nextConfig = { ...searchAnything, enabled: nextValue };
+      const json = await saveRuntimeEngine(guildId, "searchAnything", nextConfig as Record<string, unknown>);
+      setSearchAnything((json as RuntimePayload)?.config || nextConfig);
+      setMessage(`Search Anything ${nextValue ? "enabled" : "disabled"} for this guild.`);
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to update Search Anything.");
+    } finally {
+      setSavingKey("");
+    }
+  }, [guildId, searchAnything]);
+
   const saveFlowFlag = useCallback(async (section: "counters" | "rooms", nextValue: boolean) => {
     if (!guildId) return;
     try {
@@ -165,6 +188,10 @@ export default function UtilitiesHubClient() {
 
   const cards = useMemo(() => {
     const jedOn = safeBool(jed.enabled, false);
+    const searchOn = safeBool(searchAnything.enabled, false);
+    const searchProviderCount = Array.isArray(searchAnything.providers)
+      ? searchAnything.providers.filter((entry) => entry?.enabled !== false).length
+      : 0;
     const pollsOn = safeBool(communityStudio.active, false) && safeBool(communityStudio.pollsEnabled, true);
     const remindersOn = safeBool(communityStudio.active, false) && safeBool(communityStudio.remindersEnabled, true);
     const countersOn = safeBool(channelFlow.active, false) && safeBool(channelFlow.counters?.enabled, false);
@@ -216,10 +243,12 @@ export default function UtilitiesHubClient() {
       {
         key: "search-anything",
         title: "Search Anything",
-        status: false,
-        summary: "This is still the one utility from your target board that is not live in the bot yet.",
-        detail: "I kept it honest here instead of pretending it exists behind a dead card.",
-        countText: "Planned for a later pass once you want the search provider layer built.",
+        status: searchOn,
+        summary: "Provider-routed search links now live on the bot through the real Search Anything engine.",
+        detail: "Use this for YouTube, Twitch, anime, wiki, meme, Reddit, and general web search without leaning on fake placeholder cards.",
+        countText: `${searchProviderCount} enabled search route${searchProviderCount === 1 ? "" : "s"} available to /search.`,
+        onToggle: () => void saveSearchAnything(!searchOn),
+        href: buildDashboardHref("/dashboard/search-anything"),
       },
       {
         key: "remindersEnabled",
@@ -252,7 +281,7 @@ export default function UtilitiesHubClient() {
         href: buildDashboardHref("/dashboard/channel-flow#rooms"),
       },
     ];
-  }, [channelFlow, communityStudio, jed, saveFlowFlag, saveJed, saveStudioFlag]);
+  }, [channelFlow, communityStudio, jed, saveFlowFlag, saveJed, saveSearchAnything, saveStudioFlag, searchAnything]);
 
   if (!guildId && !loading) {
     return <div style={{ ...shell, color: "#ff8a8a" }}>Missing guildId. Open from `/guilds` first.</div>;
@@ -280,7 +309,7 @@ export default function UtilitiesHubClient() {
                   <div style={{ fontSize: 18, fontWeight: 900, color: "#ffdede" }}>{card.title}</div>
                   <div style={{ ...micro, marginTop: 6 }}>{card.summary}</div>
                 </div>
-                <span style={pill(card.status)}>{card.status ? "Active" : card.key === "search-anything" ? "Planned" : "Off"}</span>
+                <span style={pill(card.status)}>{card.status ? "Active" : "Off"}</span>
               </div>
 
               <div style={micro}>{card.detail}</div>

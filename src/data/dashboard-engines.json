@@ -24,15 +24,22 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message", "slash"],
-      "entrypoints": ["engine/runtimeRouter.js"],
+      "triggerTypes": [
+        "message",
+        "slash"
+      ],
+      "entrypoints": [
+        "engine/runtimeRouter.js"
+      ],
       "dependencies": {
         "services": [
           "adaptiveRuntimePolicyService",
           "guildAdaptiveWebhookService",
           "possumIntelligence"
         ],
-        "runtimeFlags": ["adaptiveAiEnabled"]
+        "runtimeFlags": [
+          "adaptiveAiEnabled"
+        ]
       },
       "decisionLogic": "Handles non-persona AI responses, runs learning updates, applies direct/ambient routing, cooldowns, anti-repeat, and synthesis fallback chain.",
       "stateMutations": [
@@ -43,8 +50,17 @@
       "persistence": [
         "Prisma: adaptive profile and knowledge tables"
       ],
-      "outputs": ["message reply", "adaptive webhook reply", "audit route log"],
-      "failureModes": ["feature disabled", "adaptiveAiEnabled false", "no valid reply", "webhook fallback to direct reply"]
+      "outputs": [
+        "message reply",
+        "adaptive webhook reply",
+        "audit route log"
+      ],
+      "failureModes": [
+        "feature disabled",
+        "adaptiveAiEnabled false",
+        "no valid reply",
+        "webhook fallback to direct reply"
+      ]
     },
     {
       "key": "personaEngine",
@@ -55,16 +71,30 @@
       "premiumRequired": true,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message", "slash", "button", "select", "modal"],
-      "entrypoints": ["engine/personaEngine.js"],
+      "triggerTypes": [
+        "message",
+        "slash",
+        "button",
+        "select",
+        "modal"
+      ],
+      "entrypoints": [
+        "engine/personaEngine.js"
+      ],
       "dependencies": {
         "services": [
           "personaRuntimePolicyService",
           "guildPersonaRuntimeService",
           "guildPersonaWebhookService"
         ],
-        "envVars": ["OPENAI_API_KEY", "OPENAI_MODEL", "OPENAI_BASE_URL"],
-        "runtimeFlags": ["personaAiEnabled"]
+        "envVars": [
+          "OPENAI_API_KEY",
+          "OPENAI_MODEL",
+          "OPENAI_BASE_URL"
+        ],
+        "runtimeFlags": [
+          "personaAiEnabled"
+        ]
       },
       "decisionLogic": "Determines persona trigger eligibility (persona channels, mention+keyword, enabled personas), validates access, generates responses with OpenAI, and avoids repetitive output.",
       "stateMutations": [
@@ -76,8 +106,19 @@
         "modules/data/personas.json",
         "Prisma raw table: persona_seen"
       ],
-      "outputs": ["persona webhook reply", "message reply", "ephemeral panel UI", "audit route log"],
-      "failureModes": ["persona disabled", "missing OpenAI key", "no matching persona", "access denied", "generation error"]
+      "outputs": [
+        "persona webhook reply",
+        "message reply",
+        "ephemeral panel UI",
+        "audit route log"
+      ],
+      "failureModes": [
+        "persona disabled",
+        "missing OpenAI key",
+        "no matching persona",
+        "access denied",
+        "generation error"
+      ]
     },
     {
       "key": "tts",
@@ -88,17 +129,40 @@
       "premiumRequired": true,
       "privateOnly": false,
       "enabledByDefault": false,
-      "triggerTypes": ["slash", "message", "panel"],
-      "entrypoints": ["engine/ttsEngine.js"],
+      "triggerTypes": [
+        "slash",
+        "message",
+        "panel"
+      ],
+      "entrypoints": [
+        "engine/ttsEngine.js"
+      ],
       "dependencies": {
-        "envVars": ["ELEVENLABS_API_KEY", "XI_API_KEY", "FFMPEG_PATH"],
-        "services": ["engineConfigService"]
+        "envVars": [
+          "ELEVENLABS_API_KEY",
+          "XI_API_KEY",
+          "FFMPEG_PATH"
+        ],
+        "services": [
+          "engineConfigService"
+        ]
       },
       "decisionLogic": "Handles TTS setup, enable/disable states, and provider calls for audio generation with guild-level controls.",
-      "stateMutations": ["tts config state"],
-      "persistence": ["engine config"],
-      "outputs": ["voice output", "status replies"],
-      "failureModes": ["provider key missing", "voice pipeline unavailable", "feature disabled"]
+      "stateMutations": [
+        "tts config state"
+      ],
+      "persistence": [
+        "engine config"
+      ],
+      "outputs": [
+        "voice output",
+        "status replies"
+      ],
+      "failureModes": [
+        "provider key missing",
+        "voice pipeline unavailable",
+        "feature disabled"
+      ]
     },
     {
       "key": "music",
@@ -112,17 +176,47 @@
       "policyTag": "always_free_non_profit",
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "message", "voice", "button"],
-      "entrypoints": ["engine/musicEngine.js", "commands/music.js"],
+      "triggerTypes": [
+        "slash",
+        "message",
+        "voice",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/musicEngine.js",
+        "commands/music.js"
+      ],
       "dependencies": {
-        "packages": ["@discordjs/voice", "ffmpeg-static"],
-        "services": ["engineConfigService", "featureService", "permissionService"]
+        "packages": [
+          "@discordjs/voice",
+          "ffmpeg-static"
+        ],
+        "services": [
+          "engineConfigService",
+          "featureService",
+          "permissionService"
+        ]
       },
       "decisionLogic": "Routes direct URLs and configured local library aliases into independent per-route voice sessions, with slash playback, source-channel capture, per-route queue isolation, and ad-safe source policy checks.",
-      "stateMutations": ["music session state", "queue state", "route runtime metrics"],
-      "persistence": ["engine config (music.routes, music.library, policy/audio settings)"],
-      "outputs": ["voice playback", "queue/status embeds", "audit music events"],
-      "failureModes": ["voice pipeline unavailable", "route missing", "source disallowed by policy", "queue/session caps reached"]
+      "stateMutations": [
+        "music session state",
+        "queue state",
+        "route runtime metrics"
+      ],
+      "persistence": [
+        "engine config (music.routes, music.library, policy/audio settings)"
+      ],
+      "outputs": [
+        "voice playback",
+        "queue/status embeds",
+        "audit music events"
+      ],
+      "failureModes": [
+        "voice pipeline unavailable",
+        "route missing",
+        "source disallowed by policy",
+        "queue/session caps reached"
+      ]
     },
     {
       "key": "heist",
@@ -133,16 +227,36 @@
       "premiumRequired": true,
       "privateOnly": false,
       "enabledByDefault": false,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/heistEngine.js"],
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/heistEngine.js"
+      ],
       "dependencies": {
-        "services": ["permissionService", "engineConfigService"]
+        "services": [
+          "permissionService",
+          "engineConfigService"
+        ]
       },
       "decisionLogic": "Coordinates GTA online heist signup lanes, lane status, staff control actions, auto-bump, and operational flow.",
-      "stateMutations": ["heist lane/session state"],
-      "persistence": ["Prisma heist-related models/config"],
-      "outputs": ["lane embeds", "status updates", "staff control responses"],
-      "failureModes": ["feature disabled", "insufficient role permissions", "invalid lane state"]
+      "stateMutations": [
+        "heist lane/session state"
+      ],
+      "persistence": [
+        "Prisma heist-related models/config"
+      ],
+      "outputs": [
+        "lane embeds",
+        "status updates",
+        "staff control responses"
+      ],
+      "failureModes": [
+        "feature disabled",
+        "insufficient role permissions",
+        "invalid lane state"
+      ]
     },
     {
       "key": "onboarding",
@@ -153,17 +267,44 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["guildMemberAdd", "slash", "button", "modal"],
-      "entrypoints": ["engine/onboardingEngine.js"],
+      "triggerTypes": [
+        "guildMemberAdd",
+        "slash",
+        "button",
+        "modal"
+      ],
+      "entrypoints": [
+        "engine/onboardingEngine.js"
+      ],
       "dependencies": {
-        "services": ["engineConfigService", "permissionService"],
-        "envVars": ["ONBOARDING_VERIFIED_ROLE_ID", "ONBOARDING_LOG_CHANNEL_ID"]
+        "services": [
+          "engineConfigService",
+          "permissionService"
+        ],
+        "envVars": [
+          "ONBOARDING_VERIFIED_ROLE_ID",
+          "ONBOARDING_LOG_CHANNEL_ID"
+        ]
       },
       "decisionLogic": "Runs onboarding journey, verification decisions, role assignment/removal, and transcript/logging paths.",
-      "stateMutations": ["member onboarding stage", "member role state"],
-      "persistence": ["Prisma onboarding state/config"],
-      "outputs": ["welcome messages", "verification messages", "transcripts", "logs"],
-      "failureModes": ["missing channels/roles", "permission errors", "verification timeout rules"]
+      "stateMutations": [
+        "member onboarding stage",
+        "member role state"
+      ],
+      "persistence": [
+        "Prisma onboarding state/config"
+      ],
+      "outputs": [
+        "welcome messages",
+        "verification messages",
+        "transcripts",
+        "logs"
+      ],
+      "failureModes": [
+        "missing channels/roles",
+        "permission errors",
+        "verification timeout rules"
+      ]
     },
     {
       "key": "tickets",
@@ -174,17 +315,42 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button", "select", "modal"],
-      "entrypoints": ["engine/ticketsEngine.js"],
+      "triggerTypes": [
+        "slash",
+        "button",
+        "select",
+        "modal"
+      ],
+      "entrypoints": [
+        "engine/ticketsEngine.js"
+      ],
       "dependencies": {
-        "services": ["engineConfigService"],
-        "envVars": ["TICKETS_PANEL_CHANNEL_ID", "TICKETS_TRANSCRIPT_LOG_ID"]
+        "services": [
+          "engineConfigService"
+        ],
+        "envVars": [
+          "TICKETS_PANEL_CHANNEL_ID",
+          "TICKETS_TRANSCRIPT_LOG_ID"
+        ]
       },
       "decisionLogic": "Creates and manages multi-type tickets, handles assignment/add-remove users, closes tickets, and generates transcript routing.",
-      "stateMutations": ["ticket lifecycle state", "ticket channel membership"],
-      "persistence": ["Prisma ticket config/state and transcript references"],
-      "outputs": ["ticket channels", "panel embeds", "status/transcript replies"],
-      "failureModes": ["category/channel missing", "insufficient permissions", "invalid ticket state"]
+      "stateMutations": [
+        "ticket lifecycle state",
+        "ticket channel membership"
+      ],
+      "persistence": [
+        "Prisma ticket config/state and transcript references"
+      ],
+      "outputs": [
+        "ticket channels",
+        "panel embeds",
+        "status/transcript replies"
+      ],
+      "failureModes": [
+        "category/channel missing",
+        "insufficient permissions",
+        "invalid ticket state"
+      ]
     },
     {
       "key": "selfroles",
@@ -195,14 +361,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button", "select"],
-      "entrypoints": ["engine/selfrolesEngine.js"],
-      "dependencies": {"services": ["permissionService"]},
+      "triggerTypes": [
+        "slash",
+        "button",
+        "select"
+      ],
+      "entrypoints": [
+        "engine/selfrolesEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService"
+        ]
+      },
       "decisionLogic": "Deploys role panels and toggles user roles based on panel interactions with permission checks.",
-      "stateMutations": ["member role assignment"],
-      "persistence": ["self role panel config"],
-      "outputs": ["role panel messages", "ephemeral role update confirmations"],
-      "failureModes": ["role hierarchy conflict", "missing role", "permission denied"]
+      "stateMutations": [
+        "member role assignment"
+      ],
+      "persistence": [
+        "self role panel config"
+      ],
+      "outputs": [
+        "role panel messages",
+        "ephemeral role update confirmations"
+      ],
+      "failureModes": [
+        "role hierarchy conflict",
+        "missing role",
+        "permission denied"
+      ]
     },
     {
       "key": "vip",
@@ -213,14 +400,36 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "scheduled"],
-      "entrypoints": ["engine/vipEngine.js"],
-      "dependencies": {"envVars": ["VIP_ROLE_ID", "VIP_TIER2_ROLE_ID"]},
+      "triggerTypes": [
+        "slash",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/vipEngine.js"
+      ],
+      "dependencies": {
+        "envVars": [
+          "VIP_ROLE_ID",
+          "VIP_TIER2_ROLE_ID"
+        ]
+      },
       "decisionLogic": "Handles VIP grants, durations, revokes, status checks, and renewal audit messaging.",
-      "stateMutations": ["vip membership state", "role assignment"],
-      "persistence": ["Prisma vip models"],
-      "outputs": ["VIP status replies", "VIP audit embeds"],
-      "failureModes": ["role/channel missing", "expired records", "permission denied"]
+      "stateMutations": [
+        "vip membership state",
+        "role assignment"
+      ],
+      "persistence": [
+        "Prisma vip models"
+      ],
+      "outputs": [
+        "VIP status replies",
+        "VIP audit embeds"
+      ],
+      "failureModes": [
+        "role/channel missing",
+        "expired records",
+        "permission denied"
+      ]
     },
     {
       "key": "store",
@@ -231,14 +440,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button", "select", "modal"],
-      "entrypoints": ["engine/storeEngine.js"],
-      "dependencies": {"services": ["permissionService", "engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button",
+        "select",
+        "modal"
+      ],
+      "entrypoints": [
+        "engine/storeEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService",
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Presents catalog, validates purchases, applies item effects (including role grants), and updates inventory.",
-      "stateMutations": ["wallet balances", "inventory", "role grants"],
-      "persistence": ["Prisma economy/store models"],
-      "outputs": ["store panel", "purchase confirmations"],
-      "failureModes": ["insufficient balance", "missing role mapping", "item misconfiguration"]
+      "stateMutations": [
+        "wallet balances",
+        "inventory",
+        "role grants"
+      ],
+      "persistence": [
+        "Prisma economy/store models"
+      ],
+      "outputs": [
+        "store panel",
+        "purchase confirmations"
+      ],
+      "failureModes": [
+        "insufficient balance",
+        "missing role mapping",
+        "item misconfiguration"
+      ]
     },
     {
       "key": "contracts",
@@ -249,14 +483,33 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "message"],
-      "entrypoints": ["engine/contractsEngine.js"],
-      "dependencies": {"services": ["progressionEngine"]},
+      "triggerTypes": [
+        "slash",
+        "message"
+      ],
+      "entrypoints": [
+        "engine/contractsEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "progressionEngine"
+        ]
+      },
       "decisionLogic": "Tracks contract objectives, validates completion conditions, and grants rewards.",
-      "stateMutations": ["contract progression state"],
-      "persistence": ["Prisma contract models"],
-      "outputs": ["contract status updates", "reward notifications"],
-      "failureModes": ["invalid contract state", "reward application failure"]
+      "stateMutations": [
+        "contract progression state"
+      ],
+      "persistence": [
+        "Prisma contract models"
+      ],
+      "outputs": [
+        "contract status updates",
+        "reward notifications"
+      ],
+      "failureModes": [
+        "invalid contract state",
+        "reward application failure"
+      ]
     },
     {
       "key": "profile",
@@ -267,14 +520,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/profileEngine.js"],
-      "dependencies": {"services": ["progressionEngine", "achievementsEngine"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/profileEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "progressionEngine",
+          "achievementsEngine"
+        ]
+      },
       "decisionLogic": "Aggregates user stats and renders profile cards/panels.",
-      "stateMutations": ["profile display preferences"],
-      "persistence": ["Prisma profile/stat models", "data/profiles.json"],
-      "outputs": ["profile embeds/panels"],
-      "failureModes": ["asset missing", "stat fetch failure"]
+      "stateMutations": [
+        "profile display preferences"
+      ],
+      "persistence": [
+        "Prisma profile/stat models",
+        "data/profiles.json"
+      ],
+      "outputs": [
+        "profile embeds/panels"
+      ],
+      "failureModes": [
+        "asset missing",
+        "stat fetch failure"
+      ]
     },
     {
       "key": "progression",
@@ -285,14 +558,32 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message", "event"],
-      "entrypoints": ["engine/progressionEngine.js"],
-      "dependencies": {"services": ["featureService"]},
+      "triggerTypes": [
+        "message",
+        "event"
+      ],
+      "entrypoints": [
+        "engine/progressionEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "featureService"
+        ]
+      },
       "decisionLogic": "Tracks events and awards XP/progression counters with extra event-type granularity.",
-      "stateMutations": ["xp and event counters"],
-      "persistence": ["Prisma progression models"],
-      "outputs": ["rank updates", "milestone updates"],
-      "failureModes": ["event tracking write failure"]
+      "stateMutations": [
+        "xp and event counters"
+      ],
+      "persistence": [
+        "Prisma progression models"
+      ],
+      "outputs": [
+        "rank updates",
+        "milestone updates"
+      ],
+      "failureModes": [
+        "event tracking write failure"
+      ]
     },
     {
       "key": "achievements",
@@ -303,14 +594,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "event"],
-      "entrypoints": ["engine/achievementsEngine.js"],
-      "dependencies": {"services": ["progressionEngine"]},
+      "triggerTypes": [
+        "slash",
+        "event"
+      ],
+      "entrypoints": [
+        "engine/achievementsEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "progressionEngine"
+        ]
+      },
       "decisionLogic": "Evaluates trigger conditions and unlocks achievements.",
-      "stateMutations": ["achievement unlock state"],
-      "persistence": ["Prisma achievement state", "modules/data/achievements.expansion.json"],
-      "outputs": ["achievement notifications", "achievement panel"],
-      "failureModes": ["trigger mismatch", "duplicate unlock collisions"]
+      "stateMutations": [
+        "achievement unlock state"
+      ],
+      "persistence": [
+        "Prisma achievement state",
+        "modules/data/achievements.expansion.json"
+      ],
+      "outputs": [
+        "achievement notifications",
+        "achievement panel"
+      ],
+      "failureModes": [
+        "trigger mismatch",
+        "duplicate unlock collisions"
+      ]
     },
     {
       "key": "hallOfFame",
@@ -321,14 +632,32 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "event"],
-      "entrypoints": ["engine/hallOfFameEngine.js"],
-      "dependencies": {"services": ["progressionEngine"]},
+      "triggerTypes": [
+        "slash",
+        "event"
+      ],
+      "entrypoints": [
+        "engine/hallOfFameEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "progressionEngine"
+        ]
+      },
       "decisionLogic": "Computes and presents top performers across configured metrics.",
-      "stateMutations": ["ranking snapshots"],
-      "persistence": ["Prisma leaderboard/rank records"],
-      "outputs": ["leaderboard embeds"],
-      "failureModes": ["insufficient data", "ranking query failures"]
+      "stateMutations": [
+        "ranking snapshots"
+      ],
+      "persistence": [
+        "Prisma leaderboard/rank records"
+      ],
+      "outputs": [
+        "leaderboard embeds"
+      ],
+      "failureModes": [
+        "insufficient data",
+        "ranking query failures"
+      ]
     },
     {
       "key": "radio",
@@ -339,14 +668,33 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "scheduled"],
-      "entrypoints": ["engine/radioEngine.js", "services/radioScheduler.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/radioEngine.js",
+        "services/radioScheduler.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Handles birthday/radio configuration and scheduled celebration/reward messaging.",
-      "stateMutations": ["birthday/radio config state"],
-      "persistence": ["Prisma birthday/radio config"],
-      "outputs": ["birthday/radio announcements"],
-      "failureModes": ["schedule disabled", "channel missing"]
+      "stateMutations": [
+        "birthday/radio config state"
+      ],
+      "persistence": [
+        "Prisma birthday/radio config"
+      ],
+      "outputs": [
+        "birthday/radio announcements"
+      ],
+      "failureModes": [
+        "schedule disabled",
+        "channel missing"
+      ]
     },
     {
       "key": "loyalty",
@@ -357,14 +705,33 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["scheduled", "slash"],
-      "entrypoints": ["engine/loyaltyEngine.js", "services/loyaltyScheduler.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "scheduled",
+        "slash"
+      ],
+      "entrypoints": [
+        "engine/loyaltyEngine.js",
+        "services/loyaltyScheduler.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Applies recurring loyalty calculations and grants rewards/benefits.",
-      "stateMutations": ["loyalty counters and rewards"],
-      "persistence": ["Prisma loyalty models"],
-      "outputs": ["reward updates"],
-      "failureModes": ["scheduler unavailable", "reward write failure"]
+      "stateMutations": [
+        "loyalty counters and rewards"
+      ],
+      "persistence": [
+        "Prisma loyalty models"
+      ],
+      "outputs": [
+        "reward updates"
+      ],
+      "failureModes": [
+        "scheduler unavailable",
+        "reward write failure"
+      ]
     },
     {
       "key": "inviteTracker",
@@ -375,14 +742,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "guild events"],
-      "entrypoints": ["engine/inviteEngine.js"],
-      "dependencies": {"envVars": ["INVITE_LOG_CHANNEL_ID"]},
+      "triggerTypes": [
+        "slash",
+        "guild events"
+      ],
+      "entrypoints": [
+        "engine/inviteEngine.js"
+      ],
+      "dependencies": {
+        "envVars": [
+          "INVITE_LOG_CHANNEL_ID"
+        ]
+      },
       "decisionLogic": "Tracks invite creation/use changes and computes stats/leaderboards.",
-      "stateMutations": ["invite attribution stats"],
-      "persistence": ["Prisma invite models"],
-      "outputs": ["invite stats replies", "leaderboards", "logs"],
-      "failureModes": ["missing permissions to fetch invites", "log channel missing"]
+      "stateMutations": [
+        "invite attribution stats"
+      ],
+      "persistence": [
+        "Prisma invite models"
+      ],
+      "outputs": [
+        "invite stats replies",
+        "leaderboards",
+        "logs"
+      ],
+      "failureModes": [
+        "missing permissions to fetch invites",
+        "log channel missing"
+      ]
     },
     {
       "key": "communityStudio",
@@ -393,14 +780,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": false,
-      "triggerTypes": ["message", "button", "scheduled"],
-      "entrypoints": ["engine/communityStudioEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "message",
+        "button",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/communityStudioEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Publishes bulletin drops, manages pulse polls, sends reminder loop cards, and answers lookup shelf prompts from guild-configured content.",
-      "stateMutations": ["poll vote state", "reminder delivery history"],
-      "persistence": ["engine config", "data/communityStudioState.json"],
-      "outputs": ["bulletin messages", "poll cards", "reminder cards", "lookup replies"],
-      "failureModes": ["missing channel targets", "poll options incomplete", "disabled community surfaces"]
+      "stateMutations": [
+        "poll vote state",
+        "reminder delivery history"
+      ],
+      "persistence": [
+        "engine config",
+        "data/communityStudioState.json"
+      ],
+      "outputs": [
+        "bulletin messages",
+        "poll cards",
+        "reminder cards",
+        "lookup replies"
+      ],
+      "failureModes": [
+        "missing channel targets",
+        "poll options incomplete",
+        "disabled community surfaces"
+      ]
     },
     {
       "key": "channelFlow",
@@ -411,14 +823,74 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": false,
-      "triggerTypes": ["voice", "scheduled"],
-      "entrypoints": ["engine/channelFlowEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "voice",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/channelFlowEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Refreshes live counter channel names and creates temporary room-flow voice channels when members join a configured lobby.",
-      "stateMutations": ["temporary room tracking", "counter refresh state"],
-      "persistence": ["engine config", "data/channelFlowState.json"],
-      "outputs": ["channel renames", "temporary voice rooms"],
-      "failureModes": ["missing lobby channel", "channel rename permissions missing", "cleanup timing drift"]
+      "stateMutations": [
+        "temporary room tracking",
+        "counter refresh state"
+      ],
+      "persistence": [
+        "engine config",
+        "data/channelFlowState.json"
+      ],
+      "outputs": [
+        "channel renames",
+        "temporary voice rooms"
+      ],
+      "failureModes": [
+        "missing lobby channel",
+        "channel rename permissions missing",
+        "cleanup timing drift"
+      ]
+    },
+    {
+      "key": "searchAnything",
+      "name": "Search Anything",
+      "category": "community-tools",
+      "featureFlag": "",
+      "configKey": "searchAnything",
+      "premiumRequired": false,
+      "privateOnly": false,
+      "enabledByDefault": false,
+      "triggerTypes": [
+        "slash"
+      ],
+      "entrypoints": [
+        "engine/searchAnythingEngine.js",
+        "commands/search.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
+      "decisionLogic": "Builds provider-aware search links from guild-tuned templates and serves them through the native /search utility command.",
+      "stateMutations": [
+        "engine config"
+      ],
+      "persistence": [
+        "engine config"
+      ],
+      "outputs": [
+        "search embeds",
+        "provider quick-link buttons"
+      ],
+      "failureModes": [
+        "no enabled providers",
+        "invalid URL template",
+        "provider route disabled"
+      ]
     },
     {
       "key": "signalRelay",
@@ -429,14 +901,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": false,
-      "triggerTypes": ["scheduled"],
-      "entrypoints": ["engine/signalRelayEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/signalRelayEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Polls configured feed sources, deduplicates seen items, and dispatches styled updates into the selected guild channels.",
-      "stateMutations": ["seen item memory", "source polling timestamps"],
-      "persistence": ["engine config", "data/signalRelayState.json"],
-      "outputs": ["feed dispatch cards", "feed dispatch messages"],
-      "failureModes": ["feed URL unreachable", "dispatch channel missing", "duplicate suppression mismatch"]
+      "stateMutations": [
+        "seen item memory",
+        "source polling timestamps"
+      ],
+      "persistence": [
+        "engine config",
+        "data/signalRelayState.json"
+      ],
+      "outputs": [
+        "feed dispatch cards",
+        "feed dispatch messages"
+      ],
+      "failureModes": [
+        "feed URL unreachable",
+        "dispatch channel missing",
+        "duplicate suppression mismatch"
+      ]
     },
     {
       "key": "crew",
@@ -447,14 +940,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/crewEngine.js"],
-      "dependencies": {"services": ["permissionService", "engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/crewEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService",
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Manages crew membership, treasury/deposit workflows, and rankings.",
-      "stateMutations": ["crew memberships", "crew treasury"],
-      "persistence": ["Prisma crew models"],
-      "outputs": ["crew status and leaderboard replies"],
-      "failureModes": ["insufficient funds", "invalid crew state"]
+      "stateMutations": [
+        "crew memberships",
+        "crew treasury"
+      ],
+      "persistence": [
+        "Prisma crew models"
+      ],
+      "outputs": [
+        "crew status and leaderboard replies"
+      ],
+      "failureModes": [
+        "insufficient funds",
+        "invalid crew state"
+      ]
     },
     {
       "key": "dominion",
@@ -465,14 +978,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "scheduled"],
-      "entrypoints": ["engine/dominionEngine.js"],
-      "dependencies": {"services": ["permissionService", "engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/dominionEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService",
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Runs raid/alliance/war/season/territory/shop operations with phase transitions and rewards.",
-      "stateMutations": ["raid phases", "crew ratings", "territory ownership", "reward payouts"],
-      "persistence": ["Prisma dominion models"],
-      "outputs": ["dominion event messages", "audit events", "ephemeral command results"],
-      "failureModes": ["active raid conflicts", "cooldowns", "insufficient permissions"]
+      "stateMutations": [
+        "raid phases",
+        "crew ratings",
+        "territory ownership",
+        "reward payouts"
+      ],
+      "persistence": [
+        "Prisma dominion models"
+      ],
+      "outputs": [
+        "dominion event messages",
+        "audit events",
+        "ephemeral command results"
+      ],
+      "failureModes": [
+        "active raid conflicts",
+        "cooldowns",
+        "insufficient permissions"
+      ]
     },
     {
       "key": "catDrop",
@@ -483,14 +1021,36 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["scheduled", "message", "button"],
-      "entrypoints": ["engine/catdropEngine.js"],
-      "dependencies": {"envVars": ["CAT_API_KEY"]},
+      "triggerTypes": [
+        "scheduled",
+        "message",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/catdropEngine.js"
+      ],
+      "dependencies": {
+        "envVars": [
+          "CAT_API_KEY"
+        ]
+      },
       "decisionLogic": "Spawns collectible events on schedule with rarity/tier catches and reward outcomes.",
-      "stateMutations": ["active spawn state", "catch rewards"],
-      "persistence": ["Prisma spawn/catch state"],
-      "outputs": ["spawn announcements", "catch results"],
-      "failureModes": ["no eligible channels", "api fallback", "spawn cap reached"]
+      "stateMutations": [
+        "active spawn state",
+        "catch rewards"
+      ],
+      "persistence": [
+        "Prisma spawn/catch state"
+      ],
+      "outputs": [
+        "spawn announcements",
+        "catch results"
+      ],
+      "failureModes": [
+        "no eligible channels",
+        "api fallback",
+        "spawn cap reached"
+      ]
     },
     {
       "key": "rareSpawn",
@@ -501,14 +1061,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["scheduled", "slash"],
-      "entrypoints": ["engine/rarespawnEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "scheduled",
+        "slash"
+      ],
+      "entrypoints": [
+        "engine/rarespawnEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Generates rare timed spawns, handles despawn/rotation and event logging.",
-      "stateMutations": ["spawn lifecycle"],
-      "persistence": ["Prisma rare spawn models"],
-      "outputs": ["spawn and despawn messages", "rare logs"],
-      "failureModes": ["rotation disabled", "no channels", "despawn timer conflicts"]
+      "stateMutations": [
+        "spawn lifecycle"
+      ],
+      "persistence": [
+        "Prisma rare spawn models"
+      ],
+      "outputs": [
+        "spawn and despawn messages",
+        "rare logs"
+      ],
+      "failureModes": [
+        "rotation disabled",
+        "no channels",
+        "despawn timer conflicts"
+      ]
     },
     {
       "key": "pokemon",
@@ -519,14 +1099,34 @@
       "premiumRequired": false,
       "privateOnly": true,
       "enabledByDefault": false,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/pokemonEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/pokemonEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Handles pokemon catch/collection flow and private-scope gameplay controls.",
-      "stateMutations": ["collection state", "pokemon progression"],
-      "persistence": ["Prisma pokemon models"],
-      "outputs": ["pokemon panels", "collection replies"],
-      "failureModes": ["private-only block", "feature disabled"]
+      "stateMutations": [
+        "collection state",
+        "pokemon progression"
+      ],
+      "persistence": [
+        "Prisma pokemon models"
+      ],
+      "outputs": [
+        "pokemon panels",
+        "collection replies"
+      ],
+      "failureModes": [
+        "private-only block",
+        "feature disabled"
+      ]
     },
     {
       "key": "pokemonStage2",
@@ -537,14 +1137,32 @@
       "premiumRequired": false,
       "privateOnly": true,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/pokemonStage2Engine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/pokemonStage2Engine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Extends pokemon flow with stage-2 progression features (battle/trade pathways as configured).",
-      "stateMutations": ["stage2 progression"],
-      "persistence": ["Prisma pokemon stage2 models"],
-      "outputs": ["stage2 action responses"],
-      "failureModes": ["stage2 disabled", "private-only restrictions"]
+      "stateMutations": [
+        "stage2 progression"
+      ],
+      "persistence": [
+        "Prisma pokemon stage2 models"
+      ],
+      "outputs": [
+        "stage2 action responses"
+      ],
+      "failureModes": [
+        "stage2 disabled",
+        "private-only restrictions"
+      ]
     },
     {
       "key": "range",
@@ -555,14 +1173,31 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/rangeEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/rangeEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Runs range-based event interactions with configured pacing and rewards.",
-      "stateMutations": ["range session state"],
-      "persistence": ["Prisma range models"],
-      "outputs": ["range event replies"],
-      "failureModes": ["invalid interaction state"]
+      "stateMutations": [
+        "range session state"
+      ],
+      "persistence": [
+        "Prisma range models"
+      ],
+      "outputs": [
+        "range event replies"
+      ],
+      "failureModes": [
+        "invalid interaction state"
+      ]
     },
     {
       "key": "truthDare",
@@ -573,14 +1208,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message", "slash", "button"],
-      "entrypoints": ["engine/truthDareEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "message",
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/truthDareEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Presents truth/dare prompts and handles event interactions according to configured pools/rules.",
-      "stateMutations": ["truth/dare session data"],
-      "persistence": ["Prisma truth/dare state"],
-      "outputs": ["prompt messages", "interaction responses"],
-      "failureModes": ["pool/config missing", "invalid state"]
+      "stateMutations": [
+        "truth/dare session data"
+      ],
+      "persistence": [
+        "Prisma truth/dare state"
+      ],
+      "outputs": [
+        "prompt messages",
+        "interaction responses"
+      ],
+      "failureModes": [
+        "pool/config missing",
+        "invalid state"
+      ]
     },
     {
       "key": "gameIdentity",
@@ -591,14 +1246,37 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "api"],
-      "entrypoints": ["engine/gameIdentityEngine.js", "services/gamerEngineService.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/gameIdentityEngine.js",
+        "services/gamerEngineService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Stores user-linked game and platform identities with explicit provider, platform, and visibility metadata instead of scraping Discord account connections.",
-      "stateMutations": ["linked game identities", "profile visibility state"],
-      "persistence": ["data/gamerEngine.json"],
-      "outputs": ["profile embeds", "identity summaries", "dashboard operator data"],
-      "failureModes": ["provider unsupported", "identity cap reached", "visibility mismatch"]
+      "stateMutations": [
+        "linked game identities",
+        "profile visibility state"
+      ],
+      "persistence": [
+        "data/gamerEngine.json"
+      ],
+      "outputs": [
+        "profile embeds",
+        "identity summaries",
+        "dashboard operator data"
+      ],
+      "failureModes": [
+        "provider unsupported",
+        "identity cap reached",
+        "visibility mismatch"
+      ]
     },
     {
       "key": "privacyConsent",
@@ -609,14 +1287,37 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["dashboard", "api"],
-      "entrypoints": ["services/gamerEngineService.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "dashboard",
+        "api"
+      ],
+      "entrypoints": [
+        "services/gamerEngineService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Stores per-member consent for linked identities, stats, presence, showoff cards, provider sync, rank sync, and live-friend notifications.",
-      "stateMutations": ["member privacy profiles", "gamer notification inbox"],
-      "persistence": ["data/gamerEngine.json", "engine config"],
-      "outputs": ["member privacy controls", "consent-aware profiles", "notification summaries"],
-      "failureModes": ["self-service disabled", "sync attempted without consent", "notification watchlist drift"]
+      "stateMutations": [
+        "member privacy profiles",
+        "gamer notification inbox"
+      ],
+      "persistence": [
+        "data/gamerEngine.json",
+        "engine config"
+      ],
+      "outputs": [
+        "member privacy controls",
+        "consent-aware profiles",
+        "notification summaries"
+      ],
+      "failureModes": [
+        "self-service disabled",
+        "sync attempted without consent",
+        "notification watchlist drift"
+      ]
     },
     {
       "key": "presenceFusion",
@@ -627,14 +1328,41 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["event", "slash", "api"],
-      "entrypoints": ["engine/presenceFusionEngine.js", "services/gamerEngineService.js"],
-      "dependencies": {"services": ["engineConfigService"], "runtimeFlags": ["GuildPresences intent"]},
+      "triggerTypes": [
+        "event",
+        "slash",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/presenceFusionEngine.js",
+        "services/gamerEngineService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ],
+        "runtimeFlags": [
+          "GuildPresences intent"
+        ]
+      },
       "decisionLogic": "Captures Discord activity updates, normalizes current game and client platform hints, and exposes a live 'playing now' view scoped to what Discord presence actually provides.",
-      "stateMutations": ["recent presence snapshots", "active player view"],
-      "persistence": ["data/gamerEngine.json"],
-      "outputs": ["presence embeds", "live player summaries", "dashboard activity data"],
-      "failureModes": ["GUILD_PRESENCES intent missing", "stale presence cache", "no gaming activity detected"]
+      "stateMutations": [
+        "recent presence snapshots",
+        "active player view"
+      ],
+      "persistence": [
+        "data/gamerEngine.json"
+      ],
+      "outputs": [
+        "presence embeds",
+        "live player summaries",
+        "dashboard activity data"
+      ],
+      "failureModes": [
+        "GUILD_PRESENCES intent missing",
+        "stale presence cache",
+        "no gaming activity detected"
+      ]
     },
     {
       "key": "playtime",
@@ -645,14 +1373,37 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "api"],
-      "entrypoints": ["engine/playtimeEngine.js", "services/gamerEngineService.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/playtimeEngine.js",
+        "services/gamerEngineService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Tracks source-labeled playtime records by game and platform so the bot can show honest hour totals even when providers do not expose universal console breakdowns.",
-      "stateMutations": ["playtime records", "per-user hour totals"],
-      "persistence": ["data/gamerEngine.json"],
-      "outputs": ["hours embeds", "playtime leaderboards", "dashboard records"],
-      "failureModes": ["manual entry disabled", "hours out of range", "unsupported source label"]
+      "stateMutations": [
+        "playtime records",
+        "per-user hour totals"
+      ],
+      "persistence": [
+        "data/gamerEngine.json"
+      ],
+      "outputs": [
+        "hours embeds",
+        "playtime leaderboards",
+        "dashboard records"
+      ],
+      "failureModes": [
+        "manual entry disabled",
+        "hours out of range",
+        "unsupported source label"
+      ]
     },
     {
       "key": "squadFinder",
@@ -663,14 +1414,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button", "api"],
-      "entrypoints": ["engine/squadFinderEngine.js", "services/gamerEngineService.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/squadFinderEngine.js",
+        "services/gamerEngineService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Creates Discord-native LFG posts with join buttons, optional squad threads, and live member counts so members can spin up sessions around the game they are playing now.",
-      "stateMutations": ["squad sessions", "squad memberships", "thread linkage"],
-      "persistence": ["data/gamerEngine.json"],
-      "outputs": ["LFG messages", "queue buttons", "dashboard squad queue data"],
-      "failureModes": ["target channel missing", "session full", "stale button actions"]
+      "stateMutations": [
+        "squad sessions",
+        "squad memberships",
+        "thread linkage"
+      ],
+      "persistence": [
+        "data/gamerEngine.json"
+      ],
+      "outputs": [
+        "LFG messages",
+        "queue buttons",
+        "dashboard squad queue data"
+      ],
+      "failureModes": [
+        "target channel missing",
+        "session full",
+        "stale button actions"
+      ]
     },
     {
       "key": "gameProvider",
@@ -681,14 +1457,41 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "api"],
-      "entrypoints": ["engine/gameProviderEngine.js", "services/gameProviderService.js"],
-      "dependencies": {"services": ["engineConfigService", "gamerEngineService"]},
+      "triggerTypes": [
+        "slash",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/gameProviderEngine.js",
+        "services/gameProviderService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService",
+          "gamerEngineService"
+        ]
+      },
       "decisionLogic": "Stores source-labeled game stat snapshots, map rotations, and rank-role mappings per provider so the bot can support multi-game stats without pretending a universal API exists.",
-      "stateMutations": ["provider stats snapshots", "map rotation snapshots", "rank role sync state"],
-      "persistence": ["data/gameProviderEngine.json"],
-      "outputs": ["stats embeds", "map rotation embeds", "dashboard provider data", "rank role sync actions"],
-      "failureModes": ["provider disabled", "manual snapshot disabled", "invalid role mapping", "guild role hierarchy blocks sync"]
+      "stateMutations": [
+        "provider stats snapshots",
+        "map rotation snapshots",
+        "rank role sync state"
+      ],
+      "persistence": [
+        "data/gameProviderEngine.json"
+      ],
+      "outputs": [
+        "stats embeds",
+        "map rotation embeds",
+        "dashboard provider data",
+        "rank role sync actions"
+      ],
+      "failureModes": [
+        "provider disabled",
+        "manual snapshot disabled",
+        "invalid role mapping",
+        "guild role hierarchy blocks sync"
+      ]
     },
     {
       "key": "showoff",
@@ -699,14 +1502,40 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "api"],
-      "entrypoints": ["engine/showoffEngine.js", "services/gamerEngineService.js", "services/gameProviderService.js"],
-      "dependencies": {"services": ["engineConfigService", "gamerEngineService", "gameProviderService"]},
+      "triggerTypes": [
+        "slash",
+        "api"
+      ],
+      "entrypoints": [
+        "engine/showoffEngine.js",
+        "services/gamerEngineService.js",
+        "services/gameProviderService.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService",
+          "gamerEngineService",
+          "gameProviderService"
+        ]
+      },
       "decisionLogic": "Builds a unified gamer card from linked identities, live presence, top stats, and tracked playtime using only data the guild has actually collected.",
-      "stateMutations": ["rendered gamer card state"],
-      "persistence": ["engine config", "data/gamerEngine.json", "data/gameProviderEngine.json"],
-      "outputs": ["gamer card embeds", "dashboard card previews"],
-      "failureModes": ["insufficient profile data", "viewer visibility mismatch", "missing stats or playtime sources"]
+      "stateMutations": [
+        "rendered gamer card state"
+      ],
+      "persistence": [
+        "engine config",
+        "data/gamerEngine.json",
+        "data/gameProviderEngine.json"
+      ],
+      "outputs": [
+        "gamer card embeds",
+        "dashboard card previews"
+      ],
+      "failureModes": [
+        "insufficient profile data",
+        "viewer visibility mismatch",
+        "missing stats or playtime sources"
+      ]
     },
     {
       "key": "giveaways",
@@ -717,14 +1546,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button", "scheduled"],
-      "entrypoints": ["engine/giveawaysEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "slash",
+        "button",
+        "scheduled"
+      ],
+      "entrypoints": [
+        "engine/giveawaysEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Creates and manages giveaway lifecycle, participation, and winner resolution.",
-      "stateMutations": ["giveaway state", "winner records"],
-      "persistence": ["Prisma giveaway models"],
-      "outputs": ["giveaway messages", "winner announcements"],
-      "failureModes": ["invalid giveaway config", "winner resolution failure"]
+      "stateMutations": [
+        "giveaway state",
+        "winner records"
+      ],
+      "persistence": [
+        "Prisma giveaway models"
+      ],
+      "outputs": [
+        "giveaway messages",
+        "winner announcements"
+      ],
+      "failureModes": [
+        "invalid giveaway config",
+        "winner resolution failure"
+      ]
     },
     {
       "key": "automation",
@@ -735,14 +1585,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["event"],
-      "entrypoints": ["engine/automation/automationEngine.js"],
-      "dependencies": {"services": ["featureGate", "rateLimit", "prisma"]},
+      "triggerTypes": [
+        "event"
+      ],
+      "entrypoints": [
+        "engine/automation/automationEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "featureGate",
+          "rateLimit",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Evaluates automation conditions and executes configured actions under tier and rate limits.",
-      "stateMutations": ["automation execution effects"],
-      "persistence": ["Prisma automation and block models"],
-      "outputs": ["action side effects", "audit logs"],
-      "failureModes": ["limit reached", "condition mismatch", "action execution failure"]
+      "stateMutations": [
+        "automation execution effects"
+      ],
+      "persistence": [
+        "Prisma automation and block models"
+      ],
+      "outputs": [
+        "action side effects",
+        "audit logs"
+      ],
+      "failureModes": [
+        "limit reached",
+        "condition mismatch",
+        "action execution failure"
+      ]
     },
     {
       "key": "customCommands",
@@ -753,14 +1624,33 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message"],
-      "entrypoints": ["engine/commands/customCommandEngine.js"],
-      "dependencies": {"services": ["prisma", "featureGate"]},
+      "triggerTypes": [
+        "message"
+      ],
+      "entrypoints": [
+        "engine/commands/customCommandEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "prisma",
+          "featureGate"
+        ]
+      },
       "decisionLogic": "Executes guild-defined commands from prefix command routing with limit controls.",
-      "stateMutations": ["custom command usage stats"],
-      "persistence": ["Prisma custom command models"],
-      "outputs": ["custom command replies"],
-      "failureModes": ["command not found", "limit reached", "invalid command payload"]
+      "stateMutations": [
+        "custom command usage stats"
+      ],
+      "persistence": [
+        "Prisma custom command models"
+      ],
+      "outputs": [
+        "custom command replies"
+      ],
+      "failureModes": [
+        "command not found",
+        "limit reached",
+        "invalid command payload"
+      ]
     },
     {
       "key": "blacklist",
@@ -771,14 +1661,32 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engine/blacklistEngine.js"],
-      "dependencies": {"services": ["permissionService"]},
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/blacklistEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService"
+        ]
+      },
       "decisionLogic": "Handles blacklist add/remove/display/panel workflows for governance enforcement.",
-      "stateMutations": ["blacklist records"],
-      "persistence": ["Prisma blacklist models"],
-      "outputs": ["blacklist admin responses"],
-      "failureModes": ["permission denied", "record conflicts"]
+      "stateMutations": [
+        "blacklist records"
+      ],
+      "persistence": [
+        "Prisma blacklist models"
+      ],
+      "outputs": [
+        "blacklist admin responses"
+      ],
+      "failureModes": [
+        "permission denied",
+        "record conflicts"
+      ]
     },
     {
       "key": "failsafe",
@@ -789,14 +1697,40 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "message", "button"],
-      "entrypoints": ["engine/failsafeEngine.js", "app.js"],
-      "dependencies": {"services": ["engineConfigService", "permissionService", "audit"]},
+      "triggerTypes": [
+        "slash",
+        "message",
+        "button"
+      ],
+      "entrypoints": [
+        "engine/failsafeEngine.js",
+        "app.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService",
+          "permissionService",
+          "audit"
+        ]
+      },
       "decisionLogic": "Activates an emergency router pause per guild, optionally allowing owner/founder bypass and onboarding bypass while the rest of the runtime is paused.",
-      "stateMutations": ["guild failsafe state", "router pause state"],
-      "persistence": ["engine config"],
-      "outputs": ["ephemeral failsafe replies", "audit events", "router-level pause"],
-      "failureModes": ["owner/founder only", "failsafe active", "bypass misconfiguration"]
+      "stateMutations": [
+        "guild failsafe state",
+        "router pause state"
+      ],
+      "persistence": [
+        "engine config"
+      ],
+      "outputs": [
+        "ephemeral failsafe replies",
+        "audit events",
+        "router-level pause"
+      ],
+      "failureModes": [
+        "owner/founder only",
+        "failsafe active",
+        "bypass misconfiguration"
+      ]
     },
     {
       "key": "security.accountIntegrity",
@@ -807,14 +1741,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["guildMemberAdd"],
-      "entrypoints": ["engine/accountIntegrityEngine.js"],
-      "dependencies": {"services": ["featureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "guildMemberAdd"
+      ],
+      "entrypoints": [
+        "engine/accountIntegrityEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "featureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Scores account integrity from age, username entropy, avatar presence, and bot-like patterns; emits security signals.",
-      "stateMutations": ["integrity cache", "security profile upserts"],
-      "persistence": ["Prisma userSecurityProfile"],
-      "outputs": ["securitySignal emit", "audit security log"],
-      "failureModes": ["governance disabled", "profile write failure"]
+      "stateMutations": [
+        "integrity cache",
+        "security profile upserts"
+      ],
+      "persistence": [
+        "Prisma userSecurityProfile"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "audit security log"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "profile write failure"
+      ]
     },
     {
       "key": "security.linkIntel",
@@ -825,14 +1780,37 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message"],
-      "entrypoints": ["engine/linkIntelEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "message"
+      ],
+      "entrypoints": [
+        "engine/linkIntelEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Extracts domains, tracks spread velocity and unique users, flags shorteners, computes risk score, emits security signal.",
-      "stateMutations": ["domain cache", "domain reputation updates"],
-      "persistence": ["Prisma domainReputation", "Prisma domainUserRelation"],
-      "outputs": ["securitySignal emit", "domain audit log"],
-      "failureModes": ["governance disabled", "domain parse failure", "db write failure"]
+      "stateMutations": [
+        "domain cache",
+        "domain reputation updates"
+      ],
+      "persistence": [
+        "Prisma domainReputation",
+        "Prisma domainUserRelation"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "domain audit log"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "domain parse failure",
+        "db write failure"
+      ]
     },
     {
       "key": "security.threatIntel",
@@ -843,14 +1821,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["guildMemberAdd", "message", "securitySignal"],
-      "entrypoints": ["engine/threatIntelEngine.js"],
-      "dependencies": {"services": ["featureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "guildMemberAdd",
+        "message",
+        "securitySignal"
+      ],
+      "entrypoints": [
+        "engine/threatIntelEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "featureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Calculates user and wave-level threat from join velocity, low integrity density, risky domains, and mention burst.",
-      "stateMutations": ["join timestamp memory", "user threat memory", "mention tracker"],
-      "persistence": ["Prisma threatWave", "Prisma securityConfig"],
-      "outputs": ["securitySignal emit", "wave and user threat logs"],
-      "failureModes": ["governance disabled", "config fetch failure"]
+      "stateMutations": [
+        "join timestamp memory",
+        "user threat memory",
+        "mention tracker"
+      ],
+      "persistence": [
+        "Prisma threatWave",
+        "Prisma securityConfig"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "wave and user threat logs"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "config fetch failure"
+      ]
     },
     {
       "key": "security.behavioralDrift",
@@ -861,14 +1864,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["message"],
-      "entrypoints": ["engine/behavioralDriftEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "message"
+      ],
+      "entrypoints": [
+        "engine/behavioralDriftEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Maintains 10-minute activity windows and computes drift against historical baselines.",
-      "stateMutations": ["activity tracker map", "baseline updates"],
-      "persistence": ["Prisma behaviorProfile"],
-      "outputs": ["securitySignal emit", "drift audit log"],
-      "failureModes": ["governance disabled", "profile write error"]
+      "stateMutations": [
+        "activity tracker map",
+        "baseline updates"
+      ],
+      "persistence": [
+        "Prisma behaviorProfile"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "drift audit log"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "profile write error"
+      ]
     },
     {
       "key": "security.trustWeight",
@@ -879,14 +1903,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["securitySignal"],
-      "entrypoints": ["engine/trustWeightEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "securitySignal"
+      ],
+      "entrypoints": [
+        "engine/trustWeightEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Builds dynamic trust score from integrity/drift/threat and penalties with tier mapping.",
-      "stateMutations": ["trust profile updates"],
-      "persistence": ["Prisma trustProfile"],
-      "outputs": ["securitySignal emit", "trust update logs"],
-      "failureModes": ["governance disabled", "profile upsert failure"]
+      "stateMutations": [
+        "trust profile updates"
+      ],
+      "persistence": [
+        "Prisma trustProfile"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "trust update logs"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "profile upsert failure"
+      ]
     },
     {
       "key": "security.riskEscalation",
@@ -897,14 +1941,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["securitySignal"],
-      "entrypoints": ["engine/riskEscalationEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "prisma"]},
+      "triggerTypes": [
+        "securitySignal"
+      ],
+      "entrypoints": [
+        "engine/riskEscalationEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Computes scoped escalation levels (user, crew, guild) from threat, drift, trust, and configured thresholds with decay.",
-      "stateMutations": ["in-memory signal state", "decay timers", "guild escalation state"],
-      "persistence": ["Prisma escalationState", "Prisma securityConfig"],
-      "outputs": ["securitySignal emit"],
-      "failureModes": ["governance disabled", "threshold config invalid"]
+      "stateMutations": [
+        "in-memory signal state",
+        "decay timers",
+        "guild escalation state"
+      ],
+      "persistence": [
+        "Prisma escalationState",
+        "Prisma securityConfig"
+      ],
+      "outputs": [
+        "securitySignal emit"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "threshold config invalid"
+      ]
     },
     {
       "key": "security.containment",
@@ -915,14 +1980,34 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["securitySignal"],
-      "entrypoints": ["engine/containmentEngine.js"],
-      "dependencies": {"envVars": ["CONTAINMENT_CATEGORY_IDS", "CONTAINMENT_SLOWMODE_SECONDS"]},
+      "triggerTypes": [
+        "securitySignal"
+      ],
+      "entrypoints": [
+        "engine/containmentEngine.js"
+      ],
+      "dependencies": {
+        "envVars": [
+          "CONTAINMENT_CATEGORY_IDS",
+          "CONTAINMENT_SLOWMODE_SECONDS"
+        ]
+      },
       "decisionLogic": "Activates/deactivates category slowmode automatically based on guild escalation level.",
-      "stateMutations": ["containment state map", "channel slowmode changes"],
-      "persistence": ["runtime memory", "audit log only"],
-      "outputs": ["containment audit events"],
-      "failureModes": ["no containment categories configured", "channel permission failures"]
+      "stateMutations": [
+        "containment state map",
+        "channel slowmode changes"
+      ],
+      "persistence": [
+        "runtime memory",
+        "audit log only"
+      ],
+      "outputs": [
+        "containment audit events"
+      ],
+      "failureModes": [
+        "no containment categories configured",
+        "channel permission failures"
+      ]
     },
     {
       "key": "security.governance",
@@ -933,14 +2018,40 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["interaction", "securitySignal"],
-      "entrypoints": ["engine/governanceEngine.js"],
-      "dependencies": {"envVars": ["FOUNDER_ROLE_ID", "SECURITY_ALERT_CHANNEL_ID"]},
+      "triggerTypes": [
+        "interaction",
+        "securitySignal"
+      ],
+      "entrypoints": [
+        "engine/governanceEngine.js"
+      ],
+      "dependencies": {
+        "envVars": [
+          "FOUNDER_ROLE_ID",
+          "SECURITY_ALERT_CHANNEL_ID"
+        ]
+      },
       "decisionLogic": "Controls governance modes, manages founder approval queue for enforcement requests, and supports auto emergency/recovery decisions.",
-      "stateMutations": ["governance mode", "enforcement request lifecycle", "staff AFK state"],
-      "persistence": ["Prisma governanceState", "Prisma enforcementRequest", "Prisma securityConfig"],
-      "outputs": ["approval embeds/buttons", "founder DMs", "audit governance logs"],
-      "failureModes": ["governance disabled", "founder role missing", "approval interaction stale"]
+      "stateMutations": [
+        "governance mode",
+        "enforcement request lifecycle",
+        "staff AFK state"
+      ],
+      "persistence": [
+        "Prisma governanceState",
+        "Prisma enforcementRequest",
+        "Prisma securityConfig"
+      ],
+      "outputs": [
+        "approval embeds/buttons",
+        "founder DMs",
+        "audit governance logs"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "founder role missing",
+        "approval interaction stale"
+      ]
     },
     {
       "key": "security.forensics",
@@ -951,14 +2062,35 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["guildAuditLogEntryCreate"],
-      "entrypoints": ["engine/forensicsEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "guildAuditLogEntryCreate"
+      ],
+      "entrypoints": [
+        "engine/forensicsEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Analyzes audit log bursts for role/kick/ban/channel/admin activity and emits forensic threat signals.",
-      "stateMutations": ["action tracker"],
-      "persistence": ["Prisma securityConfig", "audit logs"],
-      "outputs": ["securitySignal emit", "forensic audit entries"],
-      "failureModes": ["governance disabled", "audit entry parse issues"]
+      "stateMutations": [
+        "action tracker"
+      ],
+      "persistence": [
+        "Prisma securityConfig",
+        "audit logs"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "forensic audit entries"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "audit entry parse issues"
+      ]
     },
     {
       "key": "security.staffActivityMonitor",
@@ -969,14 +2101,33 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["guildAuditLogEntryCreate"],
-      "entrypoints": ["engine/staffActivityMonitorEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "permissionService", "auditBus"]},
+      "triggerTypes": [
+        "guildAuditLogEntryCreate"
+      ],
+      "entrypoints": [
+        "engine/staffActivityMonitorEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "permissionService",
+          "auditBus"
+        ]
+      },
       "decisionLogic": "Tracks staff audit velocity and tiers activity to log elevated/high behavior patterns.",
-      "stateMutations": ["staff activity map"],
-      "persistence": ["audit logs"],
-      "outputs": ["owner/staff activity logs"],
-      "failureModes": ["governance disabled", "member fetch failure"]
+      "stateMutations": [
+        "staff activity map"
+      ],
+      "persistence": [
+        "audit logs"
+      ],
+      "outputs": [
+        "owner/staff activity logs"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "member fetch failure"
+      ]
     },
     {
       "key": "security.crewSecurity",
@@ -987,14 +2138,37 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["crewInteraction", "event"],
-      "entrypoints": ["engine/crewSecurityEngine.js"],
-      "dependencies": {"services": ["securityFeatureService", "auditBus", "prisma"]},
+      "triggerTypes": [
+        "crewInteraction",
+        "event"
+      ],
+      "entrypoints": [
+        "engine/crewSecurityEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "securityFeatureService",
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Scores suspicious crew interaction patterns (funnel, ping-pong, repeated pairs) and emits crew risk signals.",
-      "stateMutations": ["crew interaction logs", "crew suspicious scores"],
-      "persistence": ["Prisma crewInteractionLog", "Prisma crewSecurityProfile"],
-      "outputs": ["securitySignal emit", "crew security audit logs"],
-      "failureModes": ["governance disabled", "interaction payload incomplete"]
+      "stateMutations": [
+        "crew interaction logs",
+        "crew suspicious scores"
+      ],
+      "persistence": [
+        "Prisma crewInteractionLog",
+        "Prisma crewSecurityProfile"
+      ],
+      "outputs": [
+        "securitySignal emit",
+        "crew security audit logs"
+      ],
+      "failureModes": [
+        "governance disabled",
+        "interaction payload incomplete"
+      ]
     },
     {
       "key": "security.shadowLayer",
@@ -1005,14 +2179,36 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["securitySignal", "interaction"],
-      "entrypoints": ["engine/shadowLayerEngine.js"],
-      "dependencies": {"services": ["auditBus", "prisma"]},
+      "triggerTypes": [
+        "securitySignal",
+        "interaction"
+      ],
+      "entrypoints": [
+        "engine/shadowLayerEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "auditBus",
+          "prisma"
+        ]
+      },
       "decisionLogic": "Applies user suppression based on escalation levels and evaluates interactions for deny decisions.",
-      "stateMutations": ["shadowed user set", "suppression timers"],
-      "persistence": ["runtime memory", "audit logs"],
-      "outputs": ["deny decisions", "suppression logs"],
-      "failureModes": ["timer drift", "missing escalation signals"]
+      "stateMutations": [
+        "shadowed user set",
+        "suppression timers"
+      ],
+      "persistence": [
+        "runtime memory",
+        "audit logs"
+      ],
+      "outputs": [
+        "deny decisions",
+        "suppression logs"
+      ],
+      "failureModes": [
+        "timer drift",
+        "missing escalation signals"
+      ]
     },
     {
       "key": "security.enforcer",
@@ -1023,14 +2219,39 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["interaction"],
-      "entrypoints": ["engine/securityEnforcerEngine.js", "engine/securityRick.js"],
-      "dependencies": {"services": ["permissionService", "governanceEngine", "shadowLayerEngine"]},
+      "triggerTypes": [
+        "interaction"
+      ],
+      "entrypoints": [
+        "engine/securityEnforcerEngine.js",
+        "engine/securityRick.js"
+      ],
+      "dependencies": {
+        "services": [
+          "permissionService",
+          "governanceEngine",
+          "shadowLayerEngine"
+        ]
+      },
       "decisionLogic": "Executes enforcement decisions (deny, quarantine, timeout, kick, ban, shadow suppress) with role hierarchy and staff bypass safety.",
-      "stateMutations": ["user enforcement cooldown map", "member moderation state"],
-      "persistence": ["audit logs", "governance request records"],
-      "outputs": ["ephemeral block responses", "audit entries", "moderation actions"],
-      "failureModes": ["hierarchy blocks action", "permission missing", "unknown enforcement action"]
+      "stateMutations": [
+        "user enforcement cooldown map",
+        "member moderation state"
+      ],
+      "persistence": [
+        "audit logs",
+        "governance request records"
+      ],
+      "outputs": [
+        "ephemeral block responses",
+        "audit entries",
+        "moderation actions"
+      ],
+      "failureModes": [
+        "hierarchy blocks action",
+        "permission missing",
+        "unknown enforcement action"
+      ]
     },
     {
       "key": "eventReactor",
@@ -1041,14 +2262,30 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["event"],
-      "entrypoints": ["engine/eventReactorEngine.js"],
-      "dependencies": {"services": ["engineConfigService"]},
+      "triggerTypes": [
+        "event"
+      ],
+      "entrypoints": [
+        "engine/eventReactorEngine.js"
+      ],
+      "dependencies": {
+        "services": [
+          "engineConfigService"
+        ]
+      },
       "decisionLogic": "Processes configured event reactions and dispatches corresponding actions.",
-      "stateMutations": ["event reaction state"],
-      "persistence": ["Prisma event reaction config/state"],
-      "outputs": ["event reaction outputs"],
-      "failureModes": ["reaction misconfiguration"]
+      "stateMutations": [
+        "event reaction state"
+      ],
+      "persistence": [
+        "Prisma event reaction config/state"
+      ],
+      "outputs": [
+        "event reaction outputs"
+      ],
+      "failureModes": [
+        "reaction misconfiguration"
+      ]
     },
     {
       "key": "jed",
@@ -1059,17 +2296,49 @@
       "premiumRequired": false,
       "privateOnly": false,
       "enabledByDefault": true,
-      "triggerTypes": ["slash", "button"],
-      "entrypoints": ["engines/jedEngine.js", "commands/jed.js", "listeners/jedInteractionHandler.js"],
+      "triggerTypes": [
+        "slash",
+        "button"
+      ],
+      "entrypoints": [
+        "engines/jedEngine.js",
+        "commands/jed.js",
+        "listeners/jedInteractionHandler.js"
+      ],
       "dependencies": {
-        "services": ["engineConfigService", "prisma"],
-        "packages": ["sharp", "fluent-ffmpeg", "file-type"]
+        "services": [
+          "engineConfigService",
+          "prisma"
+        ],
+        "packages": [
+          "sharp",
+          "fluent-ffmpeg",
+          "file-type"
+        ]
       },
       "decisionLogic": "Validates allowed source domains and file size, converts assets into stickers/emojis, applies per-guild batch/ttl limits, and records execution usage.",
-      "stateMutations": ["temporary conversion files", "guild usage history", "emoji/sticker deployment state"],
-      "persistence": ["Prisma JedConfig", "Prisma JedUsage", "engine config"],
-      "outputs": ["emoji/sticker creation", "completion embeds", "audit usage events"],
-      "failureModes": ["domain blocked", "file too large", "cooldown active", "invalid asset type", "low memory"]
+      "stateMutations": [
+        "temporary conversion files",
+        "guild usage history",
+        "emoji/sticker deployment state"
+      ],
+      "persistence": [
+        "Prisma JedConfig",
+        "Prisma JedUsage",
+        "engine config"
+      ],
+      "outputs": [
+        "emoji/sticker creation",
+        "completion embeds",
+        "audit usage events"
+      ],
+      "failureModes": [
+        "domain blocked",
+        "file too large",
+        "cooldown active",
+        "invalid asset type",
+        "low memory"
+      ]
     }
   ],
   "dashboardSections": [
@@ -1086,47 +2355,89 @@
     {
       "key": "ai-persona",
       "label": "Premium",
-      "engineKeys": ["personaEngine"]
+      "engineKeys": [
+        "personaEngine"
+      ]
     },
     {
       "key": "community-tools",
       "label": "Utilities",
-      "engineKeys": ["communityStudio", "channelFlow"]
+      "engineKeys": [
+        "communityStudio",
+        "channelFlow"
+      ]
     },
     {
       "key": "live-signals",
       "label": "Social Alerts",
-      "engineKeys": ["signalRelay"]
+      "engineKeys": [
+        "signalRelay"
+      ]
     },
     {
       "key": "ai-adaptive",
       "label": "Possum AI",
-      "engineKeys": ["runtimeRouter"]
+      "engineKeys": [
+        "runtimeRouter"
+      ]
     },
     {
       "key": "access-support",
       "label": "Access and Support",
-      "engineKeys": ["onboarding", "tickets", "selfroles", "vip", "inviteTracker"]
+      "engineKeys": [
+        "onboarding",
+        "tickets",
+        "selfroles",
+        "vip",
+        "inviteTracker"
+      ]
     },
     {
       "key": "economy-progression",
       "label": "Economy",
-      "engineKeys": ["store", "contracts", "profile", "progression", "achievements", "hallOfFame", "loyalty"]
+      "engineKeys": [
+        "store",
+        "contracts",
+        "profile",
+        "progression",
+        "achievements",
+        "hallOfFame",
+        "loyalty"
+      ]
     },
     {
       "key": "gta-ops",
       "label": "Fun + Games",
-      "engineKeys": ["heist", "crew", "dominion"]
+      "engineKeys": [
+        "heist",
+        "crew",
+        "dominion"
+      ]
     },
     {
       "key": "events",
       "label": "Fun + Games",
-      "engineKeys": ["catDrop", "rareSpawn", "pokemon", "pokemonStage2", "range", "truthDare", "giveaways"]
+      "engineKeys": [
+        "catDrop",
+        "rareSpawn",
+        "pokemon",
+        "pokemonStage2",
+        "range",
+        "truthDare",
+        "giveaways"
+      ]
     },
     {
       "key": "multi-game-social",
       "label": "Fun + Games",
-      "engineKeys": ["gameIdentity", "presenceFusion", "playtime", "squadFinder", "gameProvider", "showoff"]
+      "engineKeys": [
+        "gameIdentity",
+        "presenceFusion",
+        "playtime",
+        "squadFinder",
+        "gameProvider",
+        "showoff"
+      ]
     },
     {
       "key": "security-governance",
@@ -1151,13 +2462,18 @@
     {
       "key": "experience",
       "label": "Premium",
-      "engineKeys": ["tts", "radio"]
+      "engineKeys": [
+        "tts",
+        "radio"
+      ]
     },
     {
       "key": "operations",
       "label": "Guild Control",
-      "engineKeys": ["jed"]
+      "engineKeys": [
+        "jed"
+      ]
     }
-  ]
+  ],
+  "sections": []
 }
-

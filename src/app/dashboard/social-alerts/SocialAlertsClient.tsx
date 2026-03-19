@@ -12,6 +12,10 @@ type SignalSource = {
   provider?: string;
   channelId?: string;
   feedUrl?: string;
+  sourceRef?: string;
+  resourceType?: string;
+  bridgeBaseUrl?: string;
+  resolvedFeedUrl?: string;
   color?: string;
   pingRoleId?: string;
   postAsEmbed?: boolean;
@@ -61,10 +65,10 @@ const PROVIDERS = [
   { key: "rss", label: "RSS Feeds", detail: "General blogs, updates, changelogs, and site feeds.", anchor: "#sources" },
   { key: "podcast", label: "Podcast Alerts", detail: "Podcast episode drops using RSS-compatible feeds.", anchor: "#sources" },
   { key: "youtube", label: "YouTube Alerts", detail: "Creator video drops through the same relay engine.", anchor: "#sources" },
-  { key: "twitch", label: "Twitch Alerts", detail: "Live stream notifications routed through feed-backed sources.", anchor: "#sources" },
-  { key: "tiktok", label: "TikTok Alerts", detail: "Creator upload notices routed through signal sources.", anchor: "#sources" },
-  { key: "x", label: "X Alerts", detail: "Post alerts using feed-backed mirrors where you choose to use them.", anchor: "#sources" },
-  { key: "bluesky", label: "Bluesky Alerts", detail: "Feed-backed Bluesky notices in the same relay layer.", anchor: "#sources" },
+  { key: "twitch", label: "Twitch Alerts", detail: "Live stream notifications using creator handles and built-in bridge routes.", anchor: "#sources" },
+  { key: "tiktok", label: "TikTok Alerts", detail: "Creator upload notices using provider-aware route resolution.", anchor: "#sources" },
+  { key: "x", label: "X Alerts", detail: "Post alerts using account handles or direct feed overrides.", anchor: "#sources" },
+  { key: "bluesky", label: "Bluesky Alerts", detail: "Bluesky notices using profile handles through Signal Relay.", anchor: "#sources" },
   { key: "reddit", label: "Reddit Alerts", detail: "Subreddit and topic feeds dispatched into server channels.", anchor: "#sources" },
   { key: "instagram", label: "Instagram Alerts", detail: "Image-post notices through the relay source list.", anchor: "#sources" },
   { key: "kick", label: "Kick Alerts", detail: "Stream notices routed with the same signal source engine.", anchor: "#sources" },
@@ -79,6 +83,9 @@ function createSource(provider: string): SignalSource {
     provider,
     channelId: "",
     feedUrl: "",
+    sourceRef: "",
+    resourceType: provider === "reddit" ? "subreddit" : provider === "youtube" ? "handle" : provider === "rss" || provider === "podcast" ? "feed" : "handle",
+    bridgeBaseUrl: "https://rsshub.app",
     color: provider === "youtube" ? "#ff3838" : provider === "twitch" ? "#7c3aed" : "#4fd1c5",
     pingRoleId: "",
     postAsEmbed: true,
@@ -200,7 +207,7 @@ export default function SocialAlertsClient() {
     PROVIDERS.map((provider) => {
       const sources = (config.sources || []).filter((source) => String(source.provider || "").toLowerCase() === provider.key);
       const enabledCount = sources.filter((source) => source.enabled !== false).length;
-      const configuredCount = sources.filter((source) => String(source.feedUrl || "").trim() && String(source.channelId || "").trim()).length;
+      const configuredCount = sources.filter((source) => (String(source.feedUrl || "").trim() || String(source.sourceRef || "").trim()) && String(source.channelId || "").trim()).length;
       return {
         ...provider,
         active: enabledCount > 0,
@@ -221,7 +228,7 @@ export default function SocialAlertsClient() {
         <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Social Alerts</h1>
         <div style={{ color: "#ff9c9c", marginTop: 6 }}>Guild: {guildName || guildId}</div>
         <div style={{ ...micro, marginTop: 6 }}>
-          This recreates the social-alert grid without splitting your bot into ten throwaway engines. RSS, podcast, YouTube, Twitch, TikTok, X, Bluesky, Reddit, Instagram, and Kick all stay under Signal Relay so the runtime stays sane on the small VM.
+          This recreates the social-alert grid without splitting your bot into ten throwaway engines. RSS, podcast, YouTube, Twitch, TikTok, X, Bluesky, Reddit, Instagram, and Kick all stay under Signal Relay, but provider cards now map to real provider-aware routes instead of dead feed-only copy.
         </div>
         {message ? <div style={{ color: "#ffd27a", marginTop: 10 }}>{message}</div> : null}
       </section>
@@ -247,8 +254,8 @@ export default function SocialAlertsClient() {
               </div>
               <div style={{ fontSize: 12, color: "#ffcfcf" }}>
                 {cardDef.configuredCount
-                  ? `${cardDef.configuredCount} source${cardDef.configuredCount === 1 ? "" : "s"} already have both a channel and feed URL.`
-                  : "Enable the provider, then finish the feed URL and channel inside Signal Relay."}
+                  ? `${cardDef.configuredCount} source${cardDef.configuredCount === 1 ? "" : "s"} already have both a channel and provider route.`
+                  : "Enable the provider, then finish the handle / route details and channel inside Signal Relay."}
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

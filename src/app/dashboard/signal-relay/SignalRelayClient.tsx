@@ -12,6 +12,10 @@ type SignalSource = {
   provider?: string;
   channelId?: string;
   feedUrl?: string;
+  sourceRef?: string;
+  resourceType?: string;
+  bridgeBaseUrl?: string;
+  resolvedFeedUrl?: string;
   color?: string;
   pingRoleId?: string;
   postAsEmbed?: boolean;
@@ -59,17 +63,75 @@ const input: React.CSSProperties = { width: "100%", padding: "10px 12px", backgr
 const button: React.CSSProperties = { ...input, width: "auto", cursor: "pointer", fontWeight: 800 };
 const micro: React.CSSProperties = { fontSize: 12, color: "#ffb2b2", lineHeight: 1.6 };
 const PROVIDERS = [
-  { key: "rss", label: "RSS", hint: "General site or blog feeds" },
-  { key: "podcast", label: "Podcast", hint: "Audio show RSS with episode drops" },
-  { key: "youtube", label: "YouTube", hint: "Channel or creator feed URL" },
-  { key: "twitch", label: "Twitch", hint: "Creator stream feed mirror" },
-  { key: "reddit", label: "Reddit", hint: "Subreddit feed or filtered topic" },
-  { key: "bluesky", label: "Bluesky", hint: "Feed mirror or external RSS wrapper" },
-  { key: "x", label: "X", hint: "External feed mirror for posts" },
-  { key: "instagram", label: "Instagram", hint: "Feed bridge or creator source" },
-  { key: "tiktok", label: "TikTok", hint: "Feed bridge for creator uploads" },
-  { key: "kick", label: "Kick", hint: "Feed bridge for live creator notices" },
+  { key: "rss", label: "RSS", hint: "Direct feed URL" },
+  { key: "podcast", label: "Podcast", hint: "Direct RSS episode feed" },
+  { key: "youtube", label: "YouTube", hint: "Handle, channel ID, or playlist ID" },
+  { key: "twitch", label: "Twitch", hint: "Streamer handle through built-in bridge routes" },
+  { key: "reddit", label: "Reddit", hint: "Subreddit or Reddit username" },
+  { key: "bluesky", label: "Bluesky", hint: "Profile handle through built-in bridge routes" },
+  { key: "x", label: "X", hint: "Account handle through built-in bridge routes" },
+  { key: "instagram", label: "Instagram", hint: "Creator handle through built-in bridge routes" },
+  { key: "tiktok", label: "TikTok", hint: "Creator handle through built-in bridge routes" },
+  { key: "kick", label: "Kick", hint: "Channel handle through built-in bridge routes" },
 ] as const;
+
+function safeUrl(value: string) {
+  return /^https?:\/\//i.test(String(value || "").trim()) ? String(value || "").trim() : "";
+}
+
+function bridgeBaseUrl(value: string) {
+  return safeUrl(value || "https://rsshub.app").replace(/\/+$/, "") || "https://rsshub.app";
+}
+
+function normalizeSourceRef(provider: string, value: string) {
+  const text = String(value || "").trim().replace(/^@/, "");
+  if (!/^https?:\/\//i.test(text)) return text;
+  try {
+    const url = new URL(text);
+    const parts = url.pathname.split("/").map((entry) => entry.trim()).filter(Boolean);
+    if (!parts.length) return "";
+    if (provider === "reddit") {
+      const subredditIndex = parts.findIndex((entry) => entry.toLowerCase() === "r");
+      const userIndex = parts.findIndex((entry) => entry.toLowerCase() === "user");
+      return String(parts[subredditIndex >= 0 ? subredditIndex + 1 : userIndex >= 0 ? userIndex + 1 : 0] || "").replace(/^@/, "");
+    }
+    if (provider === "youtube") {
+      const handle = parts.find((entry) => entry.startsWith("@"));
+      return String(handle || parts.at(-1) || "").replace(/^@/, "");
+    }
+    return String(parts.at(-1) || "").replace(/^@/, "");
+  } catch {
+    return text;
+  }
+}
+
+function resolveSourceRoute(source: SignalSource) {
+  const provider = String(source.provider || "rss").toLowerCase();
+  const feedUrl = safeUrl(String(source.feedUrl || ""));
+  if (feedUrl) return feedUrl;
+  const ref = normalizeSourceRef(provider, String(source.sourceRef || ""));
+  if (!ref) return "";
+  if (provider === "youtube") {
+    if (source.resourceType === "channel_id") return `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(ref)}`;
+    if (source.resourceType === "playlist_id") return `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(ref)}`;
+    return `${bridgeBaseUrl(String(source.bridgeBaseUrl || ""))}/youtube/channel/${encodeURIComponent(ref)}`;
+  }
+  if (provider === "reddit") {
+    if (source.resourceType === "user") return `https://www.reddit.com/user/${encodeURIComponent(ref)}/submitted/.rss`;
+    return `https://www.reddit.com/r/${encodeURIComponent(ref)}/new/.rss`;
+  }
+  if (provider === "rss" || provider === "podcast") return "";
+  const providerRoutes: Record<string, string> = {
+    twitch: "twitch/channel",
+    tiktok: "tiktok/user",
+    x: "twitter/user",
+    bluesky: "bsky/profile",
+    instagram: "instagram/user",
+    kick: "kick/channel",
+  };
+  const route = providerRoutes[provider];
+  return route ? `${bridgeBaseUrl(String(source.bridgeBaseUrl || ""))}/${route}/${encodeURIComponent(ref)}` : "";
+}
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -83,6 +145,9 @@ function createSource(): SignalSource {
     provider: "rss",
     channelId: "",
     feedUrl: "",
+    sourceRef: "",
+    resourceType: "feed",
+    bridgeBaseUrl: "https://rsshub.app",
     color: "#4fd1c5",
     pingRoleId: "",
     postAsEmbed: true,
@@ -96,6 +161,41 @@ function createSource(): SignalSource {
 
 function providerHint(key: string) {
   return PROVIDERS.find((provider) => provider.key === key)?.hint || "General feed source";
+}
+
+function resourceOptionsFor(provider: string) {
+  switch (provider) {
+    case "youtube":
+      return [
+        { value: "handle", label: "Handle" },
+        { value: "channel_id", label: "Channel ID" },
+        { value: "playlist_id", label: "Playlist ID" },
+      ];
+    case "reddit":
+      return [
+        { value: "subreddit", label: "Subreddit" },
+        { value: "user", label: "User" },
+      ];
+    case "rss":
+    case "podcast":
+      return [{ value: "feed", label: "Feed URL" }];
+    default:
+      return [{ value: "handle", label: "Handle" }];
+  }
+}
+
+function sourceRefLabel(provider: string) {
+  switch (provider) {
+    case "youtube":
+      return "Handle / Channel / Playlist";
+    case "reddit":
+      return "Subreddit / User";
+    case "rss":
+    case "podcast":
+      return "Direct Feed URL";
+    default:
+      return "Creator Handle";
+  }
 }
 
 function labelForChannel(channels: Channel[], channelId: string) {
@@ -129,6 +229,7 @@ export default function SignalRelayClient() {
   );
   const activeSourceIndex = cfg.sources.length ? Math.max(0, Math.min(selectedSourceIndex, cfg.sources.length - 1)) : -1;
   const activeSource = activeSourceIndex >= 0 ? cfg.sources[activeSourceIndex] : null;
+  const resolvedPreviewUrl = useMemo(() => activeSource ? resolveSourceRoute(activeSource) : "", [activeSource]);
 
   function updateSource(index: number, patch: Partial<SignalSource>) {
     setCfg((prev) => {
@@ -154,6 +255,9 @@ export default function SignalRelayClient() {
       label: source.label && source.label !== "New Source" ? source.label : `${label} Relay`,
       postAsEmbed: provider !== "podcast" && provider !== "rss" ? true : source.postAsEmbed,
       includeSummary: provider !== "twitch",
+      resourceType: resourceOptionsFor(provider)[0]?.value || "feed",
+      sourceRef: provider === "rss" || provider === "podcast" ? "" : source.sourceRef || "",
+      feedUrl: provider === "rss" || provider === "podcast" ? source.feedUrl || "" : "",
     });
   }
 
@@ -164,7 +268,7 @@ export default function SignalRelayClient() {
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Signal Relay</h1>
       <div style={{ color: "#ff9c9c", marginTop: 6 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Feed-driven creator and community dispatches. This stays intentionally different from MEE6 by leaning on configurable feed sources instead of a cloned alert stack.
+        Provider-aware creator and community dispatches. Signal Relay now resolves built-in provider routes for YouTube, Twitch, TikTok, X, Bluesky, Reddit, Instagram, and Kick so you are not forced to paste raw feed URLs for everything.
       </div>
       {message ? <div style={{ color: "#ffd27a", marginTop: 8 }}>{message}</div> : null}
 
@@ -225,7 +329,7 @@ export default function SignalRelayClient() {
               </div>
             </div>
             <div style={{ marginTop: 10, ...micro }}>
-              Feed processing still runs through the same runtime. This screen only makes source editing visual instead of JSON-only.
+              Signal Relay now resolves provider routes for creator handles and subreddit names. Keep `Feed URL Override` for direct RSS or when you want to force a custom source.
             </div>
           </section>
 
@@ -250,7 +354,7 @@ export default function SignalRelayClient() {
                     </div>
                     <div>
                       <div style={{ marginBottom: 6 }}>Provider</div>
-                      <select style={input} value={String(activeSource.provider || "rss")} onChange={(e) => updateSource(activeSourceIndex, { provider: e.target.value })}>
+                      <select style={input} value={String(activeSource.provider || "rss")} onChange={(e) => applyPreset(activeSourceIndex, e.target.value)}>
                         {PROVIDERS.map((provider) => <option key={provider.key} value={provider.key}>{provider.label}</option>)}
                       </select>
                     </div>
@@ -274,9 +378,28 @@ export default function SignalRelayClient() {
                     <label><input type="checkbox" checked={activeSource.postAsEmbed !== false} onChange={(e) => updateSource(activeSourceIndex, { postAsEmbed: e.target.checked })} /> Post As Embed</label>
                     <label><input type="checkbox" checked={activeSource.includeSummary !== false} onChange={(e) => updateSource(activeSourceIndex, { includeSummary: e.target.checked })} /> Include Summary</label>
                   </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+                    <div>
+                      <div style={{ marginBottom: 6 }}>Route Type</div>
+                      <select style={input} value={String(activeSource.resourceType || resourceOptionsFor(String(activeSource.provider || "rss"))[0]?.value || "feed")} onChange={(e) => updateSource(activeSourceIndex, { resourceType: e.target.value })}>
+                        {resourceOptionsFor(String(activeSource.provider || "rss")).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ marginBottom: 6 }}>{sourceRefLabel(String(activeSource.provider || "rss"))}</div>
+                      <input style={input} value={String(activeSource.sourceRef || "")} onChange={(e) => updateSource(activeSourceIndex, { sourceRef: e.target.value })} />
+                    </div>
+                    <div>
+                      <div style={{ marginBottom: 6 }}>Bridge Base URL</div>
+                      <input style={input} value={String(activeSource.bridgeBaseUrl || "https://rsshub.app")} onChange={(e) => updateSource(activeSourceIndex, { bridgeBaseUrl: e.target.value })} />
+                    </div>
+                  </div>
                   <div>
-                    <div style={{ marginBottom: 6 }}>Feed URL</div>
+                    <div style={{ marginBottom: 6 }}>Feed URL Override</div>
                     <input style={input} value={String(activeSource.feedUrl || "")} onChange={(e) => updateSource(activeSourceIndex, { feedUrl: e.target.value })} />
+                    <div style={{ ...micro, marginTop: 6 }}>
+                      Resolved URL: {String(resolvedPreviewUrl || activeSource.feedUrl || activeSource.resolvedFeedUrl || "Provider route not resolved yet.")}
+                    </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
                     <div>

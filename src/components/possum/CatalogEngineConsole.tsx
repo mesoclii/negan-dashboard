@@ -779,10 +779,10 @@ export default function CatalogEngineConsole({
       const json = await res.json().catch(() => ({}));
       if (cancelled || !res.ok || json?.success === false) return;
 
-      const specs = Array.isArray(json?.engineSpecs) ? json.engineSpecs : [];
+      const specs: LiveEngineSpec[] = Array.isArray(json?.engineSpecs) ? (json.engineSpecs as LiveEngineSpec[]) : [];
       const found =
-        specs.find((entry) => String(entry?.engineKey || "").trim() === engineKey) ||
-        specs.find((entry) => String(entry?.configKey || "").trim() === engineKey) ||
+        specs.find((entry: LiveEngineSpec) => String(entry?.engineKey || "").trim() === engineKey) ||
+        specs.find((entry: LiveEngineSpec) => String(entry?.configKey || "").trim() === engineKey) ||
         null;
 
       setSpec(found);

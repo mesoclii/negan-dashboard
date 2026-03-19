@@ -78,11 +78,13 @@ export default function EngineInsights({
                   <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 2 }}>{row.value}</div>
                 </div>
               ))
-            ) : (
+            ) : value && typeof value === "object" ? (
               <div>
-                <div style={{ color: "#ffdcdc", fontWeight: 700 }}>{value.title}</div>
-                <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 2 }}>{value.value}</div>
+                <div style={{ color: "#ffdcdc", fontWeight: 700 }}>{String((value as { title?: unknown }).title || title)}</div>
+                <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 2 }}>{String((value as { value?: unknown }).value || "")}</div>
               </div>
+            ) : (
+              <div style={{ color: "#ffbdbd", fontSize: 12 }}>{String(value)}</div>
             )}
           </section>
         );

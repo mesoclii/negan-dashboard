@@ -97,6 +97,7 @@ function normalizeRoute(route: Partial<TtsRoute>, index: number): TtsRoute {
     ? route.sourceChannelIds.map((id) => String(id || "").trim()).filter(Boolean)
     : [];
   const legacySource = String(route.sourceChannelId || "").trim();
+  const maxCharsValue = route.maxCharsPerMessage as number | string | null | undefined;
   if (legacySource && !sourceChannelIds.includes(legacySource)) {
     sourceChannelIds.unshift(legacySource);
   }
@@ -113,9 +114,9 @@ function normalizeRoute(route: Partial<TtsRoute>, index: number): TtsRoute {
     priority: Math.max(0, Number(route.priority ?? DEFAULT_ROUTE.priority)),
     volume: Math.min(200, Math.max(1, Number(route.volume ?? DEFAULT_ROUTE.volume))),
     maxCharsPerMessage:
-      route.maxCharsPerMessage === null || route.maxCharsPerMessage === undefined || route.maxCharsPerMessage === ""
+      maxCharsValue === null || maxCharsValue === undefined || maxCharsValue === ""
         ? null
-        : Math.max(1, Number(route.maxCharsPerMessage)),
+        : Math.max(1, Number(maxCharsValue)),
     requirePrefix:
       route.requirePrefix === null || route.requirePrefix === undefined
         ? null
