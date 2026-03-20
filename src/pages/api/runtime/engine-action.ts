@@ -6,6 +6,14 @@ import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { normalizeEngineKey } from "@/lib/engineKeys";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "4mb",
+    },
+  },
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     try {

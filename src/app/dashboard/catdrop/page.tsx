@@ -7,6 +7,12 @@ import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 type CatTierKey = "common" | "rare" | "epic" | "legendary" | "mythic" | "god";
 type CatTier = { chance: number; catchRate: number; coins: number; days?: number; hours?: number };
 type CatChannelWeight = { id: string; weight: number };
+type CatSpecialCatchRoles = {
+  godPermanentRoleId: string;
+  milestone50RoleId: string;
+  milestone100RoleId: string;
+  milestone200RoleId: string;
+};
 type CatDropCfg = {
   enabled: boolean;
   maxActiveSpawns: number;
@@ -16,6 +22,7 @@ type CatDropCfg = {
   minCatchAgeMs: number;
   channels: Array<string | CatChannelWeight>;
   tiers: Record<CatTierKey, CatTier>;
+  specialCatchRoles: CatSpecialCatchRoles;
 };
 
 const TIER_KEYS: CatTierKey[] = ["common", "rare", "epic", "legendary", "mythic", "god"];
@@ -35,6 +42,12 @@ const DEFAULT_CONFIG: CatDropCfg = {
     legendary: { chance: 0.02, catchRate: 0.2, coins: 250, days: 30 },
     mythic: { chance: 0.01, catchRate: 0.1, coins: 400, hours: 72 },
     god: { chance: 0.0004, catchRate: 0.08, coins: 1000, hours: 144 },
+  },
+  specialCatchRoles: {
+    godPermanentRoleId: "",
+    milestone50RoleId: "",
+    milestone100RoleId: "",
+    milestone200RoleId: "",
   },
 };
 
@@ -65,6 +78,10 @@ function normalizeConfig(raw: Partial<CatDropCfg> | CatDropCfg): CatDropCfg {
       mythic: { ...DEFAULT_CONFIG.tiers.mythic, ...(next.tiers?.mythic || {}) },
       god: { ...DEFAULT_CONFIG.tiers.god, ...(next.tiers?.god || {}) },
     },
+    specialCatchRoles: {
+      ...DEFAULT_CONFIG.specialCatchRoles,
+      ...(next.specialCatchRoles || {}),
+    },
   };
 }
 
@@ -79,6 +96,7 @@ export default function CatDropEnginePage() {
     config: rawCfg,
     setConfig: setCfg,
     channels,
+    roles,
     summary,
     details,
     loading,
@@ -245,6 +263,93 @@ export default function CatDropEnginePage() {
                   </div>
                 );
               })}
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Special Catch Roles
+            </div>
+            <div style={{ color: "#ff9c9c", fontSize: 12, marginBottom: 12 }}>
+              These are the live role rewards already wired into the cat engine. God Cat VIP still follows your VIP engine mapping.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>50 Catches Role</div>
+                <select
+                  style={input}
+                  value={cfg.specialCatchRoles.milestone50RoleId || ""}
+                  onChange={(e) =>
+                    setCfg((prev) => ({
+                      ...normalizeConfig(prev),
+                      specialCatchRoles: {
+                        ...normalizeConfig(prev).specialCatchRoles,
+                        milestone50RoleId: e.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value="">Select role</option>
+                  {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>100 Catches Role</div>
+                <select
+                  style={input}
+                  value={cfg.specialCatchRoles.milestone100RoleId || ""}
+                  onChange={(e) =>
+                    setCfg((prev) => ({
+                      ...normalizeConfig(prev),
+                      specialCatchRoles: {
+                        ...normalizeConfig(prev).specialCatchRoles,
+                        milestone100RoleId: e.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value="">Select role</option>
+                  {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>200 Catches Role</div>
+                <select
+                  style={input}
+                  value={cfg.specialCatchRoles.milestone200RoleId || ""}
+                  onChange={(e) =>
+                    setCfg((prev) => ({
+                      ...normalizeConfig(prev),
+                      specialCatchRoles: {
+                        ...normalizeConfig(prev).specialCatchRoles,
+                        milestone200RoleId: e.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value="">Select role</option>
+                  {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>God Catch Permanent Role</div>
+                <select
+                  style={input}
+                  value={cfg.specialCatchRoles.godPermanentRoleId || ""}
+                  onChange={(e) =>
+                    setCfg((prev) => ({
+                      ...normalizeConfig(prev),
+                      specialCatchRoles: {
+                        ...normalizeConfig(prev).specialCatchRoles,
+                        godPermanentRoleId: e.target.value,
+                      },
+                    }))
+                  }
+                >
+                  <option value="">Select role</option>
+                  {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                </select>
+              </div>
             </div>
           </section>
 

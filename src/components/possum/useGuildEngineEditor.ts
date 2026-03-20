@@ -168,6 +168,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
         json?.result?.presence?.applied ? "live presence" : "",
         json?.result?.avatar?.applied ? "bot avatar" : "",
         json?.result?.banner?.applied ? "bot banner" : "",
+        json?.result?.webhookIdentity?.applied ? "webhook identity" : "",
       ].filter(Boolean);
       if (warnings.length) {
         setMessage(warnings.join(" | "));
