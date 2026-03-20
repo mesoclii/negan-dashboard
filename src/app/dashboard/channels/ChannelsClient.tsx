@@ -7,7 +7,7 @@ type GuildChannel = { id: string; name: string; type?: number | string };
 type Field = {
   key: string;
   label: string;
-  type: "text" | "voice" | "category" | "text-multi";
+  type: "text" | "voice" | "category" | "text-multi" | "category-multi";
 };
 
 type Section = {
@@ -30,20 +30,14 @@ const SECTIONS: Section[] = [
       { key: "panelChannelId", label: "Panel Channel", type: "text" },
       { key: "openCategoryId", label: "Open Category", type: "category" },
       { key: "closedCategoryId", label: "Closed Category", type: "category" },
-      { key: "transcriptLogId", label: "Transcript Log", type: "text" },
       { key: "types.support.openCategoryId", label: "Support Open Category", type: "category" },
       { key: "types.support.closedCategoryId", label: "Support Closed Category", type: "category" },
-      { key: "types.support.transcriptChannelId", label: "Support Transcript Channel", type: "text" },
-      { key: "types.support.logChannelId", label: "Support Log Channel", type: "text" },
       { key: "types.vip.openCategoryId", label: "VIP Open Category", type: "category" },
       { key: "types.vip.closedCategoryId", label: "VIP Closed Category", type: "category" },
-      { key: "types.vip.transcriptChannelId", label: "VIP Transcript Channel", type: "text" },
-      { key: "types.vip.logChannelId", label: "VIP Log Channel", type: "text" },
       { key: "types.drops.openCategoryId", label: "Drops Open Category", type: "category" },
       { key: "types.drops.closedCategoryId", label: "Drops Closed Category", type: "category" },
-      { key: "types.drops.transcriptChannelId", label: "Drops Transcript Channel", type: "text" },
-      { key: "types.drops.logChannelId", label: "Drops Log Channel", type: "text" },
     ],
+    note: "Set the ticket panel and the open/closed categories only. Transcript routing falls back automatically and does not need its own channel slot here.",
   },
   {
     key: "onboarding",
@@ -55,7 +49,6 @@ const SECTIONS: Section[] = [
       { key: "rulesChannelId", label: "Rules Channel", type: "text" },
       { key: "idChannelId", label: "ID Channel", type: "text" },
       { key: "ticketCategoryId", label: "Ticket Category", type: "category" },
-      { key: "transcriptChannelId", label: "Transcript Channel", type: "text" },
       { key: "logChannelId", label: "Log Channel", type: "text" },
       { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel", type: "text" },
       { key: "hostingEnhancedChannelId", label: "Hosting Enhanced Channel", type: "text" },
@@ -82,6 +75,16 @@ const SECTIONS: Section[] = [
       { key: "logChannelId", label: "Log Channel", type: "text" },
     ],
     supportsPanels: true,
+  },
+  {
+    key: "progression",
+    label: "Progression + Achievements",
+    engine: "progression",
+    fields: [
+      { key: "levelUp.announceChannelId", label: "Level Up Channel", type: "text" },
+      { key: "achievements.announceChannelId", label: "Achievement Channel", type: "text" },
+      { key: "badges.panelChannelId", label: "Badge Panel Channel", type: "text" },
+    ],
   },
   {
     key: "tts",
@@ -149,6 +152,94 @@ const SECTIONS: Section[] = [
     engine: "music",
     fields: [{ key: "panelDeploy.channelId", label: "Panel Channel", type: "text" }],
   },
+  {
+    key: "crew",
+    label: "Crew",
+    engine: "crew",
+    fields: [{ key: "recruitChannelId", label: "Recruit Channel", type: "text" }],
+  },
+  {
+    key: "dominion",
+    label: "Dominion",
+    engine: "dominion",
+    fields: [{ key: "announceChannelId", label: "Battle Log Channel", type: "text" }],
+  },
+  {
+    key: "prestige",
+    label: "Prestige",
+    engine: "prestige",
+    fields: [{ key: "announceChannelId", label: "Prestige Channel", type: "text" }],
+  },
+  {
+    key: "hallOfFame",
+    label: "Hall Of Fame",
+    engine: "hallOfFame",
+    fields: [
+      { key: "primaryChannelId", label: "Hall Of Fame Channel", type: "text" },
+      { key: "logChannelId", label: "Log Channel", type: "text" },
+    ],
+  },
+  {
+    key: "loyalty",
+    label: "Loyalty",
+    engine: "loyalty",
+    fields: [{ key: "announceChannelId", label: "Announce Channel", type: "text" }],
+  },
+  {
+    key: "catDrop",
+    label: "Cat Drop",
+    engine: "catDrop",
+    fields: [{ key: "channels", label: "Spawn Channels", type: "text-multi" }],
+    note: "These are the text channels cat drops can land in. Weight tuning still lives on the Cat Drop page.",
+  },
+  {
+    key: "rareSpawn",
+    label: "Rare Spawn",
+    engine: "rareSpawn",
+    fields: [
+      { key: "channels", label: "Spawn Channels", type: "text-multi" },
+      { key: "categories", label: "Spawn Categories", type: "category-multi" },
+      { key: "logChannelId", label: "Log Channel", type: "text" },
+    ],
+    note: "Pick the spawn areas and the log destination. The Rare Spawn page still owns reward tuning and timers.",
+  },
+  {
+    key: "range",
+    label: "Range",
+    engine: "range",
+    fields: [{ key: "allowedChannelIds", label: "Allowed Channels", type: "text-multi" }],
+  },
+  {
+    key: "pokemon",
+    label: "Pokemon",
+    engine: "pokemon",
+    fields: [
+      { key: "channels", label: "Spawn Channels", type: "text-multi" },
+      { key: "catchLogChannelId", label: "Catch Log Channel", type: "text" },
+      { key: "battleChannelId", label: "Battle Channel", type: "text" },
+      { key: "battleLogChannelId", label: "Battle Log Channel", type: "text" },
+      { key: "tradeLogChannelId", label: "Trade Log Channel", type: "text" },
+    ],
+  },
+  {
+    key: "channelFlow",
+    label: "Channel Flow",
+    engine: "channelFlow",
+    fields: [
+      { key: "rooms.lobbyChannelId", label: "Temp Room Lobby", type: "voice" },
+      { key: "rooms.categoryId", label: "Temp Room Category", type: "category" },
+    ],
+    note: "Counters and room templates stay on the Channel Flow page; this page just handles the routing channels.",
+  },
+  {
+    key: "radio",
+    label: "Radio + Birthday",
+    engine: "radio",
+    fields: [
+      { key: "birthday.broadcastChannelId", label: "Birthday Broadcast Channel", type: "text" },
+      { key: "radio.announceChannelId", label: "Radio Announce Channel", type: "text" },
+    ],
+  },
 ];
 
 const card: React.CSSProperties = {
@@ -205,9 +296,33 @@ function toggleId(list: string[], id: string) {
   return Array.from(set);
 }
 
-async function readRuntimeEngineConfig(guildId: string, engine: string) {
+function extractIdList(value: any): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      if (typeof entry === "string") return entry.trim();
+      if (entry && typeof entry === "object") return String(entry.id || "").trim();
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function toggleIdEntries(value: any, id: string) {
+  const current = Array.isArray(value) ? value : [];
+  const currentIds = new Set(extractIdList(current));
+  if (currentIds.has(id)) {
+    return current.filter((entry) => {
+      if (typeof entry === "string") return entry.trim() !== id;
+      if (entry && typeof entry === "object") return String(entry.id || "").trim() !== id;
+      return false;
+    });
+  }
+  return [...current, id];
+}
+
+async function readEngineConfig(guildId: string, engine: string) {
   const res = await fetch(
-    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+    `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
     { cache: "no-store" }
   );
   const json = await res.json().catch(() => ({}));
@@ -227,24 +342,28 @@ export default function ChannelsClient() {
 
   useEffect(() => setGuildId(getGuildId()), []);
 
+  async function loadAllConfigs(activeGuildId: string) {
+    const gd = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(activeGuildId)}`, { cache: "no-store" })
+      .then((r) => r.json());
+    setChannels(Array.isArray(gd?.channels) ? gd.channels : []);
+
+    const entries = await Promise.all(
+      SECTIONS.map(async (section) => {
+        const config = await readEngineConfig(activeGuildId, section.engine);
+        return [section.key, config] as const;
+      })
+    );
+    const next: Record<string, any> = {};
+    for (const [key, config] of entries) next[key] = config;
+    setConfigs(next);
+  }
+
   useEffect(() => {
     if (!guildId) return;
     (async () => {
       setMsg("");
       try {
-        const gd = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" })
-          .then((r) => r.json());
-        setChannels(Array.isArray(gd?.channels) ? gd.channels : []);
-
-        const entries = await Promise.all(
-          SECTIONS.map(async (section) => {
-            const config = await readRuntimeEngineConfig(guildId, section.engine);
-            return [section.key, config] as const;
-          })
-        );
-        const next: Record<string, any> = {};
-        for (const [key, config] of entries) next[key] = config;
-        setConfigs(next);
+        await loadAllConfigs(guildId);
       } catch (e: any) {
         setMsg(e?.message || "Failed to load channel setup.");
       }
@@ -267,7 +386,7 @@ export default function ChannelsClient() {
 
   function getOptions(field: Field) {
     if (field.type === "voice") return voiceChannels;
-    if (field.type === "category") return categoryChannels;
+    if (field.type === "category" || field.type === "category-multi") return categoryChannels;
     return textChannels;
   }
 
@@ -276,18 +395,18 @@ export default function ChannelsClient() {
     setSaving((prev) => ({ ...prev, [section.key]: true }));
     setMsg("");
     try {
-      const res = await fetch("/api/runtime/engine", {
+      const res = await fetch("/api/bot/engine-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guildId,
           engine: section.engine,
-          patch: configs[section.key] || {},
+          config: configs[section.key] || {},
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
-      setConfigs((prev) => ({ ...prev, [section.key]: json?.config || configs[section.key] }));
+      await loadAllConfigs(guildId);
       setMsg(`${section.label} channels saved.`);
     } catch (e: any) {
       setMsg(e?.message || "Save failed.");
@@ -302,13 +421,13 @@ export default function ChannelsClient() {
     setMsg("");
     try {
       for (const section of SECTIONS) {
-        const res = await fetch("/api/runtime/engine", {
+        const res = await fetch("/api/bot/engine-config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             guildId,
             engine: section.engine,
-            patch: configs[section.key] || {},
+            config: configs[section.key] || {},
           }),
         });
         const json = await res.json().catch(() => ({}));
@@ -316,6 +435,7 @@ export default function ChannelsClient() {
           throw new Error(json?.error || `Failed to save ${section.label}.`);
         }
       }
+      await loadAllConfigs(guildId);
       setMsg("All channel sections saved.");
     } catch (e: any) {
       setMsg(e?.message || "Failed to save all channels.");
@@ -418,20 +538,21 @@ export default function ChannelsClient() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 12 }}>
                 {section.fields.map((field) => {
                   const value = readPath(cfg, field.key.split("."));
-                  if (field.type === "text-multi") {
-                    const list = Array.isArray(value) ? value : [];
+                  if (field.type === "text-multi" || field.type === "category-multi") {
+                    const list = extractIdList(value);
+                    const options = getOptions(field);
                     return (
                       <div key={field.key}>
                         <label>{field.label}</label>
                         <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
-                          {textChannels.map((c) => (
+                          {options.map((c) => (
                             <label key={`${field.key}-${c.id}`} style={{ display: "block", marginBottom: 4 }}>
                               <input
                                 type="checkbox"
                                 checked={list.includes(c.id)}
-                                onChange={() => updateField(section.key, field, toggleId(list, c.id))}
+                                onChange={() => updateField(section.key, field, toggleIdEntries(value, c.id))}
                               />{" "}
-                              #{c.name}
+                              {field.type === "category-multi" ? c.name : `#${c.name}`}
                             </label>
                           ))}
                         </div>
