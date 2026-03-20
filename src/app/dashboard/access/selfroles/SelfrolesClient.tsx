@@ -3,9 +3,11 @@
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
+import { useEffect, useMemo, useState } from "react";
 
 type GuildChannel = { id: string; name: string; type?: number | string };
 type GuildRole = { id: string; name: string };
+type GuildOption = { id: string; name: string; botPresent?: boolean };
 
 type RoleOption = {
   roleId: string;
@@ -118,6 +120,43 @@ function newPanel(defaults = DEFAULTS.panelDefaults): Panel {
   };
 }
 
+function cloneImportedSelfrolesConfig(source: Partial<Config>, sourceGuildName: string): Config {
+  const importedDefaults = {
+    ...DEFAULTS.panelDefaults,
+    ...(source.panelDefaults || {}),
+  };
+  const stamp = new Date().toLocaleString();
+
+  return {
+    active: source.active !== false,
+    requireVerification: Boolean(source.requireVerification),
+    verificationRoleId: "",
+    maxRolesPerUser: Number(source.maxRolesPerUser || DEFAULTS.maxRolesPerUser),
+    antiAbuseCooldownSec: Number(source.antiAbuseCooldownSec || DEFAULTS.antiAbuseCooldownSec),
+    logChannelId: "",
+    panelDefaults: importedDefaults,
+    panels: Array.isArray(source.panels)
+      ? source.panels.map((panel, panelIndex) => ({
+          ...newPanel(importedDefaults),
+          ...panel,
+          id: String(panel?.id || `panel_${panelIndex + 1}`),
+          channelId: "",
+          options: Array.isArray(panel?.options)
+            ? panel.options.map((option) => ({
+                ...newOption(),
+                ...option,
+                roleId: "",
+              }))
+            : [],
+        }))
+      : [],
+    notes: [source.notes?.trim(), `Imported from ${sourceGuildName} on ${stamp}. Role and channel IDs were cleared for remapping.`]
+      .filter(Boolean)
+      .join("\n\n"),
+    updatedAt: "",
+  };
+}
+
 export default function SelfrolesPage() {
   const {
     guildId,
@@ -134,10 +173,91 @@ export default function SelfrolesPage() {
     save,
     runAction,
   } = useGuildEngineEditor<Config>("selfroles", DEFAULTS);
+  const [availableGuilds, setAvailableGuilds] = useState<GuildOption[]>([]);
+  const [sourceGuildId, setSourceGuildId] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
 
   const textChannels = (channels as GuildChannel[]).filter(
     (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
   );
+  const importableGuilds = useMemo(
+    () => availableGuilds.filter((guild) => guild.id && guild.id !== guildId),
+    [availableGuilds, guildId]
+  );
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadAvailableGuilds() {
+      try {
+        const res = await fetch("/api/guilds/installed", { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (!alive) return;
+        const guilds = Array.isArray(json?.guilds) ? json.guilds : [];
+        const nextGuilds = guilds
+          .map((guild: any) => ({
+            id: String(guild?.id || "").trim(),
+            name: String(guild?.name || guild?.id || "").trim(),
+            botPresent: guild?.botPresent !== false,
+          }))
+          .filter((guild: GuildOption) => guild.id && guild.botPresent !== false)
+          .sort((a: GuildOption, b: GuildOption) => a.name.localeCompare(b.name));
+        setAvailableGuilds(nextGuilds);
+
+        if (!sourceGuildId && nextGuilds.length) {
+          const saviors = nextGuilds.find((guild: GuildOption) => /saviors/i.test(guild.name));
+          setSourceGuildId((saviors || nextGuilds[0]).id);
+        }
+      } catch {
+        if (!alive) return;
+        setAvailableGuilds([]);
+      }
+    }
+
+    void loadAvailableGuilds();
+    return () => {
+      alive = false;
+    };
+  }, [sourceGuildId]);
+
+  async function importFromGuild() {
+    if (!guildId) return;
+    const selected = importableGuilds.find((guild) => guild.id === sourceGuildId);
+    if (!selected) {
+      setImportMessage("Pick a source guild first.");
+      return;
+    }
+
+    const confirmed = typeof window === "undefined"
+      ? true
+      : window.confirm(
+          `Import all selfroles from ${selected.name}? This replaces the current selfroles template on this page. Channel IDs, log channel, verification role, and panel role IDs will be cleared so you can remap them for this guild.`
+        );
+    if (!confirmed) return;
+
+    setImporting(true);
+    setImportMessage("");
+    try {
+      const res = await fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(selected.id)}&engine=selfroles`, {
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error(json?.error || "Failed to load source selfroles config.");
+      }
+
+      const imported = cloneImportedSelfrolesConfig(json?.config || {}, selected.name);
+      setCfg(imported);
+      setImportMessage(
+        `Imported ${imported.panels.length} selfrole panel${imported.panels.length === 1 ? "" : "s"} from ${selected.name}. Role and channel mappings were cleared for this guild.`
+      );
+    } catch (err: any) {
+      setImportMessage(err?.message || "Failed to import selfroles.");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   function addPanel() {
     setCfg({ ...cfg, panels: [...(cfg.panels || []), newPanel(cfg.panelDefaults || DEFAULTS.panelDefaults)] });
@@ -181,8 +301,41 @@ export default function SelfrolesPage() {
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Selfroles Studio</h1>
       <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
+      {importMessage ? <div style={{ color: "#9ee493", marginBottom: 8 }}>{importMessage}</div> : null}
 
       <EngineInsights summary={summary} details={details} />
+
+      <div style={box}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Import From Another Guild</h3>
+        <p style={{ marginTop: 0, marginBottom: 10, color: "#ffd7d7" }}>
+          Copy a full selfroles setup from Saviors or any other installed guild, then just remap the roles and channels for this server.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 1fr) auto", gap: 10, alignItems: "end" }}>
+          <div>
+            <label>Source guild</label>
+            <select style={input} value={sourceGuildId} onChange={(e) => setSourceGuildId(e.target.value)}>
+              <option value="">Select guild</option>
+              {importableGuilds.map((guild) => (
+                <option key={guild.id} value={guild.id}>
+                  {guild.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => void importFromGuild()}
+            disabled={importing || !sourceGuildId}
+            style={{ padding: "10px 14px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7", minWidth: 220 }}
+          >
+            {importing ? "Importing..." : "Import Selfroles Template"}
+          </button>
+        </div>
+        <div style={{ marginTop: 10, color: "#ffb3b3", fontSize: 13 }}>
+          Preserved: panel layout, text, emoji, button styles, embed styling, webhook styling, defaults, and limits.
+          <br />
+          Cleared on purpose: panel role IDs, panel channel IDs, log channel, and verification role, so this guild can be remapped cleanly.
+        </div>
+      </div>
 
       <div style={box}>
         <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Selfroles active</label><br />
