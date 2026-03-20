@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { resolveGuildContext, fetchRuntimeEngine, saveRuntimeEngine, fetchDashboardConfig, saveDashboardConfig } from "@/lib/liveRuntime";
+import { resolveGuildContext, fetchRuntimeEngine, saveRuntimeEngine, fetchDashboardConfig, saveDashboardConfig, readJsonOrThrow } from "@/lib/liveRuntime";
 
 type EnginePayload = {
   config?: Record<string, any>;
@@ -51,6 +51,8 @@ export default function EconomyClient() {
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [coinGrant, setCoinGrant] = useState({ targetUserId: "", amount: "", reason: "staff reward" });
+  const [grantingCoins, setGrantingCoins] = useState(false);
 
   useEffect(() => {
     const resolved = resolveGuildContext();
@@ -113,6 +115,47 @@ export default function EconomyClient() {
     }
   }
 
+  function readSnowflake(value: string) {
+    const match = String(value || "").match(/\d{16,20}/);
+    return match ? match[0] : "";
+  }
+
+  async function grantCoins() {
+    if (!guildId) return;
+    const targetUserId = readSnowflake(coinGrant.targetUserId);
+    const amount = Math.floor(Number(coinGrant.amount || 0));
+    if (!targetUserId) {
+      setMessage("Enter a valid member ID or paste a Discord mention.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage("Coin grant amount must be a positive whole number.");
+      return;
+    }
+
+    try {
+      setGrantingCoins(true);
+      setMessage("");
+      const res = await fetch("/api/bot/grant-coins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          targetUserId,
+          amount,
+          reason: String(coinGrant.reason || "").trim() || "staff reward",
+        }),
+      });
+      const json = await readJsonOrThrow(res);
+      setCoinGrant((prev) => ({ ...prev, amount: "" }));
+      setMessage(`Granted ${amount} coins to ${targetUserId}. New shared balance: ${json?.balance ?? "updated"}.`);
+    } catch (err: any) {
+      setMessage(err?.message || "Coin grant failed.");
+    } finally {
+      setGrantingCoins(false);
+    }
+  }
+
   if (!guildId && !loading) {
     return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from `/guilds` first.</div>;
   }
@@ -150,6 +193,52 @@ export default function EconomyClient() {
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>{entry.description}</div>
               </div>
             ))}
+          </div>
+
+          <div style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", textTransform: "uppercase", letterSpacing: "0.08em" }}>Staff Coin Grant</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>
+              Grant coins from this guild control panel. Coins are shared on the bot account, and the grant is logged against this guild.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.7fr 1fr auto", gap: 10, alignItems: "end" }}>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Member ID or Mention</div>
+                <input
+                  style={input}
+                  value={coinGrant.targetUserId}
+                  onChange={(event) => setCoinGrant((prev) => ({ ...prev, targetUserId: event.target.value }))}
+                  placeholder="Paste a Discord ID or @mention"
+                />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Coins</div>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  style={input}
+                  value={coinGrant.amount}
+                  onChange={(event) => setCoinGrant((prev) => ({ ...prev, amount: event.target.value }))}
+                  placeholder="5000"
+                />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Reason</div>
+                <input
+                  style={input}
+                  value={coinGrant.reason}
+                  onChange={(event) => setCoinGrant((prev) => ({ ...prev, reason: event.target.value }))}
+                  placeholder="staff reward"
+                />
+              </div>
+              <button
+                onClick={() => void grantCoins()}
+                disabled={grantingCoins}
+                style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, paddingInline: 18 }}
+              >
+                {grantingCoins ? "Granting..." : "Give Coins"}
+              </button>
+            </div>
           </div>
 
           <div style={card}>
