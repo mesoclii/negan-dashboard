@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders, fetchBotApi, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { readServerCache, writeServerCache } from "@/lib/serverCache";
 
-const GUILD_ACCESS_PROXY_TTL_MS = Math.max(1_000, Number(process.env.GUILD_ACCESS_PROXY_TTL_MS || 30_000));
+const GUILD_ACCESS_PROXY_TTL_MS = Math.max(1_000, Number(process.env.GUILD_ACCESS_PROXY_TTL_MS || 300_000));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {

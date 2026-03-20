@@ -2,11 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-const ACCESS_CACHE_TTL_MS = 5 * 60 * 1000;
+const ACCESS_CACHE_TTL_MS = 15 * 60 * 1000;
+const SESSION_CACHE_TTL_MS = 10 * 60 * 1000;
 
 type AccessCacheEntry = {
   allowed: boolean;
   reason: string;
+  checkedAt: number;
+};
+
+type SessionCacheEntry = {
+  loggedIn: boolean;
+  userId: string;
   checkedAt: number;
 };
 
@@ -57,6 +64,10 @@ function accessCacheKey(guildId: string, userId: string) {
   return `dashboard-access:${guildId}:${userId}`;
 }
 
+function sessionCacheKey() {
+  return "dashboard-session-brief";
+}
+
 function readAccessCache(guildId: string, userId: string): AccessCacheEntry | null {
   if (typeof window === "undefined" || !guildId || !userId) {
     return null;
@@ -100,6 +111,45 @@ function writeAccessCache(guildId: string, userId: string, entry: Omit<AccessCac
   }
 }
 
+function readSessionCache(): SessionCacheEntry | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = sessionStorage.getItem(sessionCacheKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SessionCacheEntry;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (Date.now() - Number(parsed.checkedAt || 0) > SESSION_CACHE_TTL_MS) {
+      sessionStorage.removeItem(sessionCacheKey());
+      return null;
+    }
+    return {
+      loggedIn: Boolean(parsed.loggedIn),
+      userId: String(parsed.userId || ""),
+      checkedAt: Number(parsed.checkedAt || 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionCache(entry: Omit<SessionCacheEntry, "checkedAt">) {
+  if (typeof window === "undefined") return;
+
+  try {
+    sessionStorage.setItem(
+      sessionCacheKey(),
+      JSON.stringify({
+        loggedIn: Boolean(entry.loggedIn),
+        userId: String(entry.userId || ""),
+        checkedAt: Date.now(),
+      })
+    );
+  } catch {
+    // Ignore sessionStorage failures on restricted browsers.
+  }
+}
+
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -118,7 +168,6 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
 export default function DashboardAccessGate({ children }: { children: React.ReactNode }) {
   const [allowed, setAllowed] = useState(true);
   const [reason, setReason] = useState("");
-  const [warning, setWarning] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -126,15 +175,32 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
     (async () => {
       const context = getContext();
       let userId = context.userId;
+      const cachedSession = readSessionCache();
+      if (!userId && cachedSession?.userId) {
+        userId = cachedSession.userId;
+      }
       const cachedAccess = readAccessCache(context.guildId, userId);
 
       if (cachedAccess && mounted) {
         setAllowed(cachedAccess.allowed);
         setReason(cachedAccess.reason);
+        return;
       }
 
       try {
-        const { json: sessionJson } = await fetchJsonWithTimeout("/api/auth/session?brief=1", 1800);
+        let sessionJson: any = cachedSession
+          ? { loggedIn: cachedSession.loggedIn, user: { id: cachedSession.userId } }
+          : null;
+        if (!sessionJson) {
+          const sessionFetch = await fetchJsonWithTimeout("/api/auth/session?brief=1", 4500);
+          sessionJson = sessionFetch.json;
+          if (sessionJson?.loggedIn) {
+            writeSessionCache({
+              loggedIn: true,
+              userId: String(sessionJson?.user?.id || "").trim(),
+            });
+          }
+        }
         if (!sessionJson?.loggedIn) {
           if (!mounted) return;
           setAllowed(false);
@@ -150,9 +216,6 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         if (!mounted) return;
         if (context.guildId) {
           setAllowed(true);
-          if (!cachedAccess) {
-            setWarning("Login session check timed out. Continuing in safe-open mode for this page load.");
-          }
         } else {
           setAllowed(false);
           setReason("Login session check failed. Please reload and log in again.");
@@ -171,7 +234,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
       try {
         const { res: accessRes, json: accessJson } = await fetchJsonWithTimeout(
           `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}`,
-          1800
+          7000
         );
 
         if (!mounted) return;
@@ -184,12 +247,10 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         const nextReason = accessReasonLabel(String(accessJson?.reason || ""));
         setAllowed(nextAllowed);
         setReason(nextReason);
-        setWarning("");
         writeAccessCache(context.guildId, userId, { allowed: nextAllowed, reason: nextReason });
       } catch {
         if (!mounted) return;
         setAllowed(true);
-        setWarning("Live access policy check timed out. Continuing in safe-open mode for this page load.");
       }
     })();
 
@@ -250,21 +311,6 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
 
   return (
     <>
-      {warning ? (
-        <div
-          style={{
-            border: "1px solid #8a4d00",
-            borderRadius: 10,
-            padding: 10,
-            background: "rgba(120,70,0,0.16)",
-            color: "#ffd9a3",
-            marginBottom: 12,
-            fontSize: 13,
-          }}
-        >
-          {warning}
-        </div>
-      ) : null}
       {children}
     </>
   );

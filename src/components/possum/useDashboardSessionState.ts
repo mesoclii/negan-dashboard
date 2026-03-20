@@ -15,6 +15,7 @@ const DEFAULT_STATE: DashboardSessionState = {
 };
 
 const SESSION_CACHE_TTL_MS = 60_000;
+const SESSION_STORAGE_KEY = "dashboard-session-state";
 
 let sessionCache:
   | {
@@ -24,10 +25,57 @@ let sessionCache:
   | null = null;
 let sessionRequest: Promise<DashboardSessionState> | null = null;
 
+function readSessionStorageCache(): DashboardSessionState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DashboardSessionState & { checkedAt?: number };
+    if (!parsed || typeof parsed !== "object") return null;
+    if (Date.now() - Number(parsed.checkedAt || 0) > SESSION_CACHE_TTL_MS) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    return {
+      loading: false,
+      loggedIn: Boolean(parsed.loggedIn),
+      isMasterOwner: Boolean(parsed.isMasterOwner),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionStorageCache(value: DashboardSessionState) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({
+        loading: false,
+        loggedIn: Boolean(value.loggedIn),
+        isMasterOwner: Boolean(value.isMasterOwner),
+        checkedAt: Date.now(),
+      })
+    );
+  } catch {
+    // Ignore sessionStorage failures.
+  }
+}
+
 async function loadDashboardSessionState(): Promise<DashboardSessionState> {
   const now = Date.now();
   if (sessionCache && sessionCache.expiresAt > now) {
     return sessionCache.value;
+  }
+
+  const storageCached = readSessionStorageCache();
+  if (storageCached) {
+    sessionCache = {
+      value: storageCached,
+      expiresAt: now + SESSION_CACHE_TTL_MS,
+    };
+    return storageCached;
   }
 
   if (sessionRequest) {
@@ -68,6 +116,9 @@ async function loadDashboardSessionState(): Promise<DashboardSessionState> {
       value: nextState,
       expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
     };
+    if (nextState.loggedIn) {
+      writeSessionStorageCache(nextState);
+    }
     sessionRequest = null;
     return nextState;
   })();
