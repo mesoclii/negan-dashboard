@@ -2,12 +2,13 @@
 
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import ProgressionStackShell from "@/components/possum/ProgressionStackShell";
 
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string };
+type BackgroundOption = { id: string; label: string };
 
 type LevelRoleReward = { level: number; roleId: string; oneTime: boolean; keepOnDowngrade: boolean };
 type LevelCoinReward = { level: number; coins: number; oneTime: boolean };
@@ -29,6 +30,7 @@ type Cfg = {
   levelUp: {
     enabled: boolean;
     announceChannelId: string;
+    cardBackgroundId: string;
     announceTemplate: string;
     dmOnLevelUp: boolean;
     dmTemplate: string;
@@ -37,6 +39,7 @@ type Cfg = {
     enabled: boolean;
     autoGrant: boolean;
     announceChannelId: string;
+    cardBackgroundId: string;
     categoriesEnabled: {
       messages: boolean;
       invites: boolean;
@@ -49,6 +52,7 @@ type Cfg = {
     enabled: boolean;
     panelEnabled: boolean;
     panelChannelId: string;
+    cardBackgroundId: string;
     panelTitle: string;
     roleSyncEnabled: boolean;
   };
@@ -90,6 +94,7 @@ const DEFAULT_CFG: Cfg = {
   levelUp: {
     enabled: true,
     announceChannelId: "",
+    cardBackgroundId: "possum-night",
     announceTemplate: "🎉 <@{{userId}}> reached level {{level}} in {{guildName}}!",
     dmOnLevelUp: false,
     dmTemplate: "You reached level {{level}} in {{guildName}}."
@@ -98,6 +103,7 @@ const DEFAULT_CFG: Cfg = {
     enabled: true,
     autoGrant: true,
     announceChannelId: "",
+    cardBackgroundId: "possum-night",
     categoriesEnabled: {
       messages: true,
       invites: true,
@@ -110,6 +116,7 @@ const DEFAULT_CFG: Cfg = {
     enabled: true,
     panelEnabled: false,
     panelChannelId: "",
+    cardBackgroundId: "possum-night",
     panelTitle: "Achievements & Badges",
     roleSyncEnabled: true
   },
@@ -151,6 +158,17 @@ function toCsv(v: string[]): string {
   return (v || []).join(", ");
 }
 
+function parseBackgroundRows(value: unknown): BackgroundOption[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row: any) => {
+      const id = String(row?.value || "").split("|")[0]?.trim() || "";
+      const label = String(row?.name || row?.title || id || "Background").trim();
+      return id ? { id, label } : null;
+    })
+    .filter(Boolean) as BackgroundOption[];
+}
+
 function mergeCfg(raw: any): Cfg {
   return {
     ...DEFAULT_CFG,
@@ -185,9 +203,14 @@ export default function ProgressionPage() {
   const [cfg, setCfg] = useState<Cfg>(DEFAULT_CFG);
   const [roles, setRoles] = useState<Role[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [backgrounds, setBackgrounds] = useState<BackgroundOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const backgroundOptions = useMemo(
+    () => backgrounds.length ? backgrounds : [{ id: "possum-night", label: "Possum Night" }],
+    [backgrounds]
+  );
 
   useEffect(() => setGuildId(getGuildId()), []);
 
@@ -199,16 +222,19 @@ export default function ProgressionPage() {
     (async () => {
       try {
         setLoading(true);
-        const [cfgRes, guildRes] = await Promise.all([
+        const [cfgRes, guildRes, profileRes] = await Promise.all([
           fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=progression`, { cache: "no-store" }),
-          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`)
+          fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`),
+          fetch(`/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=profile`, { cache: "no-store" })
         ]);
         const cfgJson = await cfgRes.json();
         const guildJson = await guildRes.json();
+        const profileJson = await profileRes.json();
 
         setCfg(mergeCfg(cfgJson?.config));
         setRoles(Array.isArray(guildJson?.roles) ? guildJson.roles.map((r: any) => ({ id: String(r.id), name: String(r.name) })) : []);
         setChannels(Array.isArray(guildJson?.channels) ? guildJson.channels.map((c: any) => ({ id: String(c.id), name: String(c.name) })) : []);
+        setBackgrounds(parseBackgroundRows(profileJson?.details?.backgrounds));
       } catch {
         setMsg("Failed to load live progression runtime.");
       } finally {
@@ -341,6 +367,13 @@ export default function ProgressionPage() {
             </div>
 
             <div style={{ marginTop: 10 }}>
+              <label>Level-up card background</label>
+              <select style={input} value={cfg.levelUp.cardBackgroundId} onChange={(e) => setCfg({ ...cfg, levelUp: { ...cfg.levelUp, cardBackgroundId: e.target.value } })}>
+                {backgroundOptions.map((bg) => <option key={bg.id} value={bg.id}>{bg.label} ({bg.id})</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
               <label>Announce template</label>
               <textarea style={{ ...input, minHeight: 80 }} value={cfg.levelUp.announceTemplate} onChange={(e) => setCfg({ ...cfg, levelUp: { ...cfg.levelUp, announceTemplate: e.target.value } })} />
             </div>
@@ -356,6 +389,13 @@ export default function ProgressionPage() {
               <select style={input} value={cfg.achievements.announceChannelId} onChange={(e) => setCfg({ ...cfg, achievements: { ...cfg.achievements, announceChannelId: e.target.value } })}>
                 <option value="">Select channel</option>
                 {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <label>Achievement pop background</label>
+              <select style={input} value={cfg.achievements.cardBackgroundId} onChange={(e) => setCfg({ ...cfg, achievements: { ...cfg.achievements, cardBackgroundId: e.target.value } })}>
+                {backgroundOptions.map((bg) => <option key={bg.id} value={bg.id}>{bg.label} ({bg.id})</option>)}
               </select>
             </div>
 
@@ -385,6 +425,13 @@ export default function ProgressionPage() {
                 <label>Badge panel title</label>
                 <input style={input} value={cfg.badges.panelTitle} onChange={(e) => setCfg({ ...cfg, badges: { ...cfg.badges, panelTitle: e.target.value } })} />
               </div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <label>Badge card background</label>
+              <select style={input} value={cfg.badges.cardBackgroundId} onChange={(e) => setCfg({ ...cfg, badges: { ...cfg.badges, cardBackgroundId: e.target.value } })}>
+                {backgroundOptions.map((bg) => <option key={bg.id} value={bg.id}>{bg.label} ({bg.id})</option>)}
+              </select>
             </div>
           </div>
 

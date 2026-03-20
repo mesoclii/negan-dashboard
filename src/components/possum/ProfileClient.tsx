@@ -4,6 +4,14 @@ import EngineContractPanel from "@/components/possum/EngineContractPanel";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
+type ProfileBackgroundAsset = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  accentColor: string;
+  unlockedByDefault: boolean;
+};
+
 type ProfileCfg = {
   enabled: boolean;
   repEnabled: boolean;
@@ -13,6 +21,9 @@ type ProfileCfg = {
   titleMaxLength: number;
   defaultBackgroundId: string;
   defaultFrameId: string;
+  assetLibrary: {
+    backgrounds: ProfileBackgroundAsset[];
+  };
   notes: string;
 };
 
@@ -25,6 +36,9 @@ const DEFAULT_CFG: ProfileCfg = {
   titleMaxLength: 32,
   defaultBackgroundId: "possum-night",
   defaultFrameId: "iron",
+  assetLibrary: {
+    backgrounds: [],
+  },
   notes: "",
 };
 
@@ -64,6 +78,27 @@ function optionRows(value: unknown) {
     .filter((row) => row.id);
 }
 
+function mergeBackgroundOptions(detailRows: Array<{ id: string; label: string; meta: string }>, customRows: ProfileBackgroundAsset[]) {
+  const map = new Map<string, { id: string; label: string; meta: string }>();
+  for (const row of detailRows || []) map.set(row.id, row);
+  for (const row of customRows || []) {
+    if (!row.id) continue;
+    map.set(row.id, { id: row.id, label: row.name || row.id, meta: row.id });
+  }
+  return Array.from(map.values());
+}
+
+function normalizeBackgroundLibrary(value: unknown): ProfileBackgroundAsset[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((row: any, index) => ({
+    id: String(row?.id || `background-${index + 1}`).trim() || `background-${index + 1}`,
+    name: String(row?.name || row?.id || `Background ${index + 1}`).trim() || `Background ${index + 1}`,
+    imageUrl: String(row?.imageUrl || "").trim(),
+    accentColor: String(row?.accentColor || "#c1121f").trim() || "#c1121f",
+    unlockedByDefault: row?.unlockedByDefault !== false,
+  }));
+}
+
 export default function ProfileClient() {
   const {
     guildId,
@@ -78,9 +113,51 @@ export default function ProfileClient() {
     save,
   } = useGuildEngineEditor<ProfileCfg>("profile", DEFAULT_CFG);
 
-  const backgroundOptions = optionRows(details.backgrounds);
+  const detailBackgroundOptions = optionRows(details.backgrounds);
   const frameOptions = optionRows(details.frames);
   const badgeOptions = optionRows(details.badges);
+  const backgroundLibrary = normalizeBackgroundLibrary(cfg.assetLibrary?.backgrounds);
+  const backgroundOptions = mergeBackgroundOptions(detailBackgroundOptions, backgroundLibrary);
+
+  function updateBackground(index: number, patch: Partial<ProfileBackgroundAsset>) {
+    setCfg((prev) => {
+      const nextRows = normalizeBackgroundLibrary(prev.assetLibrary?.backgrounds);
+      nextRows[index] = { ...nextRows[index], ...patch };
+      return {
+        ...prev,
+        assetLibrary: {
+          backgrounds: nextRows,
+        },
+      };
+    });
+  }
+
+  function addBackground() {
+    setCfg((prev) => ({
+      ...prev,
+      assetLibrary: {
+        backgrounds: [
+          ...normalizeBackgroundLibrary(prev.assetLibrary?.backgrounds),
+          {
+            id: `background-${normalizeBackgroundLibrary(prev.assetLibrary?.backgrounds).length + 1}`,
+            name: `Background ${normalizeBackgroundLibrary(prev.assetLibrary?.backgrounds).length + 1}`,
+            imageUrl: "",
+            accentColor: "#c1121f",
+            unlockedByDefault: false,
+          },
+        ],
+      },
+    }));
+  }
+
+  function removeBackground(index: number) {
+    setCfg((prev) => ({
+      ...prev,
+      assetLibrary: {
+        backgrounds: normalizeBackgroundLibrary(prev.assetLibrary?.backgrounds).filter((_, rowIndex) => rowIndex !== index),
+      },
+    }));
+  }
 
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
@@ -177,6 +254,53 @@ export default function ProfileClient() {
             <div style={{ marginTop: 12, color: "#ffb8b8", fontSize: 12, lineHeight: 1.7 }}>
               Asset library currently visible: {backgroundOptions.length} backgrounds, {frameOptions.length} frames, {badgeOptions.length} badges.
             </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              <div>
+                <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Card Background Studio</div>
+                <div style={{ color: "#ffb8b8", fontSize: 12, marginTop: 6 }}>
+                  Build the shared background library for profile cards, rank cards, level-up cards, and badge cards. If an image URL is set, the live embeds will use it.
+                </div>
+              </div>
+              <button onClick={addBackground} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>Add Background</button>
+            </div>
+
+            {backgroundLibrary.length ? (
+              <div style={{ display: "grid", gap: 12 }}>
+                {backgroundLibrary.map((row, index) => (
+                  <div key={`${row.id}_${index}`} style={{ border: "1px solid #4d0000", borderRadius: 12, padding: 14, background: "#120000" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+                      <div>
+                        <div style={label}>Background Id</div>
+                        <input style={input} value={row.id} onChange={(e) => updateBackground(index, { id: e.target.value })} />
+                      </div>
+                      <div>
+                        <div style={label}>Display Name</div>
+                        <input style={input} value={row.name} onChange={(e) => updateBackground(index, { name: e.target.value })} />
+                      </div>
+                      <div>
+                        <div style={label}>Accent Color</div>
+                        <input style={input} value={row.accentColor} onChange={(e) => updateBackground(index, { accentColor: e.target.value })} placeholder="#c1121f" />
+                      </div>
+                      <div>
+                        <div style={label}>Image URL</div>
+                        <input style={input} value={row.imageUrl} onChange={(e) => updateBackground(index, { imageUrl: e.target.value })} placeholder="https://..." />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+                      <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+                        <input type="checkbox" checked={row.unlockedByDefault} onChange={(e) => updateBackground(index, { unlockedByDefault: e.target.checked })} /> Unlocked by default
+                      </label>
+                      <button onClick={() => removeBackground(index)} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: "#ffb8b8", fontSize: 12 }}>No custom guild backgrounds yet. Add one to start building your card library.</div>
+            )}
           </section>
 
           <section style={card}>
