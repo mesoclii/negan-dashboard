@@ -24,6 +24,13 @@ type Panel = {
   mode: "buttons" | "select";
   maxSelectable: number;
   allowRemove: boolean;
+  embedColor: string;
+  footerText: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  useWebhook: boolean;
+  webhookName: string;
+  webhookAvatarUrl: string;
   options: RoleOption[];
 };
 
@@ -34,6 +41,15 @@ type Config = {
   maxRolesPerUser: number;
   antiAbuseCooldownSec: number;
   logChannelId: string;
+  panelDefaults: {
+    embedColor: string;
+    footerText: string;
+    thumbnailUrl: string;
+    imageUrl: string;
+    useWebhook: boolean;
+    webhookName: string;
+    webhookAvatarUrl: string;
+  };
   panels: Panel[];
   notes: string;
   updatedAt: string;
@@ -46,6 +62,15 @@ const DEFAULTS: Config = {
   maxRolesPerUser: 10,
   antiAbuseCooldownSec: 3,
   logChannelId: "",
+  panelDefaults: {
+    embedColor: "#2b2d31",
+    footerText: "",
+    thumbnailUrl: "",
+    imageUrl: "",
+    useWebhook: false,
+    webhookName: "",
+    webhookAvatarUrl: "",
+  },
   panels: [],
   notes: "",
   updatedAt: "",
@@ -72,7 +97,7 @@ function newOption(): RoleOption {
   return { roleId: "", label: "New Role", emoji: "", description: "", style: "secondary" };
 }
 
-function newPanel(): Panel {
+function newPanel(defaults = DEFAULTS.panelDefaults): Panel {
   return {
     id: `panel_${Date.now()}`,
     enabled: true,
@@ -82,6 +107,13 @@ function newPanel(): Panel {
     mode: "buttons",
     maxSelectable: 1,
     allowRemove: true,
+    embedColor: defaults.embedColor,
+    footerText: defaults.footerText,
+    thumbnailUrl: defaults.thumbnailUrl,
+    imageUrl: defaults.imageUrl,
+    useWebhook: defaults.useWebhook,
+    webhookName: defaults.webhookName,
+    webhookAvatarUrl: defaults.webhookAvatarUrl,
     options: [newOption()],
   };
 }
@@ -108,7 +140,7 @@ export default function SelfrolesPage() {
   );
 
   function addPanel() {
-    setCfg({ ...cfg, panels: [...(cfg.panels || []), newPanel()] });
+    setCfg({ ...cfg, panels: [...(cfg.panels || []), newPanel(cfg.panelDefaults || DEFAULTS.panelDefaults)] });
   }
 
   function removePanel(index: number) {
@@ -173,6 +205,35 @@ export default function SelfrolesPage() {
             </select>
           </div>
         </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 10, marginTop: 10 }}>
+          <div>
+            <label>Default embed color</label>
+            <input style={input} value={cfg.panelDefaults?.embedColor || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, embedColor: e.target.value } })} placeholder="#2b2d31" />
+          </div>
+          <div>
+            <label>Default footer</label>
+            <input style={input} value={cfg.panelDefaults?.footerText || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, footerText: e.target.value } })} />
+          </div>
+          <div>
+            <label><input type="checkbox" checked={Boolean(cfg.panelDefaults?.useWebhook)} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, useWebhook: e.target.checked } })} /> Default to webhook deploy</label>
+          </div>
+          <div>
+            <label>Default thumbnail URL</label>
+            <input style={input} value={cfg.panelDefaults?.thumbnailUrl || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, thumbnailUrl: e.target.value } })} placeholder="https://..." />
+          </div>
+          <div>
+            <label>Default image URL</label>
+            <input style={input} value={cfg.panelDefaults?.imageUrl || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, imageUrl: e.target.value } })} placeholder="https://..." />
+          </div>
+          <div>
+            <label>Default webhook name</label>
+            <input style={input} value={cfg.panelDefaults?.webhookName || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, webhookName: e.target.value } })} placeholder="Leave blank to use Bot Personalizer" />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label>Default webhook avatar URL</label>
+            <input style={input} value={cfg.panelDefaults?.webhookAvatarUrl || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, webhookAvatarUrl: e.target.value } })} placeholder="https://..." />
+          </div>
+        </div>
       </div>
 
       <div style={box}>
@@ -199,6 +260,36 @@ export default function SelfrolesPage() {
               <textarea style={{ ...input, minHeight: 58 }} value={panel.messageBody} onChange={(e) => updatePanel(panelIndex, { messageBody: e.target.value })} />
               <label><input type="checkbox" checked={panel.enabled} onChange={(e) => updatePanel(panelIndex, { enabled: e.target.checked })} /> panel enabled</label>
               <label><input type="checkbox" checked={panel.allowRemove} onChange={(e) => updatePanel(panelIndex, { allowRemove: e.target.checked })} /> allow remove role</label>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 8, marginTop: 8 }}>
+              <div>
+                <label>Embed color</label>
+                <input style={input} value={panel.embedColor || ""} onChange={(e) => updatePanel(panelIndex, { embedColor: e.target.value })} placeholder="#2b2d31" />
+              </div>
+              <div>
+                <label>Footer text</label>
+                <input style={input} value={panel.footerText || ""} onChange={(e) => updatePanel(panelIndex, { footerText: e.target.value })} />
+              </div>
+              <div style={{ display: "flex", alignItems: "end" }}>
+                <label><input type="checkbox" checked={Boolean(panel.useWebhook)} onChange={(e) => updatePanel(panelIndex, { useWebhook: e.target.checked })} /> deploy with webhook identity</label>
+              </div>
+              <div>
+                <label>Thumbnail URL</label>
+                <input style={input} value={panel.thumbnailUrl || ""} onChange={(e) => updatePanel(panelIndex, { thumbnailUrl: e.target.value })} placeholder="https://..." />
+              </div>
+              <div>
+                <label>Image URL</label>
+                <input style={input} value={panel.imageUrl || ""} onChange={(e) => updatePanel(panelIndex, { imageUrl: e.target.value })} placeholder="https://..." />
+              </div>
+              <div>
+                <label>Webhook name</label>
+                <input style={input} value={panel.webhookName || ""} onChange={(e) => updatePanel(panelIndex, { webhookName: e.target.value })} placeholder="Uses Bot Personalizer if blank" />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label>Webhook avatar URL</label>
+                <input style={input} value={panel.webhookAvatarUrl || ""} onChange={(e) => updatePanel(panelIndex, { webhookAvatarUrl: e.target.value })} placeholder="https://..." />
+              </div>
             </div>
 
             <div style={{ marginTop: 10 }}>
