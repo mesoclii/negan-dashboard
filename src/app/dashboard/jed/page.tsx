@@ -23,7 +23,7 @@ const DEFAULT_CONFIG: JedConfig = {
   publicTTL: 45,
   tempTTL: 60,
   maxFileSizeMb: 5,
-  allowedDomains: ["cdn.discordapp.com", "media.discordapp.net", "i.imgur.com"],
+  allowedDomains: ["cdn.discordapp.com", "media.discordapp.net", "discordapp.net", "i.imgur.com", "media.tenor.com", "tenor.com"],
   auditChannelId: "",
   notes: "",
 };
@@ -88,8 +88,9 @@ export default function JedPage() {
       <h1 style={{ margin: 0, color: "#ff4f4f", letterSpacing: "0.10em", textTransform: "uppercase" }}>JED Sticker + Emoji + GIF Theft</h1>
       <div style={{ color: "#ff9999", marginTop: 6, marginBottom: 12 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffbcbc", lineHeight: 1.7, maxWidth: 1120 }}>
-        This is the live control surface for <strong>/jed grab</strong>. JED steals approved sticker, emoji, and GIF/media URLs, converts them when needed,
-        and deploys the result into the guild. This page only tunes the live guild-level grab rules layered on top of your existing bot logic.
+        This is the live control surface for <strong>/jed grab</strong> and the <strong>Possum Bot This</strong> message action. JED steals approved sticker,
+        emoji, GIF/media URLs, uploaded files, and custom emoji tokens, converts them when needed, and deploys the result into the guild. This page only tunes
+        the live guild-level grab rules layered on top of your existing bot logic.
       </div>
 
       <section style={box}>
@@ -231,7 +232,7 @@ export default function JedPage() {
                   <br />
                   <strong>Sticker</strong> creates guild sticker entries.
                   <br />
-                  GIF/media URLs still flow through the same conversion path before deploy.
+                  GIF/media URLs, uploaded files, and custom emoji tokens all flow through the same conversion path before deploy.
                 </div>
               </div>
               <div style={miniCard}>
