@@ -54,6 +54,8 @@ type Cfg = {
     panelChannelId: string;
     cardBackgroundId: string;
     panelTitle: string;
+    panelThumbnailUrl: string;
+    panelImageUrl: string;
     roleSyncEnabled: boolean;
   };
   rewards: {
@@ -118,6 +120,8 @@ const DEFAULT_CFG: Cfg = {
     panelChannelId: "",
     cardBackgroundId: "possum-night",
     panelTitle: "Achievements & Badges",
+    panelThumbnailUrl: "",
+    panelImageUrl: "",
     roleSyncEnabled: true
   },
   rewards: {
@@ -424,6 +428,17 @@ export default function ProgressionPage() {
               <div>
                 <label>Badge panel title</label>
                 <input style={input} value={cfg.badges.panelTitle} onChange={(e) => setCfg({ ...cfg, badges: { ...cfg.badges, panelTitle: e.target.value } })} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+              <div>
+                <label>Badge panel thumbnail URL</label>
+                <input style={input} value={cfg.badges.panelThumbnailUrl} onChange={(e) => setCfg({ ...cfg, badges: { ...cfg.badges, panelThumbnailUrl: e.target.value } })} placeholder="https://..." />
+              </div>
+              <div>
+                <label>Badge panel background image URL</label>
+                <input style={input} value={cfg.badges.panelImageUrl} onChange={(e) => setCfg({ ...cfg, badges: { ...cfg.badges, panelImageUrl: e.target.value } })} placeholder="https://..." />
               </div>
             </div>
 

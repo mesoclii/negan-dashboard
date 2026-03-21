@@ -12,8 +12,13 @@ type TicketTypeConfig = {
   enabled: boolean;
   label: string;
   shortPrefix: string;
+  panelChannelId: string;
   panelButtonLabel: string;
   panelButtonEmoji: string;
+  panelTitle: string;
+  panelDescription: string;
+  panelThumbnailUrl: string;
+  panelImageUrl: string;
   openCategoryId: string;
   closedCategoryId: string;
   transcriptChannelId: string;
@@ -25,8 +30,11 @@ type TicketTypeConfig = {
 type TicketsConfig = {
   active: boolean;
   panelChannelId: string;
+  panelLayout: "separate" | "combined";
   panelTitle: string;
   panelDescription: string;
+  panelThumbnailUrl: string;
+  panelImageUrl: string;
   openCategoryId: string;
   closedCategoryId: string;
   transcriptLogId: string;
@@ -71,8 +79,13 @@ function emptyType(key: TicketTypeKey): TicketTypeConfig {
     enabled: true,
     label,
     shortPrefix: key,
+    panelChannelId: "",
     panelButtonLabel: label,
     panelButtonEmoji: "",
+    panelTitle: `${label} Tickets`,
+    panelDescription: `Open a ${label.toLowerCase()} ticket with the button below.`,
+    panelThumbnailUrl: "",
+    panelImageUrl: "",
     openCategoryId: "",
     closedCategoryId: "",
     transcriptChannelId: "",
@@ -91,8 +104,11 @@ function defaultConfig(): TicketsConfig {
   return {
     active: true,
     panelChannelId: "",
+    panelLayout: "separate",
     panelTitle: "Support Tickets",
     panelDescription: "Choose a ticket type below.",
+    panelThumbnailUrl: "",
+    panelImageUrl: "",
     openCategoryId: "",
     closedCategoryId: "",
     transcriptLogId: "",
@@ -147,8 +163,11 @@ function normalizeConfig(inputValue: any): TicketsConfig {
   return {
     active: input.active !== false,
     panelChannelId: String(input.panelChannelId || ""),
+    panelLayout: String(input.panelLayout || base.panelLayout).toLowerCase() === "combined" ? "combined" : "separate",
     panelTitle: String(input.panelTitle || base.panelTitle),
     panelDescription: String(input.panelDescription || base.panelDescription),
+    panelThumbnailUrl: String(input.panelThumbnailUrl || ""),
+    panelImageUrl: String(input.panelImageUrl || ""),
     openCategoryId: String(input.openCategoryId || ""),
     closedCategoryId: String(input.closedCategoryId || ""),
     transcriptLogId: String(input.transcriptLogId || ""),
@@ -169,17 +188,32 @@ function normalizeConfig(inputValue: any): TicketsConfig {
       support: {
         ...base.types.support,
         ...(types.support || {}),
+        panelChannelId: String(types.support?.panelChannelId || ""),
         panelButtonEmoji: emojiToInput(types.support?.panelButtonEmoji),
+        panelTitle: String(types.support?.panelTitle || base.types.support.panelTitle),
+        panelDescription: String(types.support?.panelDescription || base.types.support.panelDescription),
+        panelThumbnailUrl: String(types.support?.panelThumbnailUrl || ""),
+        panelImageUrl: String(types.support?.panelImageUrl || ""),
       },
       vip: {
         ...base.types.vip,
         ...(types.vip || {}),
+        panelChannelId: String(types.vip?.panelChannelId || ""),
         panelButtonEmoji: emojiToInput(types.vip?.panelButtonEmoji),
+        panelTitle: String(types.vip?.panelTitle || base.types.vip.panelTitle),
+        panelDescription: String(types.vip?.panelDescription || base.types.vip.panelDescription),
+        panelThumbnailUrl: String(types.vip?.panelThumbnailUrl || ""),
+        panelImageUrl: String(types.vip?.panelImageUrl || ""),
       },
       drops: {
         ...base.types.drops,
         ...(types.drops || {}),
+        panelChannelId: String(types.drops?.panelChannelId || ""),
         panelButtonEmoji: emojiToInput(types.drops?.panelButtonEmoji),
+        panelTitle: String(types.drops?.panelTitle || base.types.drops.panelTitle),
+        panelDescription: String(types.drops?.panelDescription || base.types.drops.panelDescription),
+        panelThumbnailUrl: String(types.drops?.panelThumbnailUrl || ""),
+        panelImageUrl: String(types.drops?.panelImageUrl || ""),
       },
     },
   };
@@ -358,7 +392,13 @@ export default function TicketsClient() {
         throw new Error(json?.error || `Deploy failed (${res.status})`);
       }
 
-      setMsg(`Ticket panel deployed to <#${json?.result?.channelId || json?.channelId || cfg.panelChannelId}>.`);
+      const deployed = Number(json?.result?.deployed || 0);
+      const channelIds = Array.isArray(json?.result?.channelIds) ? json.result.channelIds : [];
+      if (deployed > 1 || channelIds.length > 1) {
+        setMsg(`Deployed ${deployed || channelIds.length} ticket panels across ${channelIds.map((id: string) => `<#${id}>`).join(", ")}.`);
+      } else {
+        setMsg(`Ticket panel deployed to <#${json?.result?.channelId || json?.channelId || cfg.panelChannelId}>.`);
+      }
     } catch (error: any) {
       setMsg(error?.message || "Deploy failed.");
     } finally {
@@ -435,11 +475,11 @@ export default function TicketsClient() {
           <div style={card}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Category Defaults</h3>
             <div style={{ color: "#ffb0b0", marginBottom: 10, fontSize: 12 }}>
-              These are the fallback panel and category routes. Tickets still open by the support, VIP, and drops categories you set below; this block only fills in the defaults when a ticket type does not override them.
+              Tickets still open by the support, VIP, and drops panel/category routes you set below. This block is only the fallback copy and fallback categories when a ticket type does not override them.
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
               <div>
-                <div>Panel Channel</div>
+                <div>Fallback Panel Channel</div>
                 <select style={input} value={cfg.panelChannelId} onChange={(event) => setCfg((prev) => ({ ...prev, panelChannelId: event.target.value }))}>
                   <option value="">Select channel</option>
                   {textChannels.map((channel) => (
@@ -447,6 +487,13 @@ export default function TicketsClient() {
                       #{channel.name}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <div>Panel Layout</div>
+                <select style={input} value={cfg.panelLayout} onChange={(event) => setCfg((prev) => ({ ...prev, panelLayout: event.target.value === "combined" ? "combined" : "separate" }))}>
+                  <option value="separate">One button per panel</option>
+                  <option value="combined">Single panel with all buttons</option>
                 </select>
               </div>
               <div>
@@ -473,16 +520,27 @@ export default function TicketsClient() {
               </div>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+              <div>
+                <div>Fallback Panel Title</div>
+                <input style={input} value={cfg.panelTitle} onChange={(event) => setCfg((prev) => ({ ...prev, panelTitle: event.target.value }))} />
+              </div>
+              <div>
+                <div>Fallback Thumbnail URL</div>
+                <input style={input} value={cfg.panelThumbnailUrl} onChange={(event) => setCfg((prev) => ({ ...prev, panelThumbnailUrl: event.target.value }))} placeholder="https://..." />
+              </div>
+            </div>
+
             <div style={{ marginTop: 10 }}>
-              <div>Panel Title</div>
-              <input style={input} value={cfg.panelTitle} onChange={(event) => setCfg((prev) => ({ ...prev, panelTitle: event.target.value }))} />
+              <div>Fallback Background Image URL</div>
+              <input style={input} value={cfg.panelImageUrl} onChange={(event) => setCfg((prev) => ({ ...prev, panelImageUrl: event.target.value }))} placeholder="https://..." />
             </div>
 
             <div style={{ color: "#ffb0b0", marginTop: 10, fontSize: 12 }}>
-              Transcript channels stay on the ticket-type rows below if you want them. You do not need one extra transcript route here just to use category-based tickets.
+              Transcript channels stay on the ticket-type rows below if you want them. You do not need one extra transcript route here just to use category-based tickets, and each ticket type can use its own panel channel below.
             </div>
 
-            <div style={{ marginTop: 10 }}>Panel Description</div>
+            <div style={{ marginTop: 10 }}>Fallback Panel Description</div>
             <textarea
               style={{ ...input, minHeight: 90 }}
               value={cfg.panelDescription}
@@ -544,16 +602,38 @@ export default function TicketsClient() {
                     <input style={input} value={typeCfg.shortPrefix} onChange={(event) => setType(key, { shortPrefix: event.target.value })} />
                   </div>
                   <div>
-                    <div>Button Emoji</div>
-                    <input style={input} value={typeCfg.panelButtonEmoji} onChange={(event) => setType(key, { panelButtonEmoji: event.target.value })} />
+                    <div>Panel Channel</div>
+                    <select style={input} value={typeCfg.panelChannelId} onChange={(event) => setType(key, { panelChannelId: event.target.value })}>
+                      <option value="">Use fallback / select channel</option>
+                      {textChannels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          #{channel.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div>
+                    <div>Button Emoji</div>
+                    <input style={input} value={typeCfg.panelButtonEmoji} onChange={(event) => setType(key, { panelButtonEmoji: event.target.value })} />
+                  </div>
                   <div>
                     <div>Panel Button Label</div>
                     <input style={input} value={typeCfg.panelButtonLabel} onChange={(event) => setType(key, { panelButtonLabel: event.target.value })} />
                   </div>
+                  <div>
+                    <div>Panel Title</div>
+                    <input style={input} value={typeCfg.panelTitle} onChange={(event) => setType(key, { panelTitle: event.target.value })} />
+                  </div>
+                  <div>
+                    <div>Panel Thumbnail URL</div>
+                    <input style={input} value={typeCfg.panelThumbnailUrl} onChange={(event) => setType(key, { panelThumbnailUrl: event.target.value })} placeholder="https://..." />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
                   <div>
                     <div>Open Category</div>
                     <select style={input} value={typeCfg.openCategoryId} onChange={(event) => setType(key, { openCategoryId: event.target.value })}>
@@ -587,6 +667,10 @@ export default function TicketsClient() {
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <div>Panel Background Image URL</div>
+                    <input style={input} value={typeCfg.panelImageUrl} onChange={(event) => setType(key, { panelImageUrl: event.target.value })} placeholder="https://..." />
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
@@ -606,6 +690,13 @@ export default function TicketsClient() {
                     <input style={input} value={typeCfg.introTitle} onChange={(event) => setType(key, { introTitle: event.target.value })} />
                   </div>
                 </div>
+
+                <div style={{ marginTop: 10 }}>Panel Description</div>
+                <textarea
+                  style={{ ...input, minHeight: 80 }}
+                  value={typeCfg.panelDescription}
+                  onChange={(event) => setType(key, { panelDescription: event.target.value })}
+                />
 
                 <div style={{ marginTop: 10 }}>Intro Message</div>
                 <textarea
