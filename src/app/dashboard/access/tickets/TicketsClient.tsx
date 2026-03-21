@@ -467,7 +467,7 @@ export default function TicketsClient() {
                   onChange={(event) => setCfg((prev) => ({ ...prev, singleLogMode: event.target.checked }))}
                   style={{ marginRight: 8 }}
                 />
-                Unified transcript mode
+                Shared transcript archive mode
               </label>
             </div>
           </div>
