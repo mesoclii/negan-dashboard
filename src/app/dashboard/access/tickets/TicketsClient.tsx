@@ -473,9 +473,9 @@ export default function TicketsClient() {
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Category Defaults</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Optional Fallback Defaults</h3>
             <div style={{ color: "#ffb0b0", marginBottom: 10, fontSize: 12 }}>
-              Tickets still open by the support, VIP, and drops panel/category routes you set below. This block is only the fallback copy and fallback categories when a ticket type does not override them.
+              The support, VIP, and drops rows below are the real live routes. Leave this fallback block blank if every ticket type has its own panel channel and its own open/closed categories.
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
               <div>
