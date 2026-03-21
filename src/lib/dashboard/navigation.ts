@@ -69,6 +69,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/security", label: "Security" },
         { href: "/dashboard/moderator", label: "Moderator" },
         { href: "/dashboard/governance", label: "Governance" },
+        { href: "/dashboard/security/pre-onboarding", label: "Pre-Onboarding" },
         { href: "/dashboard/security/onboarding", label: "Onboarding" },
         { href: "/dashboard/security/verification", label: "Verification" },
         { href: "/dashboard/security/account-integrity", label: "Account Integrity" },

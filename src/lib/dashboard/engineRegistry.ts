@@ -32,6 +32,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
 
   { id: "moderator", label: "Moderator", description: "Separate automod, audit, and moderation control surface", group: "Security", route: "/dashboard/moderator" },
   { id: "security", label: "Security", description: "Security stack, moderation, and policies", group: "Security", route: "/dashboard/security" },
+  { id: "pre-onboarding", label: "Pre-Onboarding", description: "Blacklist rejoin, refusal-role, and pre-entry enforcement controls", group: "Security", route: "/dashboard/security/pre-onboarding", featureKey: "securityEnabled" },
   { id: "onboarding", label: "Onboarding", description: "Welcome + ticket-driven join flow", group: "Security", route: "/dashboard/security/onboarding", featureKey: "onboardingEnabled" },
   { id: "verification", label: "Verification", description: "ID/verification workflows", group: "Security", route: "/dashboard/security/verification", featureKey: "verificationEnabled" },
   { id: "lockdown", label: "Lockdown", description: "Emergency channel/server controls", group: "Security", route: "/dashboard/security/lockdown", notes: "Engine-config controlled" },
