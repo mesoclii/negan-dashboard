@@ -433,7 +433,10 @@ export default function TicketsClient() {
           </div>
 
           <div style={card}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Global Routing</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Panel + Category Defaults</h3>
+            <div style={{ color: "#ffb0b0", marginBottom: 10, fontSize: 12 }}>
+              These are the fallback panel and category routes. Tickets still open by the support, VIP, and drops categories you set below; this block only fills in the defaults when a ticket type does not override them.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               <div>
                 <div>Panel Channel</div>
@@ -447,7 +450,7 @@ export default function TicketsClient() {
                 </select>
               </div>
               <div>
-                <div>Default Open Category</div>
+                <div>Fallback Open Category</div>
                 <select style={input} value={cfg.openCategoryId} onChange={(event) => setCfg((prev) => ({ ...prev, openCategoryId: event.target.value }))}>
                   <option value="">Select category</option>
                   {categories.map((channel) => (
@@ -458,7 +461,7 @@ export default function TicketsClient() {
                 </select>
               </div>
               <div>
-                <div>Default Closed Category</div>
+                <div>Fallback Closed Category</div>
                 <select style={input} value={cfg.closedCategoryId} onChange={(event) => setCfg((prev) => ({ ...prev, closedCategoryId: event.target.value }))}>
                   <option value="">Select category</option>
                   {categories.map((channel) => (
@@ -470,22 +473,13 @@ export default function TicketsClient() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-              <div>
-                <div>Panel Title</div>
-                <input style={input} value={cfg.panelTitle} onChange={(event) => setCfg((prev) => ({ ...prev, panelTitle: event.target.value }))} />
-              </div>
-              <div>
-                <div>Default Transcript Channel</div>
-                <select style={input} value={cfg.transcriptLogId} onChange={(event) => setCfg((prev) => ({ ...prev, transcriptLogId: event.target.value }))}>
-                  <option value="">Select channel</option>
-                  {textChannels.map((channel) => (
-                    <option key={channel.id} value={channel.id}>
-                      #{channel.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div style={{ marginTop: 10 }}>
+              <div>Panel Title</div>
+              <input style={input} value={cfg.panelTitle} onChange={(event) => setCfg((prev) => ({ ...prev, panelTitle: event.target.value }))} />
+            </div>
+
+            <div style={{ color: "#ffb0b0", marginTop: 10, fontSize: 12 }}>
+              Transcript channels stay on the ticket-type rows below if you want them. You do not need one extra transcript route here just to use category-based tickets.
             </div>
 
             <div style={{ marginTop: 10 }}>Panel Description</div>
