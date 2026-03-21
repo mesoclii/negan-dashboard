@@ -20,6 +20,22 @@ export type GuildDataPayload = {
   roles?: GuildRole[];
 };
 
+const GUILD_DATA_TTL_MS = 90_000;
+const RUNTIME_ENGINE_TTL_MS = 20_000;
+const DASHBOARD_CONFIG_TTL_MS = 60_000;
+
+type TimedCacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+const guildDataCache = new Map<string, TimedCacheEntry<GuildDataPayload>>();
+const guildDataInflight = new Map<string, Promise<GuildDataPayload>>();
+const runtimeEngineCache = new Map<string, TimedCacheEntry<any>>();
+const runtimeEngineInflight = new Map<string, Promise<any>>();
+const dashboardConfigCache = new Map<string, TimedCacheEntry<any>>();
+const dashboardConfigInflight = new Map<string, Promise<any>>();
+
 export async function readJsonOrThrow(res: Response) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json?.success === false) {
@@ -46,25 +62,63 @@ export function resolveGuildContext() {
 }
 
 export async function fetchGuildData(guildId: string) {
-  const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, {
-    cache: "no-store",
+  const cacheKey = String(guildId || "").trim();
+  const cached = guildDataCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  const inflight = guildDataInflight.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, {
+      cache: "no-store",
+    });
+    const json = await readJsonOrThrow(res);
+    const roles = Array.isArray(json?.roles) ? json.roles : [];
+    roles.sort((a: GuildRole, b: GuildRole) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+    const value = {
+      guild: json?.guild || null,
+      channels: Array.isArray(json?.channels) ? json.channels : [],
+      roles,
+    } as GuildDataPayload;
+    guildDataCache.set(cacheKey, { value, expiresAt: Date.now() + GUILD_DATA_TTL_MS });
+    guildDataInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    guildDataInflight.delete(cacheKey);
+    throw error;
   });
-  const json = await readJsonOrThrow(res);
-  const roles = Array.isArray(json?.roles) ? json.roles : [];
-  roles.sort((a: GuildRole, b: GuildRole) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
-  return {
-    guild: json?.guild || null,
-    channels: Array.isArray(json?.channels) ? json.channels : [],
-    roles,
-  } as GuildDataPayload;
+
+  guildDataInflight.set(cacheKey, request);
+  return request;
 }
 
 export async function fetchRuntimeEngine(guildId: string, engine: string, userId = "") {
-  const res = await fetch(
-    `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
-    { cache: "no-store" }
-  );
-  return await readJsonOrThrow(res);
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${String(userId || "").trim()}`;
+  const cached = runtimeEngineCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  const inflight = runtimeEngineInflight.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    const res = await fetch(
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
+      { cache: "no-store" }
+    );
+    const json = await readJsonOrThrow(res);
+    runtimeEngineCache.set(cacheKey, { value: json, expiresAt: Date.now() + RUNTIME_ENGINE_TTL_MS });
+    runtimeEngineInflight.delete(cacheKey);
+    return json;
+  })().catch((error) => {
+    runtimeEngineInflight.delete(cacheKey);
+    throw error;
+  });
+
+  runtimeEngineInflight.set(cacheKey, request);
+  return request;
 }
 
 export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
@@ -73,7 +127,14 @@ export async function saveRuntimeEngine(guildId: string, engine: string, patch: 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch, userId }),
   });
-  return await readJsonOrThrow(res);
+  const json = await readJsonOrThrow(res);
+  const cachePrefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
+  for (const key of runtimeEngineCache.keys()) {
+    if (key.startsWith(cachePrefix)) {
+      runtimeEngineCache.delete(key);
+    }
+  }
+  return json;
 }
 
 export async function validateRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
@@ -95,11 +156,30 @@ export async function runRuntimeEngineAction(guildId: string, engine: string, ac
 }
 
 export async function fetchDashboardConfig(guildId: string) {
-  const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, {
-    cache: "no-store",
+  const cacheKey = String(guildId || "").trim();
+  const cached = dashboardConfigCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  const inflight = dashboardConfigInflight.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, {
+      cache: "no-store",
+    });
+    const json = await readJsonOrThrow(res);
+    const value = json?.config || {};
+    dashboardConfigCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CONFIG_TTL_MS });
+    dashboardConfigInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    dashboardConfigInflight.delete(cacheKey);
+    throw error;
   });
-  const json = await readJsonOrThrow(res);
-  return json?.config || {};
+
+  dashboardConfigInflight.set(cacheKey, request);
+  return request;
 }
 
 export async function saveDashboardConfig(guildId: string, patch: Record<string, unknown>) {
@@ -108,5 +188,7 @@ export async function saveDashboardConfig(guildId: string, patch: Record<string,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, patch }),
   });
-  return await readJsonOrThrow(res);
+  const json = await readJsonOrThrow(res);
+  dashboardConfigCache.delete(String(guildId || "").trim());
+  return json;
 }

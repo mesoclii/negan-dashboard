@@ -1,10 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { normalizeEngineKey } from "@/lib/engineKeys";
+import { deleteServerCache, readOrCreateServerCache } from "@/lib/serverCache";
+
+const RUNTIME_ENGINE_PROXY_TTL_MS = Math.max(5_000, Number(process.env.RUNTIME_ENGINE_PROXY_TTL_MS || 20_000));
 
 export const config = {
   api: {
@@ -51,19 +54,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "GET") {
-      const upstream = await fetch(
-        `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(normalizedEngine)}`,
-        {
-          headers: buildBotApiHeaders(req),
-          cache: "no-store",
+      const cacheKey = `runtime-engine:${guildId}:${normalizedEngine}`;
+      const cached = await readOrCreateServerCache<{ status: number; body: unknown }>(
+        cacheKey,
+        RUNTIME_ENGINE_PROXY_TTL_MS,
+        async () => {
+          const upstream = await fetchBotApi(
+            `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(normalizedEngine)}`,
+            {
+              headers: buildBotApiHeaders(req),
+              cache: "no-store",
+            }
+          );
+          const json = await readJsonSafe(upstream);
+          return { status: upstream.status, body: json };
         }
       );
-      const json = await readJsonSafe(upstream);
-      return res.status(upstream.status).json(json);
+      return res.status(cached.status).json(cached.body);
     }
 
     if (req.method === "POST" || req.method === "PUT") {
-      const upstream = await fetch(`${BOT_API}/engine-runtime`, {
+      const upstream = await fetchBotApi(`${BOT_API}/engine-runtime`, {
         method: "POST",
         headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({
@@ -73,6 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
       });
       const json = await readJsonSafe(upstream);
+      deleteServerCache(`runtime-engine:${guildId}:${normalizedEngine}`);
       void auditDashboardEvent({
         guildId,
         actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,

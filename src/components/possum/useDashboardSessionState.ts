@@ -14,7 +14,7 @@ const DEFAULT_STATE: DashboardSessionState = {
   isMasterOwner: false,
 };
 
-const SESSION_CACHE_TTL_MS = 60_000;
+const SESSION_CACHE_TTL_MS = 5 * 60_000;
 const SESSION_STORAGE_KEY = "dashboard-session-state";
 
 let sessionCache:

@@ -80,8 +80,8 @@ async function readJsonOrThrow(res: Response) {
   return json;
 }
 
-const DASHBOARD_CONFIG_TTL_MS = 10_000;
-const ENGINE_CONFIG_TTL_MS = 10_000;
+const DASHBOARD_CONFIG_TTL_MS = 60_000;
+const ENGINE_CONFIG_TTL_MS = 30_000;
 
 const dashboardConfigCache = new Map<string, { value: any; expiresAt: number }>();
 const engineConfigCache = new Map<string, { value: any; expiresAt: number }>();

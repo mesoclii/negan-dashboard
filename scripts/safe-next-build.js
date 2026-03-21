@@ -38,18 +38,27 @@ function removeDir(targetPath) {
   fs.rmSync(targetPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
 
-function moveDir(fromPath, toPath) {
+function moveDir(fromPath, toPath, options = {}) {
   if (!fs.existsSync(fromPath)) return false;
-  removeDir(toPath);
-  fs.renameSync(fromPath, toPath);
-  return true;
+  const { tolerateBusy = false, label = "path move" } = options;
+  try {
+    removeDir(toPath);
+    fs.renameSync(fromPath, toPath);
+    return true;
+  } catch (err) {
+    const busyCode = err && typeof err === "object" ? String(err.code || "") : "";
+    if (tolerateBusy && (busyCode === "EPERM" || busyCode === "EBUSY" || busyCode === "ENOTEMPTY")) {
+      log(`Could not complete ${label}; continuing without that move (${busyCode}).`);
+      return false;
+    }
+    throw err;
+  }
 }
 
 function stashBuildCache(fromBuildDir) {
   const cacheDir = path.join(fromBuildDir, "cache");
   if (!fs.existsSync(cacheDir)) return false;
-  moveDir(cacheDir, cacheHoldDir);
-  return true;
+  return moveDir(cacheDir, cacheHoldDir, { tolerateBusy: true, label: "build-cache capture" });
 }
 
 function restoreBuildCache() {
@@ -73,7 +82,7 @@ if (hadCachedBuildData) {
   log("Captured existing Next build cache for reuse.");
 }
 
-const hadExistingBuild = moveDir(buildDir, rollbackDir);
+const hadExistingBuild = moveDir(buildDir, rollbackDir, { tolerateBusy: true, label: "rollback build capture" });
 if (hadExistingBuild) {
   log(`Moved existing build to ${path.basename(rollbackDir)} for rollback.`);
 }

@@ -6,6 +6,7 @@ type CacheEntry<T> = {
 };
 
 const STORE = new Map<string, CacheEntry<unknown>>();
+const INFLIGHT = new Map<string, Promise<unknown>>();
 
 export function readServerCache<T>(key: string): T | null {
   const entry = STORE.get(String(key || ""));
@@ -37,6 +38,7 @@ export function writeServerCache<T>(key: string, value: T, ttlMs: number): T {
 
 export function deleteServerCache(key: string) {
   STORE.delete(String(key || ""));
+  INFLIGHT.delete(String(key || ""));
 }
 
 export function deleteServerCachePrefix(prefix: string) {
@@ -47,4 +49,37 @@ export function deleteServerCachePrefix(prefix: string) {
       STORE.delete(key);
     }
   }
+  for (const key of INFLIGHT.keys()) {
+    if (key.startsWith(normalized)) {
+      INFLIGHT.delete(key);
+    }
+  }
+}
+
+export async function readOrCreateServerCache<T>(
+  key: string,
+  ttlMs: number,
+  loader: () => Promise<T>
+): Promise<T> {
+  const normalizedKey = String(key || "");
+  const cached = readServerCache<T>(normalizedKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  const inflight = INFLIGHT.get(normalizedKey);
+  if (inflight) {
+    return inflight as Promise<T>;
+  }
+
+  const request = (async () => {
+    const value = await loader();
+    writeServerCache(normalizedKey, value, ttlMs);
+    return value;
+  })().finally(() => {
+    INFLIGHT.delete(normalizedKey);
+  });
+
+  INFLIGHT.set(normalizedKey, request);
+  return request;
 }
