@@ -7,10 +7,14 @@ type RareSpawnCfg = {
   enabled: boolean;
   minMinutes: number;
   maxMinutes: number;
+  despawnMinutes: number;
+  cooldownMinutes: number;
+  rotationOffsetMinutes: number;
   rewardCoinsMin: number;
   rewardCoinsMax: number;
   channels: string[];
   categories: string[];
+  spawnWindows: string[];
   logChannelId: string;
 };
 
@@ -18,10 +22,14 @@ const EMPTY: RareSpawnCfg = {
   enabled: true,
   minMinutes: 30,
   maxMinutes: 90,
+  despawnMinutes: 15,
+  cooldownMinutes: 0,
+  rotationOffsetMinutes: 0,
   rewardCoinsMin: 150,
   rewardCoinsMax: 450,
   channels: [],
   categories: [],
+  spawnWindows: [],
   logChannelId: "",
 };
 
@@ -32,6 +40,13 @@ function toggle(list: string[], id: string) {
   const set = new Set(list || []);
   if (set.has(id)) set.delete(id); else set.add(id);
   return Array.from(set);
+}
+
+function lines(value: string) {
+  return String(value || "")
+    .split(/\r?\n+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 export default function RareSpawnEnginePage() {
@@ -69,6 +84,7 @@ export default function RareSpawnEnginePage() {
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Enabled</label>
               <button onClick={() => runAction("spawnNow")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }}>Spawn Now</button>
+              <button onClick={() => runAction("clearActive")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }}>Clear Active Spawn</button>
             </div>
           </section>
 
@@ -76,8 +92,23 @@ export default function RareSpawnEnginePage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
               <div><div>Minimum Minutes</div><input style={input} type="number" value={cfg.minMinutes} onChange={(e) => setCfg((p) => ({ ...p, minMinutes: Number(e.target.value || 0) }))} /></div>
               <div><div>Maximum Minutes</div><input style={input} type="number" value={cfg.maxMinutes} onChange={(e) => setCfg((p) => ({ ...p, maxMinutes: Number(e.target.value || 0) }))} /></div>
+              <div><div>Despawn Minutes</div><input style={input} type="number" min={1} value={cfg.despawnMinutes} onChange={(e) => setCfg((p) => ({ ...p, despawnMinutes: Number(e.target.value || 0) }))} /></div>
+              <div><div>Cooldown Minutes</div><input style={input} type="number" min={0} value={cfg.cooldownMinutes} onChange={(e) => setCfg((p) => ({ ...p, cooldownMinutes: Number(e.target.value || 0) }))} /></div>
+              <div><div>Rotation Offset Minutes</div><input style={input} type="number" min={0} value={cfg.rotationOffsetMinutes} onChange={(e) => setCfg((p) => ({ ...p, rotationOffsetMinutes: Number(e.target.value || 0) }))} /></div>
               <div><div>Reward Coins Min</div><input style={input} type="number" value={cfg.rewardCoinsMin} onChange={(e) => setCfg((p) => ({ ...p, rewardCoinsMin: Number(e.target.value || 0) }))} /></div>
               <div><div>Reward Coins Max</div><input style={input} type="number" value={cfg.rewardCoinsMax} onChange={(e) => setCfg((p) => ({ ...p, rewardCoinsMax: Number(e.target.value || 0) }))} /></div>
+            </div>
+          </section>
+
+          <section style={box}>
+            <div style={{ marginBottom: 6 }}>Spawn Windows</div>
+            <textarea
+              style={{ ...input, minHeight: 96 }}
+              value={(cfg.spawnWindows || []).join("\n")}
+              onChange={(e) => setCfg((p) => ({ ...p, spawnWindows: lines(e.target.value) }))}
+            />
+            <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>
+              One window per line. Example: <code>mon-fri 18:00-23:30</code> or <code>sat-sun 12:00-02:00</code>.
             </div>
           </section>
 
