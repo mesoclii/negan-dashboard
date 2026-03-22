@@ -29,6 +29,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "vip", label: "VIP", description: "VIP grants, status, expiry cleanup, and tier lifecycle", group: "Guild Control", route: "/dashboard/vip", notes: "Separate VIP engine. Loyalty is configured on its own linked page." },
   { id: "tickets", label: "Tickets", description: "Support ticket controls", group: "Guild Control", route: "/dashboard/tickets", notes: "Engine-config controlled" },
   { id: "selfroles", label: "Self Roles", description: "Self-role panel deployment", group: "Guild Control", route: "/dashboard/selfroles" },
+  { id: "reviews", label: "Reviews", description: "Review panel deploy, star voting, and written feedback cards", group: "Guild Control", route: "/dashboard/reviews" },
 
   { id: "moderator", label: "Moderator", description: "Separate automod, audit, and moderation control surface", group: "Security", route: "/dashboard/moderator" },
   { id: "security", label: "Security", description: "Security stack, moderation, and policies", group: "Security", route: "/dashboard/security" },

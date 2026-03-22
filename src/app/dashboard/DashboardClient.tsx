@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { buildDashboardHref, readDashboardGuildId, readDashboardUserId } from "@/lib/dashboardContext";
 import { SAVIORS_GUILD_ID } from "@/lib/dashboard/engineRegistry";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
 import { isPremiumEnforcementEnabled } from "@/lib/premiumMode";
 
 type ToggleController = {
-  read: (guildId: string) => Promise<boolean>;
-  write: (guildId: string, next: boolean) => Promise<void>;
+  read: (guildId: string, userId?: string) => Promise<boolean>;
+  write: (guildId: string, next: boolean, userId?: string) => Promise<void>;
 };
 
 type Card = {
@@ -88,8 +88,9 @@ const engineConfigCache = new Map<string, { value: any; expiresAt: number }>();
 const dashboardConfigInflight = new Map<string, Promise<any>>();
 const engineConfigInflight = new Map<string, Promise<any>>();
 
-async function getDashboardConfig(guildId: string) {
-  const cacheKey = String(guildId || "").trim();
+async function getDashboardConfig(guildId: string, userId = "") {
+  const actorUserId = String(userId || "").trim();
+  const cacheKey = `${String(guildId || "").trim()}:${actorUserId}`;
   const cached = dashboardConfigCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -98,7 +99,7 @@ async function getDashboardConfig(guildId: string) {
     return dashboardConfigInflight.get(cacheKey);
   }
   const request = (async () => {
-    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
+    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`, { cache: "no-store" });
     const json = await readJsonOrThrow(res);
     const value = json?.config || {};
     dashboardConfigCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CONFIG_TTL_MS });
@@ -112,18 +113,23 @@ async function getDashboardConfig(guildId: string) {
   return request;
 }
 
-async function saveDashboardFeature(guildId: string, key: string, value: boolean) {
+async function saveDashboardFeature(guildId: string, key: string, value: boolean, userId = "") {
   const res = await fetch("/api/bot/dashboard-config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, patch: { features: { [key]: value } } }),
+    body: JSON.stringify({ guildId, patch: { features: { [key]: value } }, userId }),
   });
   await readJsonOrThrow(res);
-  dashboardConfigCache.delete(String(guildId || "").trim());
+  for (const cacheKey of dashboardConfigCache.keys()) {
+    if (cacheKey.startsWith(`${String(guildId || "").trim()}:`)) {
+      dashboardConfigCache.delete(cacheKey);
+    }
+  }
 }
 
-async function getEngineConfig(guildId: string, engine: string) {
-  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}`;
+async function getEngineConfig(guildId: string, engine: string, userId = "") {
+  const actorUserId = String(userId || "").trim();
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}`;
   const cached = engineConfigCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -133,7 +139,7 @@ async function getEngineConfig(guildId: string, engine: string) {
   }
   const request = (async () => {
     const res = await fetch(
-      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`,
       { cache: "no-store" }
     );
     const json = await readJsonOrThrow(res);
@@ -149,36 +155,41 @@ async function getEngineConfig(guildId: string, engine: string) {
   return request;
 }
 
-async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>) {
+async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
   const res = await fetch("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, patch }),
+    body: JSON.stringify({ guildId, engine, patch, userId }),
   });
   await readJsonOrThrow(res);
-  engineConfigCache.delete(`${String(guildId || "").trim()}:${String(engine || "").trim()}`);
+  const prefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
+  for (const cacheKey of engineConfigCache.keys()) {
+    if (cacheKey.startsWith(prefix)) {
+      engineConfigCache.delete(cacheKey);
+    }
+  }
 }
 
 function featureController(key: string): ToggleController {
   return {
-    async read(guildId) {
-      const config = await getDashboardConfig(guildId);
+    async read(guildId, userId) {
+      const config = await getDashboardConfig(guildId, userId);
       return readBoolPath(config, ["features", key], false);
     },
-    async write(guildId, next) {
-      await saveDashboardFeature(guildId, key, next);
+    async write(guildId, next, userId) {
+      await saveDashboardFeature(guildId, key, next, userId);
     },
   };
 }
 
 function engineController(engine: string, fieldPath: string[] = ["enabled"]): ToggleController {
   return {
-    async read(guildId) {
-      const config = await getEngineConfig(guildId, engine);
+    async read(guildId, userId) {
+      const config = await getEngineConfig(guildId, engine, userId);
       return readBoolPath(config, fieldPath, false);
     },
-    async write(guildId, next) {
-      const current = await getEngineConfig(guildId, engine);
+    async write(guildId, next, userId) {
+      const current = await getEngineConfig(guildId, engine, userId);
       const patch = buildPatch(fieldPath, next);
       if (
         fieldPath.length === 1 &&
@@ -189,7 +200,7 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
         patch.active = next;
         patch.enabled = next;
       }
-      await saveEngineConfig(guildId, engine, patch);
+      await saveEngineConfig(guildId, engine, patch, userId);
     },
   };
 }
@@ -221,6 +232,7 @@ function getCardSection(card: Card): DashboardSection {
   }
   if (
     href === "/dashboard/utilities" ||
+    href === "/dashboard/reviews" ||
     href === "/dashboard/community-studio" ||
     href === "/dashboard/channel-flow"
   ) {
@@ -279,96 +291,96 @@ function getCardSection(card: Card): DashboardSection {
 }
 
 const birthdayController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "radio"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "radio", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "birthdayEnabled"], false) && readBoolPath(engineConfig, ["birthday", "enabled"], false);
   },
-  async write(guildId, next) {
-    await saveDashboardFeature(guildId, "birthdayEnabled", next);
-    await saveEngineConfig(guildId, "radio", { birthday: { enabled: next } });
+  async write(guildId, next, userId) {
+    await saveDashboardFeature(guildId, "birthdayEnabled", next, userId);
+    await saveEngineConfig(guildId, "radio", { birthday: { enabled: next } }, userId);
   },
 };
 
 const rareSpawnController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "rareSpawn"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "rareSpawn", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "rareDropEnabled"], false) && readBoolPath(engineConfig, ["enabled"], false);
   },
-  async write(guildId, next) {
+  async write(guildId, next, userId) {
     await Promise.all([
-      saveDashboardFeature(guildId, "rareDropEnabled", next),
-      saveEngineConfig(guildId, "rareSpawn", { enabled: next }),
+      saveDashboardFeature(guildId, "rareDropEnabled", next, userId),
+      saveEngineConfig(guildId, "rareSpawn", { enabled: next }, userId),
     ]);
   },
 };
 
 const musicController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "music"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "music", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "musicEnabled"], false) && readBoolPath(engineConfig, ["enabled"], false);
   },
-  async write(guildId, next) {
+  async write(guildId, next, userId) {
     await Promise.all([
-      saveDashboardFeature(guildId, "musicEnabled", next),
-      saveEngineConfig(guildId, "music", { enabled: next }),
+      saveDashboardFeature(guildId, "musicEnabled", next, userId),
+      saveEngineConfig(guildId, "music", { enabled: next }, userId),
     ]);
   },
 };
 
 const pokemonCatchingController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "pokemon"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "pokemon", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfig, ["enabled"], false);
   },
-  async write(guildId, next) {
+  async write(guildId, next, userId) {
     await Promise.all([
-      saveDashboardFeature(guildId, "pokemonEnabled", next),
-      saveEngineConfig(guildId, "pokemon", { enabled: next }),
+      saveDashboardFeature(guildId, "pokemonEnabled", next, userId),
+      saveEngineConfig(guildId, "pokemon", { enabled: next }, userId),
     ]);
   },
 };
 
 const pokemonBattleController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "pokemon"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "pokemon", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfig, ["battleEnabled"], false);
   },
-  async write(guildId, next) {
+  async write(guildId, next, userId) {
     if (next) {
-      await saveDashboardFeature(guildId, "pokemonEnabled", true);
+      await saveDashboardFeature(guildId, "pokemonEnabled", true, userId);
     }
-    await saveEngineConfig(guildId, "pokemon", { battleEnabled: next });
+    await saveEngineConfig(guildId, "pokemon", { battleEnabled: next }, userId);
   },
 };
 
 const pokemonTradeController: ToggleController = {
-  async read(guildId) {
+  async read(guildId, userId) {
     const [dashboardConfig, engineConfig] = await Promise.all([
-      getDashboardConfig(guildId),
-      getEngineConfig(guildId, "pokemon"),
+      getDashboardConfig(guildId, userId),
+      getEngineConfig(guildId, "pokemon", userId),
     ]);
     return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfig, ["tradingEnabled"], false);
   },
-  async write(guildId, next) {
+  async write(guildId, next, userId) {
     if (next) {
-      await saveDashboardFeature(guildId, "pokemonEnabled", true);
+      await saveDashboardFeature(guildId, "pokemonEnabled", true, userId);
     }
-    await saveEngineConfig(guildId, "pokemon", { tradingEnabled: next });
+    await saveEngineConfig(guildId, "pokemon", { tradingEnabled: next }, userId);
   },
 };
 
@@ -389,6 +401,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/event-reactor", title: "Event Alerts", description: "Choose what Discord activity to watch, where failed jobs go, and any extra alert posts.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/runtime-router", title: "AI Talking Rules", description: "Simple split between free Possum AI replies and optional Persona AI channels.", toggle: engineController("runtimeRouter", ["adaptiveAiEnabled"]) },
   { href: "/dashboard/utilities", title: "Utilities", description: "Card-based utility overview for Jed, help, polls, reminders, embeds, counters, and temp channels.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/reviews", title: "Reviews", description: "Review panel deploy, star voting, and written feedback cards.", toggle: engineController("reviews", ["enabled"]) },
   { href: "/dashboard/community-studio", title: "Community Studio", description: "Bulletin drops, pulse polls, reminder loops, and lookup shelf answers.", toggle: engineController("communityStudio", ["active"]) },
   { href: "/dashboard/channel-flow", title: "Channel Flow", description: "Live counter channels and room-flow temporary voice spaces.", toggle: engineController("channelFlow", ["active"]) },
   { href: "/dashboard/search-anything", title: "Search Anything", description: "Guild-level search routes for web, video, wiki, meme, anime, and creator lookups.", toggle: engineController("searchAnything", ["enabled"]) },
@@ -445,16 +458,32 @@ function pillClass(on: boolean | null) {
 export default function DashboardClient() {
   const premiumEnforced = isPremiumEnforcementEnabled();
   const [guildId, setGuildId] = useState("");
+  const [viewerUserId, setViewerUserId] = useState("");
   const [states, setStates] = useState<Record<string, ToggleState>>({});
   const [loadingStates, setLoadingStates] = useState(false);
   const [subscription, setSubscription] = useState<{ active: boolean; plan: string; developerBypass?: boolean } | null>(null);
   const { isMasterOwner } = useDashboardSessionState();
 
   useEffect(() => {
-    setGuildId(readDashboardGuildId());
+    if (typeof window === "undefined") return;
+    let lastSearch = "";
+    const syncContext = () => {
+      const currentSearch = String(window.location.search || "");
+      if (currentSearch === lastSearch) return;
+      lastSearch = currentSearch;
+      setGuildId(readDashboardGuildId());
+      setViewerUserId(readDashboardUserId());
+    };
+    syncContext();
+    const interval = window.setInterval(syncContext, 750);
+    window.addEventListener("popstate", syncContext);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("popstate", syncContext);
+    };
   }, []);
 
-  async function loadStates(targetGuildId: string) {
+  const loadStates = useCallback(async (targetGuildId: string) => {
     if (!targetGuildId) return;
     setLoadingStates(true);
     const nextStates: Record<string, ToggleState> = {};
@@ -462,7 +491,7 @@ export default function DashboardClient() {
       CARDS.map(async (card) => {
         if (!card.toggle) return;
         try {
-          const value = await card.toggle.read(targetGuildId);
+          const value = await card.toggle.read(targetGuildId, viewerUserId);
           nextStates[card.href] = { value, saving: false };
         } catch (err: any) {
           nextStates[card.href] = {
@@ -475,11 +504,11 @@ export default function DashboardClient() {
     );
     setStates(nextStates);
     setLoadingStates(false);
-  }
+  }, [viewerUserId]);
 
   useEffect(() => {
     loadStates(guildId).catch(() => {});
-  }, [guildId]);
+  }, [guildId, loadStates, viewerUserId]);
 
   useEffect(() => {
     if (!premiumEnforced) {
@@ -517,7 +546,7 @@ export default function DashboardClient() {
     }));
 
     try {
-      await card.toggle.write(guildId, next);
+      await card.toggle.write(guildId, next, viewerUserId);
       await loadStates(guildId);
     } catch (err: any) {
       setStates((prev) => ({

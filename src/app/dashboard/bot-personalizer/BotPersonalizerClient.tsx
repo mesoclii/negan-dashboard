@@ -184,9 +184,8 @@ export default function BotPersonalizerClient() {
   const bannerPreviewFailed = Boolean(previewBanner && bannerPreviewFailedFor === previewBanner);
   const effectivePreviewAvatar = avatarPreviewFailed ? "" : previewAvatar;
   const effectiveBotAvatar = botAvatarPreviewFailed ? "" : previewBotAvatar;
-  const displayedAvatar = effectivePreviewAvatar || effectiveBotAvatar || liveBotAvatar;
+  const displayedAvatar = effectivePreviewAvatar || "";
   const displayedBotAvatar = effectiveBotAvatar || liveBotAvatar;
-  const usingLiveBotAvatarFallback = !effectivePreviewAvatar && !effectiveBotAvatar && Boolean(liveBotAvatar);
 
   function updateCfg(patch: Partial<PersonaConfig>) {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
@@ -290,9 +289,9 @@ export default function BotPersonalizerClient() {
             </h1>
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-              Guild nickname applies live in this guild. Presence applies live across the bot account. Chat avatar can now use a direct image link,
-              the live bot avatar fallback, or a saved guild image library for webhook-backed Possum replies. If you want the actual bot account avatar
-              to change on apply, set the live bot avatar override below.
+              Guild nickname applies live in this guild. Presence applies live across the bot account. Webhook avatar is now fully guild-scoped and
+              only uses the custom guild image you set here or save in this guild&apos;s avatar library. If you want the actual bot account avatar to
+              change on apply, set the live bot avatar override below.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -357,7 +356,7 @@ export default function BotPersonalizerClient() {
                     style={input}
                     value={cfg.webhookAvatarUrl || ""}
                     onChange={(e) => updateCfg({ webhookAvatarUrl: e.target.value })}
-                    placeholder="https://... or leave blank to use the live bot avatar"
+                    placeholder="https://... or leave blank for no custom webhook avatar"
                   />
                 </div>
                 <div>
@@ -387,7 +386,8 @@ export default function BotPersonalizerClient() {
                       Saved Avatar Library
                     </div>
                     <div style={hint}>
-                      Save per-guild avatar art here and reuse it instead of pasting links every time. Webhook replies can use these saved avatars per guild.
+                      Save per-guild avatar art here and reuse it instead of pasting links every time. Webhook replies use only these saved guild avatars
+                      or the direct guild avatar source above.
                       You can also apply one of them as the live bot avatar override when you want the real bot account avatar to change.
                     </div>
                   </div>
@@ -398,7 +398,7 @@ export default function BotPersonalizerClient() {
                       onClick={() => {
                         updateCfg({ webhookAvatarUrl: "" });
                         setAvatarPreviewFailedFor("");
-                        setAvatarLibraryMessage("Webhook replies will use the live bot avatar until you choose a custom source again.");
+                        setAvatarLibraryMessage("Webhook replies will clear the guild-specific avatar until you choose a custom source again.");
                       }}
                     >
                       Reset Webhook Avatar
@@ -602,14 +602,14 @@ export default function BotPersonalizerClient() {
                     </div>
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
                       {cfg.useWebhookPersona
-                        ? usingLiveBotAvatarFallback
-                          ? "Webhook identity is using the live bot avatar fallback until a custom guild avatar source is selected."
-                          : "Webhook identity will use the selected custom avatar for Possum AI replies where supported."
+                        ? effectivePreviewAvatar
+                          ? "Webhook identity will use this guild's selected custom avatar for Possum AI replies where supported."
+                          : "Webhook identity is enabled, but no guild-specific webhook avatar is set yet."
                         : "Default bot identity remains active until webhook mode is enabled."}
                     </div>
                     {(avatarPreviewFailed || bannerPreviewFailed) ? (
                       <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
-                        One or more preview images could not be loaded. The runtime will fall back to the live bot avatar if the chat avatar link is dead.
+                        One or more preview images could not be loaded. Fix or replace the broken image link before applying.
                       </div>
                     ) : null}
                   </div>

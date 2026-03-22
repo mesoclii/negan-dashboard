@@ -18,9 +18,20 @@ function resolveGuildId() {
   return id;
 }
 
+function resolveViewerUserId() {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const userId = String(params.get("userId") || params.get("uid") || localStorage.getItem("dashboardUserId") || "").trim();
+  if (userId) {
+    localStorage.setItem("dashboardUserId", userId);
+  }
+  return userId;
+}
+
 export function useGuildEngineEditor<T>(engine: string, defaults: T) {
   const defaultsRef = useRef(defaults);
   const [guildId, setGuildId] = useState("");
+  const [viewerUserId, setViewerUserId] = useState("");
   const [guildName, setGuildName] = useState("");
   const [config, setConfig] = useState<T>(defaults);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
@@ -33,14 +44,36 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    setGuildId(resolveGuildId());
-  }, []);
+    if (typeof window === "undefined") return;
+    let lastSearch = "";
+    const syncContext = () => {
+      const currentSearch = String(window.location.search || "");
+      if (currentSearch === lastSearch && guildId && viewerUserId === resolveViewerUserId()) {
+        return;
+      }
+      lastSearch = currentSearch;
+      const nextGuildId = resolveGuildId().trim();
+      const nextUserId = resolveViewerUserId();
+      if (nextGuildId) {
+        localStorage.setItem("activeGuildId", nextGuildId);
+      }
+      setGuildId(nextGuildId);
+      setViewerUserId(nextUserId);
+    };
+    syncContext();
+    const interval = window.setInterval(syncContext, 750);
+    window.addEventListener("popstate", syncContext);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("popstate", syncContext);
+    };
+  }, [guildId, viewerUserId]);
 
   useEffect(() => {
     defaultsRef.current = defaults;
   }, [defaults]);
 
-  const reload = useCallback(async (targetGuildId = guildId) => {
+  const reload = useCallback(async (targetGuildId = guildId, targetUserId = viewerUserId) => {
     if (!targetGuildId) {
       setLoading(false);
       return;
@@ -49,10 +82,10 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setMessage("");
     try {
       const [runtimeRes, guildRes] = await Promise.all([
-        fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}`, {
+        fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}${targetUserId ? `&userId=${encodeURIComponent(targetUserId)}` : ""}`, {
           cache: "no-store",
         }),
-        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, {
+        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}${targetUserId ? `&userId=${encodeURIComponent(targetUserId)}` : ""}`, {
           cache: "no-store",
         }),
       ]);
@@ -85,7 +118,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     } finally {
       setLoading(false);
     }
-  }, [engine, guildId]);
+  }, [engine, guildId, viewerUserId]);
 
   useEffect(() => {
     void reload();
@@ -100,7 +133,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       const validateRes = await fetch("/api/runtime/engine-validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, engine, patch }),
+        body: JSON.stringify({ guildId, engine, patch, userId: viewerUserId }),
       });
       const validateJson = await validateRes.json().catch(() => ({}));
       if (!validateRes.ok || validateJson?.success === false) {
@@ -124,7 +157,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, engine, patch }),
+        body: JSON.stringify({ guildId, engine, patch, userId: viewerUserId }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {
@@ -152,7 +185,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       const res = await fetch("/api/runtime/engine-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, engine, action, payload }),
+        body: JSON.stringify({ guildId, engine, action, payload, userId: viewerUserId }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {
@@ -188,6 +221,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
 
   return {
     guildId,
+    viewerUserId,
     guildName,
     config,
     setConfig,

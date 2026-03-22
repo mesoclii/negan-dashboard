@@ -8,16 +8,16 @@ import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
 
 const BLANK = {
   features: {
-    onboardingEnabled: false,
-    verificationEnabled: false,
-    heistEnabled: false,
-    rareDropEnabled: false,
-    pokemonEnabled: false,
-    aiEnabled: false,
-    birthdayEnabled: false,
-    economyEnabled: false,
-    governanceEnabled: false,
-    ttsEnabled: false,
+    onboardingEnabled: true,
+    verificationEnabled: true,
+    heistEnabled: true,
+    rareDropEnabled: true,
+    pokemonEnabled: true,
+    aiEnabled: true,
+    birthdayEnabled: true,
+    economyEnabled: true,
+    governanceEnabled: true,
+    ttsEnabled: true,
   },
   botPersonalizer: {
     enabled: true,

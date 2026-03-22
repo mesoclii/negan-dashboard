@@ -61,8 +61,15 @@ export function resolveGuildContext() {
   return { guildId, guildName, userId };
 }
 
+function resolveViewerUserId(explicitUserId = "") {
+  const direct = String(explicitUserId || "").trim();
+  if (direct) return direct;
+  return resolveGuildContext().userId;
+}
+
 export async function fetchGuildData(guildId: string) {
-  const cacheKey = String(guildId || "").trim();
+  const userId = resolveViewerUserId();
+  const cacheKey = `${String(guildId || "").trim()}:${userId}`;
   const cached = guildDataCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -71,7 +78,7 @@ export async function fetchGuildData(guildId: string) {
   if (inflight) return inflight;
 
   const request = (async () => {
-    const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, {
+    const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`, {
       cache: "no-store",
     });
     const json = await readJsonOrThrow(res);
@@ -95,7 +102,8 @@ export async function fetchGuildData(guildId: string) {
 }
 
 export async function fetchRuntimeEngine(guildId: string, engine: string, userId = "") {
-  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${String(userId || "").trim()}`;
+  const actorUserId = resolveViewerUserId(userId);
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}`;
   const cached = runtimeEngineCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -105,7 +113,7 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
 
   const request = (async () => {
     const res = await fetch(
-      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`,
       { cache: "no-store" }
     );
     const json = await readJsonOrThrow(res);
@@ -122,10 +130,11 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
 }
 
 export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
+  const actorUserId = resolveViewerUserId(userId);
   const res = await fetch("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, patch, userId }),
+    body: JSON.stringify({ guildId, engine, patch, userId: actorUserId }),
   });
   const json = await readJsonOrThrow(res);
   const cachePrefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
@@ -138,25 +147,28 @@ export async function saveRuntimeEngine(guildId: string, engine: string, patch: 
 }
 
 export async function validateRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
+  const actorUserId = resolveViewerUserId();
   const res = await fetch("/api/runtime/engine-validate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, patch }),
+    body: JSON.stringify({ guildId, engine, patch, userId: actorUserId }),
   });
   return await readJsonOrThrow(res);
 }
 
 export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>, userId = "") {
+  const actorUserId = resolveViewerUserId(userId);
   const res = await fetch("/api/runtime/engine-action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, action, payload, userId }),
+    body: JSON.stringify({ guildId, engine, action, payload, userId: actorUserId }),
   });
   return await readJsonOrThrow(res);
 }
 
 export async function fetchDashboardConfig(guildId: string) {
-  const cacheKey = String(guildId || "").trim();
+  const userId = resolveViewerUserId();
+  const cacheKey = `${String(guildId || "").trim()}:${userId}`;
   const cached = dashboardConfigCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -165,7 +177,7 @@ export async function fetchDashboardConfig(guildId: string) {
   if (inflight) return inflight;
 
   const request = (async () => {
-    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}`, {
+    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`, {
       cache: "no-store",
     });
     const json = await readJsonOrThrow(res);
@@ -183,12 +195,17 @@ export async function fetchDashboardConfig(guildId: string) {
 }
 
 export async function saveDashboardConfig(guildId: string, patch: Record<string, unknown>) {
+  const userId = resolveViewerUserId();
   const res = await fetch("/api/bot/dashboard-config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, patch }),
+    body: JSON.stringify({ guildId, patch, userId }),
   });
   const json = await readJsonOrThrow(res);
-  dashboardConfigCache.delete(String(guildId || "").trim());
+  for (const key of dashboardConfigCache.keys()) {
+    if (key.startsWith(`${String(guildId || "").trim()}:`)) {
+      dashboardConfigCache.delete(key);
+    }
+  }
   return json;
 }

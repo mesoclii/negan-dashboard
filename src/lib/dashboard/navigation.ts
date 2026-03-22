@@ -51,6 +51,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       label: "Utilities",
       items: [
         { href: "/dashboard/utilities", label: "Utilities" },
+        { href: "/dashboard/reviews", label: "Reviews" },
         { href: "/dashboard/search-anything", label: "Search Anything" },
         { href: "/dashboard/community-studio", label: "Community Studio" },
         { href: "/dashboard/channel-flow", label: "Channel Flow" },

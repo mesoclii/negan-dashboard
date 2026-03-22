@@ -25,6 +25,12 @@ type ChannelFlowConfig = {
   counters?: { enabled?: boolean; channels?: Array<Record<string, unknown>> };
   rooms?: { enabled?: boolean; lobbyChannelId?: string };
 };
+type ReviewConfig = {
+  enabled?: boolean;
+  reviewChannelId?: string;
+  panelChannelId?: string;
+  panelMessageId?: string;
+};
 
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1380 };
 const hero: React.CSSProperties = { border: "1px solid #6a0000", borderRadius: 14, background: "rgba(90,0,0,0.12)", padding: 16, marginBottom: 14 };
@@ -73,6 +79,7 @@ export default function UtilitiesHubClient() {
   const [searchAnything, setSearchAnything] = useState<SearchAnythingConfig>({});
   const [communityStudio, setCommunityStudio] = useState<CommunityStudioConfig>({});
   const [channelFlow, setChannelFlow] = useState<ChannelFlowConfig>({});
+  const [reviews, setReviews] = useState<ReviewConfig>({});
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState("");
   const [message, setMessage] = useState("");
@@ -91,16 +98,18 @@ export default function UtilitiesHubClient() {
     try {
       setLoading(true);
       setMessage("");
-      const [jedJson, searchJson, studioJson, flowJson] = await Promise.all([
+      const [jedJson, searchJson, studioJson, flowJson, reviewJson] = await Promise.all([
         fetchRuntimeEngine(targetGuildId, "jed"),
         fetchRuntimeEngine(targetGuildId, "searchAnything"),
         fetchRuntimeEngine(targetGuildId, "communityStudio"),
         fetchRuntimeEngine(targetGuildId, "channelFlow"),
+        fetchRuntimeEngine(targetGuildId, "reviews"),
       ]);
       setJed((jedJson as RuntimePayload)?.config || {});
       setSearchAnything((searchJson as RuntimePayload)?.config || {});
       setCommunityStudio((studioJson as RuntimePayload)?.config || {});
       setChannelFlow((flowJson as RuntimePayload)?.config || {});
+      setReviews((reviewJson as RuntimePayload)?.config || {});
     } catch (err: any) {
       setMessage(err?.message || "Failed to load utilities.");
     } finally {
@@ -186,12 +195,29 @@ export default function UtilitiesHubClient() {
     }
   }, [channelFlow, guildId]);
 
+  const saveReviews = useCallback(async (nextValue: boolean) => {
+    if (!guildId) return;
+    try {
+      setSavingKey("reviews");
+      setMessage("");
+      const nextConfig = { ...reviews, enabled: nextValue };
+      const json = await saveRuntimeEngine(guildId, "reviews", nextConfig as Record<string, unknown>);
+      setReviews((json as RuntimePayload)?.config || nextConfig);
+      setMessage(`Reviews ${nextValue ? "enabled" : "disabled"} for this guild.`);
+    } catch (err: any) {
+      setMessage(err?.message || "Failed to update Reviews.");
+    } finally {
+      setSavingKey("");
+    }
+  }, [guildId, reviews]);
+
   const cards = useMemo(() => {
     const jedOn = safeBool(jed.enabled, false);
     const searchOn = safeBool(searchAnything.enabled, false);
     const searchProviderCount = Array.isArray(searchAnything.providers)
       ? searchAnything.providers.filter((entry) => entry?.enabled !== false).length
       : 0;
+    const reviewsOn = safeBool(reviews.enabled, true);
     const pollsOn = safeBool(communityStudio.active, false) && safeBool(communityStudio.pollsEnabled, true);
     const remindersOn = safeBool(communityStudio.active, false) && safeBool(communityStudio.remindersEnabled, true);
     const countersOn = safeBool(channelFlow.active, false) && safeBool(channelFlow.counters?.enabled, false);
@@ -217,6 +243,16 @@ export default function UtilitiesHubClient() {
         countText: "Native help stays available even if you keep custom commands separate.",
         href: buildDashboardHref("/dashboard/slash-commands"),
         goLabel: "Open Help",
+      },
+      {
+        key: "reviews",
+        title: "Reviews",
+        status: reviewsOn,
+        summary: "Deploy a full rating panel with star buttons, review modal, and configurable panel art.",
+        detail: "This uses the dedicated review engine instead of a fake shell. Panel channel, review channel, thumbnail, background, and button emojis are all editable.",
+        countText: reviews.panelChannelId ? `Panel deploy target saved${reviews.reviewChannelId ? " and review archive channel set." : "."}` : "Pick a panel channel and deploy the review board.",
+        onToggle: () => void saveReviews(!reviewsOn),
+        href: buildDashboardHref("/dashboard/reviews"),
       },
       {
         key: "pollsEnabled",
@@ -281,7 +317,7 @@ export default function UtilitiesHubClient() {
         href: buildDashboardHref("/dashboard/channel-flow#rooms"),
       },
     ];
-  }, [channelFlow, communityStudio, jed, saveFlowFlag, saveJed, saveSearchAnything, saveStudioFlag, searchAnything]);
+  }, [channelFlow, communityStudio, jed, reviews, saveFlowFlag, saveJed, saveReviews, saveSearchAnything, saveStudioFlag, searchAnything]);
 
   if (!guildId && !loading) {
     return <div style={{ ...shell, color: "#ff8a8a" }}>Missing guildId. Open from `/guilds` first.</div>;
