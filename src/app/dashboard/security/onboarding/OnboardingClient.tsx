@@ -12,15 +12,10 @@ type OnboardingConfig = {
   welcomeChannelId: string;
   mainChatChannelId: string;
   rulesChannelId: string;
-  idChannelId: string;
   ticketCategoryId: string;
   transcriptChannelId: string;
   logChannelId: string;
-  verifiedRoleId: string;
-  declineRoleId: string;
   staffRoleIds: string[];
-  removeOnVerifyRoleIds: string[];
-  idTimeoutMinutes: number;
   hostingLegacyChannelId: string;
   hostingEnhancedChannelId: string;
   staffIntroChannelId: string;
@@ -34,10 +29,6 @@ type OnboardingConfig = {
   panelDescription: string;
   panelFooter: string;
   gateAnnouncementTemplate: string;
-  idPanelTitle: string;
-  idPanelDescription: string;
-  idPanelContent: string;
-  postVerifyTemplate: string;
 };
 
 const DEFAULTS: OnboardingConfig = {
@@ -45,15 +36,10 @@ const DEFAULTS: OnboardingConfig = {
   welcomeChannelId: "",
   mainChatChannelId: "",
   rulesChannelId: "",
-  idChannelId: "",
   ticketCategoryId: "",
   transcriptChannelId: "",
   logChannelId: "",
-  verifiedRoleId: "",
-  declineRoleId: "",
   staffRoleIds: [],
-  removeOnVerifyRoleIds: [],
-  idTimeoutMinutes: 30,
   hostingLegacyChannelId: "",
   hostingEnhancedChannelId: "",
   staffIntroChannelId: "",
@@ -67,10 +53,6 @@ const DEFAULTS: OnboardingConfig = {
   panelDescription: "Read the rules in <#{{rulesChannelId}}> and confirm below to continue.",
   panelFooter: "Complete onboarding to unlock the server.",
   gateAnnouncementTemplate: "Survivor <@{{userId}}> has reached the gates.",
-  idPanelTitle: "ID Verification - Final Gate",
-  idPanelDescription: "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
-  idPanelContent: "Survivor <@{{userId}}>",
-  postVerifyTemplate: "<@{{userId}}> is now verified. Welcome to {{guildName}}.",
 };
 
 const styles = {
@@ -136,7 +118,6 @@ export default function OnboardingPage() {
     | "welcomeChannelId"
     | "mainChatChannelId"
     | "rulesChannelId"
-    | "idChannelId"
     | "transcriptChannelId"
     | "logChannelId"
     | "hostingLegacyChannelId"
@@ -151,7 +132,6 @@ export default function OnboardingPage() {
     { key: "welcomeChannelId", label: "Welcome Channel" },
     { key: "mainChatChannelId", label: "Main Chat Channel" },
     { key: "rulesChannelId", label: "Rules Channel" },
-    { key: "idChannelId", label: "ID Verification Channel" },
     { key: "transcriptChannelId", label: "Transcript Channel" },
     { key: "logChannelId", label: "Log Channel" },
     { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel" },
@@ -179,10 +159,6 @@ export default function OnboardingPage() {
 
       <div style={styles.card}>
         <label><input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} /> Engine enabled</label>
-        <div style={{ marginTop: 10, maxWidth: 320 }}>
-          <label>ID timeout minutes</label>
-          <input style={styles.input} type="number" value={cfg.idTimeoutMinutes || 0} onChange={(e) => setCfg({ ...cfg, idTimeoutMinutes: Number(e.target.value || 0) })} />
-        </div>
       </div>
 
       <div style={styles.card}>
@@ -216,28 +192,6 @@ export default function OnboardingPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label>Verified Role</label>
-            <select style={styles.input} value={cfg.verifiedRoleId || ""} onChange={(e) => setCfg({ ...cfg, verifiedRoleId: e.target.value })}>
-              <option value="">Select role</option>
-              {(roles as GuildRole[]).map((role) => (
-                <option key={role.id} value={role.id}>
-                  @{role.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>Decline Role</label>
-            <select style={styles.input} value={cfg.declineRoleId || ""} onChange={(e) => setCfg({ ...cfg, declineRoleId: e.target.value })}>
-              <option value="">Select role</option>
-              {(roles as GuildRole[]).map((role) => (
-                <option key={role.id} value={role.id}>
-                  @{role.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -256,21 +210,6 @@ export default function OnboardingPage() {
               ))}
             </div>
           </div>
-          <div>
-            <label>Remove On Verify Roles</label>
-            <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
-              {(roles as GuildRole[]).map((role) => (
-                <label key={`remove_${role.id}`} style={{ display: "block", marginBottom: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={(cfg.removeOnVerifyRoleIds || []).includes(role.id)}
-                    onChange={() => setCfg({ ...cfg, removeOnVerifyRoleIds: toggleRole(cfg.removeOnVerifyRoleIds || [], role.id) })}
-                  />{" "}
-                  @{role.name}
-                </label>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -282,10 +221,6 @@ export default function OnboardingPage() {
           "panelDescription",
           "panelFooter",
           "gateAnnouncementTemplate",
-          "idPanelTitle",
-          "idPanelDescription",
-          "idPanelContent",
-          "postVerifyTemplate",
         ].map((key) => (
           <div key={key} style={{ marginBottom: 10 }}>
             <label>{key}</label>

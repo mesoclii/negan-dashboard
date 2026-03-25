@@ -19,13 +19,8 @@ type PersonaConfig = {
   botName: string;
   webhookName: string;
   webhookAvatarUrl: string;
-  botAvatarUrl: string;
   avatarLibrary: AvatarPreset[];
   useWebhookPersona: boolean;
-  profileBannerUrl: string;
-  activityType: string;
-  activityText: string;
-  status: string;
 };
 
 const DEFAULT_CFG: PersonaConfig = {
@@ -34,13 +29,8 @@ const DEFAULT_CFG: PersonaConfig = {
   botName: "",
   webhookName: "",
   webhookAvatarUrl: "",
-  botAvatarUrl: "",
   avatarLibrary: [],
   useWebhookPersona: false,
-  profileBannerUrl: "",
-  activityType: "LISTENING",
-  activityText: "/help",
-  status: "online",
 };
 
 const MAX_AVATAR_UPLOAD_BYTES = 2_000_000;
@@ -83,13 +73,8 @@ function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): Pers
     botName: String(src.botName || ""),
     webhookName: String(src.webhookName || ""),
     webhookAvatarUrl: String(src.webhookAvatarUrl || ""),
-    botAvatarUrl: String(src.botAvatarUrl || ""),
     avatarLibrary: normalizeAvatarLibrary(src.avatarLibrary),
     useWebhookPersona: Boolean(src.useWebhookPersona),
-    profileBannerUrl: String(src.profileBannerUrl || ""),
-    activityType: String(src.activityType || "LISTENING"),
-    activityText: String(src.activityText || "/help"),
-    status: String(src.status || "online"),
   };
 }
 
@@ -170,38 +155,21 @@ export default function BotPersonalizerClient() {
   const cfg = useMemo(() => sanitizeConfig(rawCfg), [rawCfg]);
   const possumAiHref = buildDashboardHref("/dashboard/ai/learning");
   const previewAvatar = safePreviewUrl(cfg.webhookAvatarUrl);
-  const previewBotAvatar = safePreviewUrl(cfg.botAvatarUrl);
-  const previewBanner = safePreviewUrl(cfg.profileBannerUrl);
-  const liveBotAvatar = safePreviewUrl(botUser?.avatarUrl);
   const previewBotName = previewName(cfg, botUser);
   const [avatarPreviewFailedFor, setAvatarPreviewFailedFor] = useState("");
-  const [botAvatarPreviewFailedFor, setBotAvatarPreviewFailedFor] = useState("");
-  const [bannerPreviewFailedFor, setBannerPreviewFailedFor] = useState("");
   const [avatarLibraryLabel, setAvatarLibraryLabel] = useState("");
   const [avatarLibraryMessage, setAvatarLibraryMessage] = useState("");
   const avatarPreviewFailed = Boolean(previewAvatar && avatarPreviewFailedFor === previewAvatar);
-  const botAvatarPreviewFailed = Boolean(previewBotAvatar && botAvatarPreviewFailedFor === previewBotAvatar);
-  const bannerPreviewFailed = Boolean(previewBanner && bannerPreviewFailedFor === previewBanner);
   const effectivePreviewAvatar = avatarPreviewFailed ? "" : previewAvatar;
-  const effectiveBotAvatar = botAvatarPreviewFailed ? "" : previewBotAvatar;
   const displayedAvatar = effectivePreviewAvatar || "";
-  const displayedBotAvatar = effectiveBotAvatar || liveBotAvatar;
 
   function updateCfg(patch: Partial<PersonaConfig>) {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
   }
 
-  function setAvatarSource(url: string, notice: string, target: "webhook" | "bot" | "both" = "webhook") {
-    const patch: Partial<PersonaConfig> = {};
-    if (target === "webhook" || target === "both") {
-      patch.webhookAvatarUrl = url;
-      setAvatarPreviewFailedFor("");
-    }
-    if (target === "bot" || target === "both") {
-      patch.botAvatarUrl = url;
-      setBotAvatarPreviewFailedFor("");
-    }
-    updateCfg(patch);
+  function setAvatarSource(url: string, notice: string) {
+    updateCfg({ webhookAvatarUrl: url });
+    setAvatarPreviewFailedFor("");
     setAvatarLibraryMessage(notice);
   }
 
@@ -226,7 +194,6 @@ export default function BotPersonalizerClient() {
     });
     setAvatarLibraryLabel("");
     setAvatarPreviewFailedFor("");
-    setBotAvatarPreviewFailedFor("");
     setAvatarLibraryMessage("Saved avatar added for this guild and selected for webhook replies.");
   }
 
@@ -236,7 +203,6 @@ export default function BotPersonalizerClient() {
       return sanitizeConfig({
         ...current,
         webhookAvatarUrl: current.webhookAvatarUrl === url ? "" : current.webhookAvatarUrl,
-        botAvatarUrl: current.botAvatarUrl === url ? "" : current.botAvatarUrl,
         avatarLibrary: current.avatarLibrary.filter((entry) => entry.url !== url),
       });
     });
@@ -359,24 +325,6 @@ export default function BotPersonalizerClient() {
                     placeholder="https://... or leave blank for no custom webhook avatar"
                   />
                 </div>
-                <div>
-                  <label>Live bot avatar override</label>
-                  <input
-                    style={input}
-                    value={cfg.botAvatarUrl || ""}
-                    onChange={(e) => updateCfg({ botAvatarUrl: e.target.value })}
-                    placeholder="https://... or choose a saved avatar below"
-                  />
-                </div>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>Banner URL</label>
-                  <input
-                    style={input}
-                    value={cfg.profileBannerUrl || ""}
-                    onChange={(e) => updateCfg({ profileBannerUrl: e.target.value })}
-                    placeholder="https://..."
-                  />
-                </div>
               </div>
 
               <div style={{ ...card, marginBottom: 0, marginTop: 12, background: "rgba(25, 0, 0, 0.45)" }}>
@@ -388,7 +336,7 @@ export default function BotPersonalizerClient() {
                     <div style={hint}>
                       Save per-guild avatar art here and reuse it instead of pasting links every time. Webhook replies use only these saved guild avatars
                       or the direct guild avatar source above.
-                      You can also apply one of them as the live bot avatar override when you want the real bot account avatar to change.
+                      The bot account profile is intentionally locked so one server can never affect another.
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -402,17 +350,6 @@ export default function BotPersonalizerClient() {
                       }}
                     >
                       Reset Webhook Avatar
-                    </button>
-                    <button
-                      type="button"
-                      style={subAction}
-                      onClick={() => {
-                        updateCfg({ botAvatarUrl: "" });
-                        setBotAvatarPreviewFailedFor("");
-                        setAvatarLibraryMessage("Live bot avatar override cleared. The shared bot account avatar will stay as-is until you apply another one.");
-                      }}
-                    >
-                      Clear Bot Avatar Override
                     </button>
                   </div>
                 </div>
@@ -481,31 +418,15 @@ export default function BotPersonalizerClient() {
                               <div style={hint}>
                                 {selected
                                   ? "Selected for webhook replies in this guild."
-                                  : String(entry.url || "").trim() === String(cfg.botAvatarUrl || "").trim()
-                                    ? "Selected as the live bot avatar override."
-                                    : "Saved and ready to reuse."}
+                                  : "Saved and ready to reuse."}
                               </div>
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                                 <button
                                   type="button"
                                   style={subAction}
-                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for webhook replies.", "webhook")}
+                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for webhook replies.")}
                                 >
                                   {selected ? "Webhook Selected" : "Use For Webhook"}
-                                </button>
-                                <button
-                                  type="button"
-                                  style={subAction}
-                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected as the live bot avatar override.", "bot")}
-                                >
-                                  {String(entry.url || "").trim() === String(cfg.botAvatarUrl || "").trim() ? "Bot Selected" : "Use For Bot"}
-                                </button>
-                                <button
-                                  type="button"
-                                  style={subAction}
-                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for both webhook replies and the live bot avatar override.", "both")}
-                                >
-                                  Use For Both
                                 </button>
                                 <button
                                   type="button"
@@ -539,22 +460,6 @@ export default function BotPersonalizerClient() {
                     background: "linear-gradient(135deg, #3b0f0f 0%, #1a1a1a 100%)",
                   }}
                 >
-                  {previewBanner && !bannerPreviewFailed ? (
-                    <img
-                      src={previewBanner}
-                      alt="Banner preview"
-                      referrerPolicy="no-referrer"
-                      onError={() => setBannerPreviewFailedFor(previewBanner)}
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
-                  ) : null}
                 </div>
                 <div style={{ padding: 16, position: "relative" }}>
                   <div
@@ -597,9 +502,6 @@ export default function BotPersonalizerClient() {
                       </div>
                   <div style={{ paddingTop: 42 }}>
                     <div style={{ fontSize: 22, fontWeight: 900 }}>{previewBotName}</div>
-                    <div style={{ color: "#ffb7b7", fontSize: 13, marginTop: 4 }}>
-                      {String(cfg.status || "online").toUpperCase()} | {String(cfg.activityType || "LISTENING").toUpperCase()} {String(cfg.activityText || "/help")}
-                    </div>
                     <div style={{ color: "#ff9797", fontSize: 12, marginTop: 8 }}>
                       {cfg.useWebhookPersona
                         ? effectivePreviewAvatar
@@ -607,57 +509,11 @@ export default function BotPersonalizerClient() {
                           : "Webhook identity is enabled, but no guild-specific webhook avatar is set yet."
                         : "Default bot identity remains active until webhook mode is enabled."}
                     </div>
-                    {(avatarPreviewFailed || bannerPreviewFailed) ? (
+                    {avatarPreviewFailed ? (
                       <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
-                        One or more preview images could not be loaded. Fix or replace the broken image link before applying.
+                        The preview image could not be loaded. Fix or replace the broken image link before applying.
                       </div>
                     ) : null}
-                  </div>
-                </div>
-              </div>
-              <div style={{ marginTop: 12, border: "1px solid #510000", borderRadius: 12, padding: 14, background: "#120606" }}>
-                <div style={{ color: "#ff8f8f", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
-                  Live Bot Avatar
-                </div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <div
-                    style={{
-                      width: 58,
-                      height: 58,
-                      borderRadius: 999,
-                      overflow: "hidden",
-                      background: "linear-gradient(135deg, #661111 0%, #240000 100%)",
-                      border: "2px solid #2b1010",
-                      display: "grid",
-                      placeItems: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {displayedBotAvatar ? (
-                      <img
-                        src={displayedBotAvatar}
-                        alt="Live bot avatar preview"
-                        referrerPolicy="no-referrer"
-                        onError={() => {
-                          if (previewBotAvatar && displayedBotAvatar === previewBotAvatar) {
-                            setBotAvatarPreviewFailedFor(previewBotAvatar);
-                          }
-                        }}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      />
-                    ) : (
-                      <span style={{ fontSize: 18, fontWeight: 900, color: "#ffd2d2" }}>
-                        {(previewBotName || "P").slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <div style={{ color: "#ffe5e5", fontWeight: 800 }}>Shared bot account avatar</div>
-                    <div style={{ ...hint, marginTop: 4 }}>
-                      {cfg.botAvatarUrl
-                        ? "This override will apply to the actual bot account avatar when you click Apply Live."
-                        : "No live bot avatar override set. The bot account will keep its current shared avatar."}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -666,42 +522,13 @@ export default function BotPersonalizerClient() {
 
           <section style={card}>
             <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Presence
+              Possum AI Link
             </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
-              <div>
-                <label>Status</label>
-                <select style={input} value={cfg.status || "online"} onChange={(e) => updateCfg({ status: e.target.value })}>
-                  <option value="online">Online</option>
-                  <option value="idle">Idle</option>
-                  <option value="dnd">Do Not Disturb</option>
-                  <option value="invisible">Invisible</option>
-                </select>
-              </div>
-              <div>
-                <label>Activity type</label>
-                <select style={input} value={cfg.activityType || "LISTENING"} onChange={(e) => updateCfg({ activityType: e.target.value })}>
-                  <option value="PLAYING">Playing</option>
-                  <option value="LISTENING">Listening To</option>
-                  <option value="WATCHING">Watching</option>
-                  <option value="COMPETING">Competing In</option>
-                  <option value="STREAMING">Streaming</option>
-                </select>
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label>Activity text</label>
-                <input
-                  style={input}
-                  value={cfg.activityText || ""}
-                  onChange={(e) => updateCfg({ activityText: e.target.value })}
-                  placeholder="/help"
-                />
-              </div>
+            <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 920 }}>
+              Bot Personalizer is guild-scoped for nickname + webhook identity only. Shared bot account profile surfaces (presence/avatar/banner) are intentionally locked so one server can never affect another.
+              Edit the free guild backstory and knowledge banks in Possum AI.
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
-              <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-                This page controls naming, presence, avatar source selection, and webhook identity. Possum AI still owns the guild backstory and adaptive identity notes.
-              </div>
+            <div style={{ marginTop: 12 }}>
               <Link href={possumAiHref} style={{ ...action, textDecoration: "none" }}>
                 Open Possum AI
               </Link>
