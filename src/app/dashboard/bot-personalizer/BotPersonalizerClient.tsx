@@ -149,7 +149,6 @@ export default function BotPersonalizerClient() {
     saving,
     message,
     save,
-    runAction,
   } = useGuildEngineEditor<PersonaConfig>("botPersonalizer", DEFAULT_CFG);
 
   const cfg = useMemo(() => sanitizeConfig(rawCfg), [rawCfg]);
@@ -230,15 +229,8 @@ export default function BotPersonalizerClient() {
     }
   }
 
-  async function applyLiveNow() {
-    await runAction("applyProfile", { patch: cfg });
-  }
-
-  async function saveAndApply() {
-    const saved = await save(cfg);
-    if (saved) {
-      await runAction("applyProfile", { patch: cfg });
-    }
+  async function saveGuildPersonalizer() {
+    await save(cfg);
   }
 
   if (!guildId) {
@@ -255,17 +247,17 @@ export default function BotPersonalizerClient() {
             </h1>
             <div style={{ color: "#ff9f9f", marginBottom: 8 }}>Guild: {guildName || guildId}</div>
             <div style={{ color: "#ffb5b5", fontSize: 12, maxWidth: 760 }}>
-              Guild nickname applies live in this guild. Presence applies live across the bot account. Webhook avatar is now fully guild-scoped and
-              only uses the custom guild image you set here or save in this guild&apos;s avatar library. If you want the actual bot account avatar to
-              change on apply, set the live bot avatar override below.
+              This page is <b>guild-scoped</b>. It controls:
+              <br />- Bot nickname in this guild (Discord allows per-guild nickname)
+              <br />- Webhook identity (per-guild “avatar/name” for messages that are sent via webhooks)
+              <br /><br />
+              Discord does <b>not</b> support a different bot-account avatar per guild. On-demand slash panels (Store/Range/etc) are interaction replies and
+              will show the normal bot account avatar.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={() => void applyLiveNow()} disabled={saving} style={action}>
-              {saving ? "Applying..." : "Apply Live Now"}
-            </button>
-            <button type="button" onClick={() => void saveAndApply()} disabled={saving} style={action}>
-              {saving ? "Saving..." : "Save + Apply Live"}
+            <button type="button" onClick={() => void saveGuildPersonalizer()} disabled={saving} style={action}>
+              {saving ? "Saving..." : "Save Personalizer"}
             </button>
           </div>
         </div>
