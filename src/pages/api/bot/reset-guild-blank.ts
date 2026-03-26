@@ -46,7 +46,7 @@ const BLANK = {
     status: "online",
   },
   security: {
-    preOnboarding: { autoBanOnBlacklistRejoin: false, autoBanOnRefusalRole: false, refusalRoleId: null, enforcementChannelId: null, contactUser: "", banDmTemplate: "" },
+    preOnboarding: { autoBanOnBlacklistRejoin: false, autoBanOnRefusalRole: false, enforcementAction: "ban", refusalRoleId: null, enforcementChannelId: null, contactUser: "", banDmTemplate: "" },
     onboarding: {
       welcomeChannelId: null, mainChatChannelId: null, rulesChannelId: null, idChannelId: null, ticketCategoryId: null,
       transcriptChannelId: null, logChannelId: null, verifiedRoleId: null, declineRoleId: null,
