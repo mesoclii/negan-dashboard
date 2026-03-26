@@ -12,6 +12,11 @@ type JedConfig = {
   publicTTL: number;
   tempTTL: number;
   maxFileSizeMb: number;
+  defaultTarget: string;
+  defaultVisibility: string;
+  autoStoreVault: boolean;
+  historyLimit: number;
+  vaultLimit: number;
   allowedDomains: string[];
   auditChannelId: string;
   notes: string;
@@ -23,6 +28,11 @@ const DEFAULT_CONFIG: JedConfig = {
   publicTTL: 45,
   tempTTL: 60,
   maxFileSizeMb: 5,
+  defaultTarget: "auto",
+  defaultVisibility: "public",
+  autoStoreVault: true,
+  historyLimit: 75,
+  vaultLimit: 150,
   allowedDomains: ["cdn.discordapp.com", "media.discordapp.net", "discordapp.net", "i.imgur.com", "media.tenor.com", "tenor.com"],
   auditChannelId: "",
   notes: "",
@@ -73,6 +83,10 @@ function lines(value: string) {
     .filter(Boolean);
 }
 
+function detailList(items: unknown) {
+  return Array.isArray(items) ? (items as Array<{ title?: string; name?: string; value?: string; rank?: number }>) : [];
+}
+
 export default function JedPage() {
   const { guildId, guildName, config, setConfig, channels, summary, details, loading, saving, message, save, runAction } =
     useGuildEngineEditor<JedConfig>("jed", DEFAULT_CONFIG);
@@ -102,22 +116,22 @@ export default function JedPage() {
               existing slash command runtime.
             </div>
           </div>
-          <div style={miniCard}>
-            <div style={label}>Slash Flow</div>
-            <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-              <strong>/jed grab</strong> accepts source URLs, target type, and visibility. Target stays <strong>emoji</strong> or <strong>sticker</strong>;
-              GIF/media handling still runs through the same deployed conversion path.
+            <div style={miniCard}>
+              <div style={label}>Slash Flow</div>
+              <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+              <strong>/jed grab</strong> now opens a live preview first. Default target/visibility can come from this page, and operators can still switch mode
+              with preview buttons before the save actually runs.
+              </div>
+            </div>
+            <div style={miniCard}>
+              <div style={label}>Guild Tuning Only</div>
+              <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+              Batch size, TTL, file-size guardrails, default preview behavior, vault retention, allowed steal sources, audit routing, and temp cleanup are
+              adjustable here.
+              </div>
             </div>
           </div>
-          <div style={miniCard}>
-            <div style={label}>Guild Tuning Only</div>
-            <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-              Batch size, TTL, file-size guardrails, allowed steal sources, audit routing, and temp cleanup are adjustable here. Core JED command logic is
-              not being rewritten.
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
 
       {message ? <div style={{ marginTop: 12, color: "#ffd27a" }}>{message}</div> : null}
 
@@ -141,6 +155,12 @@ export default function JedPage() {
                 </button>
                 <button style={button} disabled={saving} onClick={() => void runAction("cleanupTemp")}>
                   Delete Grab Temp Files
+                </button>
+                <button style={button} disabled={saving} onClick={() => void runAction("clearHistory")}>
+                  Clear History
+                </button>
+                <button style={button} disabled={saving} onClick={() => void runAction("clearVault")}>
+                  Clear Vault
                 </button>
               </div>
             </div>
@@ -198,6 +218,25 @@ export default function JedPage() {
                 />
               </div>
               <div>
+                <div style={label}>Default Preview Mode</div>
+                <select style={input} value={config.defaultTarget || "auto"} onChange={(e) => setConfig((prev) => ({ ...prev, defaultTarget: e.target.value }))}>
+                  <option value="auto">Auto</option>
+                  <option value="emoji">Emoji</option>
+                  <option value="sticker">Sticker</option>
+                </select>
+              </div>
+              <div>
+                <div style={label}>Default Visibility</div>
+                <select
+                  style={input}
+                  value={config.defaultVisibility || "public"}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, defaultVisibility: e.target.value }))}
+                >
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
+              <div>
                 <div style={label}>Audit Channel</div>
                 <select style={input} value={config.auditChannelId || ""} onChange={(e) => setConfig((prev) => ({ ...prev, auditChannelId: e.target.value }))}>
                   <option value="">Not set</option>
@@ -207,6 +246,42 @@ export default function JedPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </section>
+
+          <section style={box}>
+            <div style={label}>Vault + History Defaults</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input
+                  type="checkbox"
+                  checked={config.autoStoreVault !== false}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, autoStoreVault: e.target.checked }))}
+                />
+                Auto-store successful saves in the guild vault
+              </label>
+              <div>
+                <div style={label}>History Entries Kept</div>
+                <input
+                  style={input}
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={config.historyLimit}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, historyLimit: Math.max(1, Number(e.target.value || 75)) }))}
+                />
+              </div>
+              <div>
+                <div style={label}>Vault Entries Kept</div>
+                <input
+                  style={input}
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={config.vaultLimit}
+                  onChange={(e) => setConfig((prev) => ({ ...prev, vaultLimit: Math.max(1, Number(e.target.value || 150)) }))}
+                />
               </div>
             </div>
           </section>
@@ -228,23 +303,27 @@ export default function JedPage() {
               <div style={miniCard}>
                 <div style={label}>Target Modes</div>
                 <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
+                  <strong>Auto</strong> keeps each source in its natural lane when possible.
+                  <br />
                   <strong>Emoji</strong> creates server emoji entries.
                   <br />
                   <strong>Sticker</strong> creates guild sticker entries.
                   <br />
-                  GIF/media URLs, uploaded files, and custom emoji tokens all flow through the same conversion path before deploy.
+                  Operators can switch between these modes inside the live preview before JED commits the save.
                 </div>
               </div>
               <div style={miniCard}>
                 <div style={label}>Visibility</div>
                 <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-                  Public results respect the public TTL above. Private result handling still follows the already-built JED command logic and cooldown model.
+                  Public results respect the public TTL above. Preview defaults start from the guild settings here, but the operator can still flip the preview
+                  button before confirming.
                 </div>
               </div>
               <div style={miniCard}>
-                <div style={label}>Tier Behavior</div>
+                <div style={label}>Vault Behavior</div>
                 <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-                  Global tier rules still apply for cooldowns and capability limits. The batch limit on this page is the guild-level cap layered on top.
+                  Every JED save can now land in a real per-guild vault/history ledger. This page controls whether successful saves get vaulted and how much live
+                  history is retained.
                 </div>
               </div>
             </div>
@@ -254,6 +333,38 @@ export default function JedPage() {
               value={config.notes}
               onChange={(e) => setConfig((prev) => ({ ...prev, notes: e.target.value }))}
             />
+          </section>
+
+          <section style={box}>
+            <div style={label}>Recent JED History</div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {detailList(details.recentHistory).length ? (
+                detailList(details.recentHistory).map((item, index) => (
+                  <div key={`${item.title || item.name || "history"}-${index}`} style={miniCard}>
+                    <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.title || item.name || "History Entry"}</div>
+                    <div style={{ color: "#ffbcbc", marginTop: 6, lineHeight: 1.7 }}>{item.value || ""}</div>
+                  </div>
+                ))
+              ) : (
+                <div style={miniCard}>No JED history recorded yet in this guild.</div>
+              )}
+            </div>
+          </section>
+
+          <section style={box}>
+            <div style={label}>Guild Vault</div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {detailList(details.vault).length ? (
+                detailList(details.vault).map((item, index) => (
+                  <div key={`${item.title || item.name || "vault"}-${index}`} style={miniCard}>
+                    <div style={{ color: "#ffdcdc", fontWeight: 800 }}>{item.title || item.name || "Vault Entry"}</div>
+                    <div style={{ color: "#ffbcbc", marginTop: 6, lineHeight: 1.7 }}>{item.value || ""}</div>
+                  </div>
+                ))
+              ) : (
+                <div style={miniCard}>No vaulted JED assets yet in this guild.</div>
+              )}
+            </div>
           </section>
 
           <section style={{ ...box, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
