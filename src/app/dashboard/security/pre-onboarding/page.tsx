@@ -1,17 +1,17 @@
-import SecurityEngineOperator from "@/components/possum/SecurityEngineOperator";
+import { Suspense } from "react";
+import PreOnboardingClient from "./PreOnboardingClient";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function Loading() {
+  return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;
+}
 
 export default function Page() {
   return (
-    <SecurityEngineOperator
-      engineKey="preOnboarding"
-      title="Pre-Onboarding Enforcement"
-      description="Edit the live blacklist-rejoin, refusal-role, and enforcement-channel rules that the pre-onboarding enforcement runtime uses for this guild."
-      featureFlagKey="securityEnabled"
-      links={[
-        { href: "/dashboard/security", label: "Security" },
-        { href: "/dashboard/security/onboarding", label: "Onboarding" },
-        { href: "/dashboard/security/verification", label: "Verification" },
-      ]}
-    />
+    <Suspense fallback={<Loading />}>
+      <PreOnboardingClient />
+    </Suspense>
   );
 }

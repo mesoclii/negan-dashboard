@@ -7,7 +7,7 @@ import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { normalizeEngineKey } from "@/lib/engineKeys";
 import { deleteServerCache, readOrCreateServerCache } from "@/lib/serverCache";
 
-const RUNTIME_ENGINE_PROXY_TTL_MS = Math.max(5_000, Number(process.env.RUNTIME_ENGINE_PROXY_TTL_MS || 20_000));
+const RUNTIME_ENGINE_PROXY_TTL_MS = Math.max(0, Number(process.env.RUNTIME_ENGINE_PROXY_TTL_MS || 2_000));
 
 export const config = {
   api: {

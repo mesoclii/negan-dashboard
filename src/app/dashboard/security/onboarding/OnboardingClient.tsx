@@ -9,13 +9,14 @@ type GuildRole = { id: string; name: string };
 
 type OnboardingConfig = {
   enabled: boolean;
-  welcomeChannelId: string;
-  mainChatChannelId: string;
-  rulesChannelId: string;
+  idChannelId: string;
   ticketCategoryId: string;
   transcriptChannelId: string;
   logChannelId: string;
+  declineRoleId: string;
   staffRoleIds: string[];
+  removeOnVerifyRoleIds: string[];
+  idTimeoutMinutes: number;
   hostingLegacyChannelId: string;
   hostingEnhancedChannelId: string;
   staffIntroChannelId: string;
@@ -24,22 +25,27 @@ type OnboardingConfig = {
   updatesChannelId: string;
   funChannelId: string;
   subscriptionChannelId: string;
-  dmTemplate: string;
-  panelTitle: string;
-  panelDescription: string;
-  panelFooter: string;
-  gateAnnouncementTemplate: string;
+  idPanelTitle: string;
+  idPanelDescription: string;
+  idPanelContent: string;
+  postVerifyTemplate: string;
+  autoKickOnDecline: boolean;
+  autoKickOnTimeout: boolean;
+  declineKickReason: string;
+  timeoutKickReason: string;
+  declineReplyTemplate: string;
 };
 
 const DEFAULTS: OnboardingConfig = {
   enabled: true,
-  welcomeChannelId: "",
-  mainChatChannelId: "",
-  rulesChannelId: "",
+  idChannelId: "",
   ticketCategoryId: "",
   transcriptChannelId: "",
   logChannelId: "",
+  declineRoleId: "",
   staffRoleIds: [],
+  removeOnVerifyRoleIds: [],
+  idTimeoutMinutes: 30,
   hostingLegacyChannelId: "",
   hostingEnhancedChannelId: "",
   staffIntroChannelId: "",
@@ -48,11 +54,15 @@ const DEFAULTS: OnboardingConfig = {
   updatesChannelId: "",
   funChannelId: "",
   subscriptionChannelId: "",
-  dmTemplate: "Welcome to {{guildName}}.\n\nStart onboarding in <#{{welcomeChannelId}}>.",
-  panelTitle: "Welcome to {{guildName}}",
-  panelDescription: "Read the rules in <#{{rulesChannelId}}> and confirm below to continue.",
-  panelFooter: "Complete onboarding to unlock the server.",
-  gateAnnouncementTemplate: "Survivor <@{{userId}}> has reached the gates.",
+  idPanelTitle: "ID Verification - Final Gate",
+  idPanelDescription: "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
+  idPanelContent: "Survivor <@{{userId}}>",
+  postVerifyTemplate: "<@{{userId}}> is now verified. Welcome to {{guildName}}.",
+  autoKickOnDecline: true,
+  autoKickOnTimeout: true,
+  declineKickReason: "Declined ID verification",
+  timeoutKickReason: "ID submission timeout",
+  declineReplyTemplate: "You declined ID verification.",
 };
 
 const styles = {
@@ -90,7 +100,7 @@ function toggleRole(list: string[], id: string) {
   return Array.from(set);
 }
 
-export default function OnboardingPage() {
+export default function OnboardingClient() {
   const {
     guildId,
     guildName,
@@ -104,6 +114,7 @@ export default function OnboardingPage() {
     saving,
     message,
     save,
+    reload,
   } = useGuildEngineEditor<OnboardingConfig>("onboarding", DEFAULTS);
 
   const textChannels = (channels as GuildChannel[]).filter(
@@ -113,90 +124,82 @@ export default function OnboardingPage() {
     (channel) => Number(channel?.type) === 4 || String(channel?.type || "").toLowerCase().includes("category")
   );
 
-  const channelFields: Array<{ key: keyof Pick<
-    OnboardingConfig,
-    | "welcomeChannelId"
-    | "mainChatChannelId"
-    | "rulesChannelId"
-    | "transcriptChannelId"
-    | "logChannelId"
-    | "hostingLegacyChannelId"
-    | "hostingEnhancedChannelId"
-    | "staffIntroChannelId"
-    | "selfRolesChannelId"
-    | "botGuideChannelId"
-    | "updatesChannelId"
-    | "funChannelId"
-    | "subscriptionChannelId"
-  >; label: string }> = [
-    { key: "welcomeChannelId", label: "Welcome Channel" },
-    { key: "mainChatChannelId", label: "Main Chat Channel" },
-    { key: "rulesChannelId", label: "Rules Channel" },
-    { key: "transcriptChannelId", label: "Transcript Channel" },
-    { key: "logChannelId", label: "Log Channel" },
-    { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel" },
-    { key: "hostingEnhancedChannelId", label: "Hosting Enhanced Channel" },
-    { key: "staffIntroChannelId", label: "Staff Intro Channel" },
-    { key: "selfRolesChannelId", label: "Self Roles Channel" },
-    { key: "botGuideChannelId", label: "Bot Guide Channel" },
-    { key: "updatesChannelId", label: "Updates Channel" },
-    { key: "funChannelId", label: "Fun Channel" },
-    { key: "subscriptionChannelId", label: "Subscription Channel" },
-  ];
-
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
   if (loading) return <div style={{ color: "#ff8a8a", padding: 20 }}>Loading onboarding...</div>;
 
   return (
     <div style={styles.page}>
-      <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        Onboarding
-      </h1>
+      <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Onboarding</h1>
       <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
+      <div style={{ ...styles.card, borderColor: "#7a2200", background: "rgba(160,40,0,0.12)" }}>
+        <strong>Step 2:</strong> this is the ID request / final-entry flow.
+        <div style={{ marginTop: 8, color: "#ffd7a8", lineHeight: 1.6 }}>
+          Member verifies first. After that, onboarding handles ID tickets, staff review, post-verify cleanup, and the follow-up channels they should be sent to.
+        </div>
+      </div>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
 
       <EngineInsights summary={summary} details={details} />
 
       <div style={styles.card}>
-        <label><input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} /> Engine enabled</label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <label><input type="checkbox" checked={!!cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })} /> Onboarding enabled</label>
+          <button onClick={() => void reload()} disabled={saving} style={{ ...styles.input, width: "auto", cursor: "pointer", fontWeight: 800 }}>
+            Refresh Live Config
+          </button>
+        </div>
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Channel and Role IDs</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {channelFields.map((field) => (
-            <div key={field.key}>
-              <label>{field.label}</label>
-              <select
-                style={styles.input}
-                value={cfg[field.key] ?? ""}
-                onChange={(e) => setCfg({ ...cfg, [field.key]: e.target.value })}
-              >
-                <option value="">Select channel</option>
-                {textChannels.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    #{channel.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>ID request routing</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
           <div>
-            <label>Ticket Category</label>
-            <select style={styles.input} value={cfg.ticketCategoryId || ""} onChange={(e) => setCfg({ ...cfg, ticketCategoryId: e.target.value })}>
-              <option value="">Select category</option>
-              {categoryChannels.map((channel) => (
-                <option key={channel.id} value={channel.id}>
-                  {channel.name}
-                </option>
-              ))}
+            <label>ID request channel</label>
+            <select style={styles.input} value={cfg.idChannelId || ""} onChange={(e) => setCfg({ ...cfg, idChannelId: e.target.value })}>
+              <option value="">Select channel</option>
+              {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
             </select>
           </div>
-        </div>
-
-        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
-            <label>Staff Roles (can operate onboarding)</label>
+            <label>Ticket category</label>
+            <select style={styles.input} value={cfg.ticketCategoryId || ""} onChange={(e) => setCfg({ ...cfg, ticketCategoryId: e.target.value })}>
+              <option value="">Select category</option>
+              {categoryChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Transcript channel</label>
+            <select style={styles.input} value={cfg.transcriptChannelId || ""} onChange={(e) => setCfg({ ...cfg, transcriptChannelId: e.target.value })}>
+              <option value="">Select channel</option>
+              {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Onboarding log channel</label>
+            <select style={styles.input} value={cfg.logChannelId || ""} onChange={(e) => setCfg({ ...cfg, logChannelId: e.target.value })}>
+              <option value="">Select channel</option>
+              {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Decline role</label>
+            <select style={styles.input} value={cfg.declineRoleId || ""} onChange={(e) => setCfg({ ...cfg, declineRoleId: e.target.value })}>
+              <option value="">Select role</option>
+              {(roles as GuildRole[]).map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>ID timeout (minutes)</label>
+            <input style={styles.input} type="number" value={cfg.idTimeoutMinutes || 0} onChange={(e) => setCfg({ ...cfg, idTimeoutMinutes: Number(e.target.value || 0) })} />
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Staff access and cleanup</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label>Staff roles</label>
             <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
               {(roles as GuildRole[]).map((role) => (
                 <label key={`staff_${role.id}`} style={{ display: "block", marginBottom: 4 }}>
@@ -210,27 +213,84 @@ export default function OnboardingPage() {
               ))}
             </div>
           </div>
+          <div>
+            <label>Remove these roles after verification</label>
+            <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {(roles as GuildRole[]).map((role) => (
+                <label key={`remove_${role.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={(cfg.removeOnVerifyRoleIds || []).includes(role.id)}
+                    onChange={() => setCfg({ ...cfg, removeOnVerifyRoleIds: toggleRole(cfg.removeOnVerifyRoleIds || [], role.id) })}
+                  />{" "}
+                  @{role.name}
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
       <div style={styles.card}>
-        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Templates</h3>
-        {[
-          "dmTemplate",
-          "panelTitle",
-          "panelDescription",
-          "panelFooter",
-          "gateAnnouncementTemplate",
-        ].map((key) => (
-          <div key={key} style={{ marginBottom: 10 }}>
-            <label>{key}</label>
-            {key.toLowerCase().includes("title") ? (
-              <input style={styles.input} value={(cfg as any)[key] || ""} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value } as OnboardingConfig)} />
-            ) : (
-              <textarea style={styles.area} value={(cfg as any)[key] || ""} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value } as OnboardingConfig)} />
-            )}
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>ID panel copy and decline behavior</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+          <div>
+            <label>ID panel title</label>
+            <input style={styles.input} value={cfg.idPanelTitle || ""} onChange={(e) => setCfg({ ...cfg, idPanelTitle: e.target.value })} />
           </div>
-        ))}
+          <div>
+            <label>ID panel description</label>
+            <textarea style={styles.area} value={cfg.idPanelDescription || ""} onChange={(e) => setCfg({ ...cfg, idPanelDescription: e.target.value })} />
+          </div>
+          <div>
+            <label>ID panel header content</label>
+            <textarea style={styles.area} value={cfg.idPanelContent || ""} onChange={(e) => setCfg({ ...cfg, idPanelContent: e.target.value })} />
+          </div>
+          <div>
+            <label>Post-verify message</label>
+            <textarea style={styles.area} value={cfg.postVerifyTemplate || ""} onChange={(e) => setCfg({ ...cfg, postVerifyTemplate: e.target.value })} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <label><input type="checkbox" checked={!!cfg.autoKickOnDecline} onChange={(e) => setCfg({ ...cfg, autoKickOnDecline: e.target.checked })} /> Auto-remove on decline</label>
+            <label><input type="checkbox" checked={!!cfg.autoKickOnTimeout} onChange={(e) => setCfg({ ...cfg, autoKickOnTimeout: e.target.checked })} /> Auto-remove on timeout</label>
+          </div>
+          <div>
+            <label>Decline reason</label>
+            <input style={styles.input} value={cfg.declineKickReason || ""} onChange={(e) => setCfg({ ...cfg, declineKickReason: e.target.value })} />
+          </div>
+          <div>
+            <label>Timeout reason</label>
+            <input style={styles.input} value={cfg.timeoutKickReason || ""} onChange={(e) => setCfg({ ...cfg, timeoutKickReason: e.target.value })} />
+          </div>
+          <div>
+            <label>Decline reply message</label>
+            <textarea style={styles.area} value={cfg.declineReplyTemplate || ""} onChange={(e) => setCfg({ ...cfg, declineReplyTemplate: e.target.value })} />
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Post-verify destination channels</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          {[
+            ["hostingLegacyChannelId", "Hosting legacy"],
+            ["hostingEnhancedChannelId", "Hosting enhanced"],
+            ["staffIntroChannelId", "Staff intro"],
+            ["selfRolesChannelId", "Self roles"],
+            ["botGuideChannelId", "Bot guide"],
+            ["updatesChannelId", "Updates"],
+            ["funChannelId", "Fun"],
+            ["subscriptionChannelId", "Subscriptions"],
+          ].map(([key, label]) => (
+            <div key={key}>
+              <label>{label}</label>
+              <select style={styles.input} value={(cfg as any)[key] || ""} onChange={(e) => setCfg({ ...cfg, [key]: e.target.value } as OnboardingConfig)}>
+                <option value="">Select channel</option>
+                {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
       </div>
 
       <ConfigJsonEditor
