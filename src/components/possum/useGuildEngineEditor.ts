@@ -124,21 +124,10 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     void reload();
   }, [reload]);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !guildId) return;
-    const refreshLive = () => {
-      if (document.visibilityState === "hidden" || saving) return;
-      void reload(guildId, viewerUserId);
-    };
-    const interval = window.setInterval(refreshLive, 15000);
-    window.addEventListener("focus", refreshLive);
-    document.addEventListener("visibilitychange", refreshLive);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshLive);
-      document.removeEventListener("visibilitychange", refreshLive);
-    };
-  }, [guildId, viewerUserId, reload, saving]);
+  // Do not auto-reload editor pages while the user is working.
+  // Forced refresh intervals were clobbering in-progress form edits and made the
+  // dashboard feel like it was randomly reloading itself. Runtime reload stays
+  // available through the explicit Reload buttons on each page.
 
   async function save(nextPatch?: Partial<T>) {
     if (!guildId) return null;
