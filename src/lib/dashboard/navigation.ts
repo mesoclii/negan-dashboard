@@ -13,7 +13,10 @@ export type DashboardNavSection = {
 };
 
 export function getDashboardNavTopLinks(isMasterOwner = false): DashboardNavTopLink[] {
-  const topLinks: DashboardNavTopLink[] = [{ href: "/dashboard/system-health", label: "System Health" }];
+  const topLinks: DashboardNavTopLink[] = [
+    { href: "/dashboard/system-health", label: "System Health" },
+    { href: "/dashboard/master", label: "Master Control", creatorOnly: true }
+  ];
   return topLinks.filter(
     (item) => !item.creatorOnly || isMasterOwner
   );

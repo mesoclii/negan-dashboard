@@ -437,6 +437,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: engineController("blacklist") },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/master", title: "Master Control", description: "Creator-only global view for guild coverage, route counts, and what is set where.", goOnly: true, goLabel: "Open", creatorOnly: true },
   { href: "/dashboard/premium-features", title: "Premium Features", description: "Plan state, paid add-ons, and owner trial controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/heist", title: "Heist", description: "Heist signup engine controls.", toggle: engineController("heist", ["active"]), premiumRequired: true },
   { href: "/dashboard/tts", title: "TTS", description: "Voice route and TTS runtime control.", toggle: engineController("tts", ["enabled"]), premiumRequired: true },
