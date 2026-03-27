@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
 import { readOrCreateServerCache } from "@/lib/serverCache";
 
-const GUILD_DATA_PROXY_TTL_MS = Math.max(5_000, Number(process.env.GUILD_DATA_PROXY_TTL_MS || 90_000));
+const GUILD_DATA_PROXY_TTL_MS = Math.max(2_000, Number(process.env.GUILD_DATA_PROXY_TTL_MS || 10_000));
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -10,12 +10,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const guildId = String(req.query.guildId || "").trim();
+  const viewerUserId = String(req.headers["x-dashboard-user-id"] || req.query.userId || "").trim();
   if (!guildId) {
     return res.status(400).json({ success: false, error: "guildId is required" });
   }
 
   try {
-    const cacheKey = `bot-guild-data:${guildId}`;
+    const cacheKey = `bot-guild-data:${guildId}:${viewerUserId || "anon"}`;
     const cached = await readOrCreateServerCache<{ status: number; body: unknown }>(
       cacheKey,
       GUILD_DATA_PROXY_TTL_MS,

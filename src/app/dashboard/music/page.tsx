@@ -78,6 +78,14 @@ type MusicCfg = {
     resultLimit: number;
     timeoutMs: number;
   };
+  ytDlp: {
+    enabled: boolean;
+    binaryPath: string;
+    timeoutMs: number;
+    searchProvider: "youtube" | "soundcloud";
+    searchResultCount: number;
+    allowMediaPageUrls: boolean;
+  };
   audio: {
     qualityPreset: "low" | "balanced" | "high" | "ultra";
     targetBitrateKbps: number;
@@ -107,8 +115,17 @@ type MusicCfg = {
   routes: MusicRoute[];
 };
 
-const PROVIDERS = ["direct_url", "local_library", "self_hosted_search"] as const;
+const PROVIDER_OPTIONS = [
+  { id: "direct_url", label: "Direct Audio URLs", hint: "MP3, stream, and raw audio links." },
+  { id: "local_library", label: "Local Library Aliases", hint: "Tracks you hard-wire into this guild." },
+  { id: "self_hosted_search", label: "Self-Hosted Search", hint: "Your own API search endpoint." },
+  { id: "yt_dlp_search", label: "Built-In Song Search", hint: "Song-name lookup through yt-dlp." },
+  { id: "yt_dlp_media", label: "Supported Media Page URLs", hint: "YouTube/SoundCloud-style page links resolved by yt-dlp." },
+] as const;
 const QUALITY_PRESETS = ["low", "balanced", "high", "ultra"] as const;
+const TEXT_CHANNEL_TYPES = new Set(["0", "5", "10", "11", "12", "15", "16", "guildtext", "guildannouncement", "announcement", "publicthread", "privatethread", "announcementthread", "forum", "media"]);
+const VOICE_CHANNEL_TYPES = new Set(["2", "13", "guildvoice", "guildstagevoice", "voice", "stagevoice"]);
+const CATEGORY_CHANNEL_TYPES = new Set(["4", "guildcategory", "category"]);
 
 const EMPTY: MusicCfg = {
   enabled: true,
@@ -133,7 +150,7 @@ const EMPTY: MusicCfg = {
     mode: "allowlist",
     allowedDomains: [],
     blockedDomains: [],
-    allowedProviders: ["direct_url", "local_library", "self_hosted_search"],
+    allowedProviders: ["direct_url", "local_library", "self_hosted_search", "yt_dlp_search", "yt_dlp_media"],
     defaultProvider: "local_library",
     requireHttps: true,
   },
@@ -145,6 +162,14 @@ const EMPTY: MusicCfg = {
     queryParam: "q",
     resultLimit: 5,
     timeoutMs: 8000,
+  },
+  ytDlp: {
+    enabled: true,
+    binaryPath: "",
+    timeoutMs: 20000,
+    searchProvider: "youtube",
+    searchResultCount: 5,
+    allowMediaPageUrls: true,
   },
   audio: {
     qualityPreset: "balanced",
@@ -251,7 +276,7 @@ function newRoute(index: number, cfg: MusicCfg): MusicRoute {
     djRoleIds: [],
     defaultVolume: cfg.defaultVolume,
     maxQueueSize: cfg.maxQueueSizePerRoute,
-    sourceProviders: [...PROVIDERS],
+    sourceProviders: PROVIDER_OPTIONS.map((provider) => provider.id),
     allowCrossProviderFallback: false,
     notes: "",
     bannerUrl: "",
@@ -266,18 +291,32 @@ function newRoute(index: number, cfg: MusicCfg): MusicRoute {
   };
 }
 
+function normalizeChannelType(value: number | string | undefined) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isCategoryChannel(channel: { type?: number | string }) {
+  return CATEGORY_CHANNEL_TYPES.has(normalizeChannelType(channel?.type));
+}
+
+function isVoiceSelectable(channel: { type?: number | string }) {
+  return VOICE_CHANNEL_TYPES.has(normalizeChannelType(channel?.type));
+}
+
+function isTextSelectable(channel: { type?: number | string }) {
+  return TEXT_CHANNEL_TYPES.has(normalizeChannelType(channel?.type));
+}
+
 export default function MusicEnginePage() {
   const { guildId, guildName, config: cfg, setConfig: setCfg, channels, roles, summary, details, loading, saving, message, save, runAction } =
     useGuildEngineEditor<MusicCfg>("music", EMPTY);
 
-  const textChannels = useMemo(
-    () => channels.filter((c) => Number(c?.type) === 0 || String(c?.type || "").toLowerCase().includes("text")),
-    [channels]
-  );
-  const voiceChannels = useMemo(
-    () => channels.filter((c) => [2, 13].includes(Number(c?.type)) || String(c?.type || "").toLowerCase().includes("voice")),
-    [channels]
-  );
+  const selectableChannels = useMemo(() => channels.filter((channel) => !isCategoryChannel(channel)), [channels]);
+  const textChannels = useMemo(() => {
+    const filtered = selectableChannels.filter((channel) => isTextSelectable(channel));
+    return filtered.length ? filtered : selectableChannels.filter((channel) => !isVoiceSelectable(channel));
+  }, [selectableChannels]);
+  const voiceChannels = useMemo(() => selectableChannels.filter((channel) => isVoiceSelectable(channel)), [selectableChannels]);
 
   const updateRoute = (index: number, patch: Partial<MusicRoute>) =>
     setCfg((prev) => ({ ...prev, routes: prev.routes.map((route, routeIndex) => (routeIndex === index ? { ...route, ...patch } : route)) }));
@@ -379,6 +418,12 @@ export default function MusicEnginePage() {
             <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
               Source Policy + Audio Profile
             </div>
+            {!textChannels.length || !voiceChannels.length ? (
+              <div style={{ marginBottom: 14, color: "#ffd27a", lineHeight: 1.7 }}>
+                Guild channel data is still syncing. Text channels found: {textChannels.length}. Voice channels found: {voiceChannels.length}. If you just created or renamed channels,
+                save once and reload this page in a few seconds.
+              </div>
+            ) : null}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
               <div>
                 <div style={label}>Source Policy</div>
@@ -392,6 +437,8 @@ export default function MusicEnginePage() {
                 <select style={input} value={cfg.sourcePolicy.defaultProvider} onChange={(e) => setCfg((prev) => ({ ...prev, sourcePolicy: { ...prev.sourcePolicy, defaultProvider: e.target.value } }))}>
                   <option value="local_library">Local Library</option>
                   <option value="direct_url">Direct URL</option>
+                  <option value="yt_dlp_search">Built-In Song Search</option>
+                  <option value="yt_dlp_media">Supported Media Page URL</option>
                   <option value="self_hosted_search">Self-Hosted Search</option>
                 </select>
               </div>
@@ -447,11 +494,14 @@ export default function MusicEnginePage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginTop: 14 }}>
               <div>
                 <div style={label}>Allowed Providers</div>
-                <div style={{ border: "1px solid #500000", borderRadius: 10, padding: 10 }}>
-                  {PROVIDERS.map((provider) => (
-                    <label key={provider} style={{ display: "block", marginBottom: 6, color: "#ffdcdc" }}>
-                      <input type="checkbox" checked={cfg.sourcePolicy.allowedProviders.includes(provider)} onChange={() => setCfg((prev) => ({ ...prev, sourcePolicy: { ...prev.sourcePolicy, allowedProviders: toggle(prev.sourcePolicy.allowedProviders, provider) } }))} />{" "}
-                      {provider}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+                  {PROVIDER_OPTIONS.map((provider) => (
+                    <label key={provider.id} style={{ display: "block", border: "1px solid #500000", borderRadius: 10, padding: 10, color: "#ffdcdc" }}>
+                      <div style={{ fontWeight: 800 }}>
+                        <input type="checkbox" checked={cfg.sourcePolicy.allowedProviders.includes(provider.id)} onChange={() => setCfg((prev) => ({ ...prev, sourcePolicy: { ...prev.sourcePolicy, allowedProviders: toggle(prev.sourcePolicy.allowedProviders, provider.id) } }))} />{" "}
+                        {provider.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#ffb8b8", marginTop: 4 }}>{provider.hint}</div>
                     </label>
                   ))}
                 </div>
@@ -489,8 +539,35 @@ export default function MusicEnginePage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14, marginTop: 14 }}>
               <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.ytDlp.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, enabled: e.target.checked } }))} />
+                Built-In Search Enabled
+              </label>
+              <div>
+                <div style={label}>Built-In Search Provider</div>
+                <select style={input} value={cfg.ytDlp.searchProvider} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, searchProvider: e.target.value as "youtube" | "soundcloud" } }))}>
+                  <option value="youtube">YouTube</option>
+                  <option value="soundcloud">SoundCloud</option>
+                </select>
+              </div>
+              <div>
+                <div style={label}>Built-In Search Results</div>
+                <input style={input} type="number" min={1} max={10} value={cfg.ytDlp.searchResultCount} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, searchResultCount: Number(e.target.value || 1) } }))} />
+              </div>
+              <div>
+                <div style={label}>yt-dlp Timeout (ms)</div>
+                <input style={input} type="number" min={3000} max={60000} value={cfg.ytDlp.timeoutMs} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, timeoutMs: Number(e.target.value || 3000) } }))} />
+              </div>
+              <div>
+                <div style={label}>yt-dlp Binary Path</div>
+                <input style={input} value={cfg.ytDlp.binaryPath} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, binaryPath: e.target.value } }))} placeholder="/usr/local/bin/yt-dlp" />
+              </div>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
                 <input type="checkbox" checked={cfg.searchProvider.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, enabled: e.target.checked } }))} />
                 Self-Hosted Search Enabled
+              </label>
+              <label style={{ display: "inline-flex", gap: 8, alignItems: "center", color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.ytDlp.allowMediaPageUrls} onChange={(e) => setCfg((prev) => ({ ...prev, ytDlp: { ...prev.ytDlp, allowMediaPageUrls: e.target.checked } }))} />
+                Allow Media Page URLs
               </label>
               <div>
                 <div style={label}>Search Endpoint URL</div>
@@ -516,6 +593,9 @@ export default function MusicEnginePage() {
                 <div style={label}>Timeout (ms)</div>
                 <input style={input} type="number" min={1000} max={30000} value={cfg.searchProvider.timeoutMs} onChange={(e) => setCfg((prev) => ({ ...prev, searchProvider: { ...prev.searchProvider, timeoutMs: Number(e.target.value || 1000) } }))} />
               </div>
+            </div>
+            <div style={{ marginTop: 14, color: "#ffb8b8", lineHeight: 1.7 }}>
+              Built-in search is the Rythm-style song-name lookup. If YouTube starts rate-limiting your VM, switch the built-in provider above to SoundCloud or keep using direct stream URLs and library aliases.
             </div>
           </section>
 
@@ -733,9 +813,9 @@ export default function MusicEnginePage() {
                   <div>
                     <div style={label}>Allowed Providers</div>
                     <div style={{ border: "1px solid #500000", borderRadius: 10, padding: 10 }}>
-                      {PROVIDERS.map((provider) => (
-                        <label key={provider} style={{ display: "block", marginBottom: 6, color: "#ffdcdc" }}>
-                          <input type="checkbox" checked={route.sourceProviders.includes(provider)} onChange={() => updateRoute(index, { sourceProviders: toggle(route.sourceProviders, provider) })} /> {provider}
+                      {PROVIDER_OPTIONS.map((provider) => (
+                        <label key={provider.id} style={{ display: "block", marginBottom: 6, color: "#ffdcdc" }}>
+                          <input type="checkbox" checked={route.sourceProviders.includes(provider.id)} onChange={() => updateRoute(index, { sourceProviders: toggle(route.sourceProviders, provider.id) })} /> {provider.label}
                         </label>
                       ))}
                     </div>
