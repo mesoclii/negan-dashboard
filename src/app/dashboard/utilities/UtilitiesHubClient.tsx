@@ -364,13 +364,13 @@ export default function UtilitiesHubClient() {
                 ) : null}
 
                 {card.href ? (
-                  <Link href={card.href} style={linkButton}>
+                  <Link href={buildDashboardHref(card.href)} style={linkButton}>
                     {card.goLabel || "Open"}
                   </Link>
                 ) : null}
 
                 {card.extraHref ? (
-                  <Link href={card.extraHref} style={linkButton}>
+                  <Link href={buildDashboardHref(card.extraHref)} style={linkButton}>
                     {card.extraLabel || "Open"}
                   </Link>
                 ) : null}

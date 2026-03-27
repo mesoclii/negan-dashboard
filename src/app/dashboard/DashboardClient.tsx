@@ -466,20 +466,25 @@ export default function DashboardClient() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let lastSearch = "";
+    let lastGuildId = "";
+    let lastUserId = "";
     const syncContext = () => {
-      const currentSearch = String(window.location.search || "");
-      if (currentSearch === lastSearch) return;
-      lastSearch = currentSearch;
-      setGuildId(readDashboardGuildId());
-      setViewerUserId(readDashboardUserId());
+      const nextGuildId = readDashboardGuildId();
+      const nextUserId = readDashboardUserId();
+      if (nextGuildId === lastGuildId && nextUserId === lastUserId) return;
+      lastGuildId = nextGuildId;
+      lastUserId = nextUserId;
+      setGuildId(nextGuildId);
+      setViewerUserId(nextUserId);
     };
     syncContext();
-    const interval = window.setInterval(syncContext, 750);
+    const interval = window.setInterval(syncContext, 1200);
     window.addEventListener("popstate", syncContext);
+    window.addEventListener("storage", syncContext);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("popstate", syncContext);
+      window.removeEventListener("storage", syncContext);
     };
   }, []);
 
@@ -616,12 +621,12 @@ export default function DashboardClient() {
                 className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={card.href} className="min-w-0 flex-1">
+                  <Link href={buildDashboardHref(card.href)} className="min-w-0 flex-1">
                     <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
                     <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
                   </Link>
                   <Link
-                    href={card.href}
+                    href={buildDashboardHref(card.href)}
                     className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
                   >
                     {card.goLabel || "Go"}
@@ -654,7 +659,7 @@ export default function DashboardClient() {
                     className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <Link href={card.href} className="min-w-0 flex-1">
+                      <Link href={buildDashboardHref(card.href)} className="min-w-0 flex-1">
                         <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
                         <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
                       </Link>
@@ -666,7 +671,7 @@ export default function DashboardClient() {
                               {lockedPremium ? "Premium" : "Editor"}
                             </span>
                             <Link
-                              href={card.href}
+                              href={buildDashboardHref(card.href)}
                               className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
                             >
                               {card.goLabel || "Go"}

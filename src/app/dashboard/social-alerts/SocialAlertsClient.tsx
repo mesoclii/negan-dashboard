@@ -277,7 +277,7 @@ export default function SocialAlertsClient() {
                   {savingKey === `run:${cardDef.key}` ? "Running..." : "Run Check"}
                 </button>
 
-                <Link href={cardDef.href} style={linkButton}>
+                <Link href={buildDashboardHref(cardDef.href)} style={linkButton}>
                   Open Signal Relay
                 </Link>
               </div>

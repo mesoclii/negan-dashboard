@@ -30,6 +30,7 @@ function resolveViewerUserId() {
 
 export function useGuildEngineEditor<T>(engine: string, defaults: T) {
   const defaultsRef = useRef(defaults);
+  const contextRef = useRef({ guildId: "", viewerUserId: "" });
   const [guildId, setGuildId] = useState("");
   const [viewerUserId, setViewerUserId] = useState("");
   const [guildName, setGuildName] = useState("");
@@ -45,29 +46,32 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let lastSearch = "";
     const syncContext = () => {
-      const currentSearch = String(window.location.search || "");
-      if (currentSearch === lastSearch && guildId && viewerUserId === resolveViewerUserId()) {
-        return;
-      }
-      lastSearch = currentSearch;
       const nextGuildId = resolveGuildId().trim();
       const nextUserId = resolveViewerUserId();
+      if (
+        nextGuildId === contextRef.current.guildId &&
+        nextUserId === contextRef.current.viewerUserId
+      ) {
+        return;
+      }
+      contextRef.current = { guildId: nextGuildId, viewerUserId: nextUserId };
       if (nextGuildId) {
         localStorage.setItem("activeGuildId", nextGuildId);
       }
-      setGuildId(nextGuildId);
-      setViewerUserId(nextUserId);
+      setGuildId((current) => (current === nextGuildId ? current : nextGuildId));
+      setViewerUserId((current) => (current === nextUserId ? current : nextUserId));
     };
     syncContext();
-    const interval = window.setInterval(syncContext, 750);
+    const interval = window.setInterval(syncContext, 1200);
     window.addEventListener("popstate", syncContext);
+    window.addEventListener("storage", syncContext);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("popstate", syncContext);
+      window.removeEventListener("storage", syncContext);
     };
-  }, [guildId, viewerUserId]);
+  }, []);
 
   useEffect(() => {
     defaultsRef.current = defaults;
