@@ -9,6 +9,8 @@ type Config = {
   stayDays: number;
   minAccountAgeDays: number;
   recruiterThreshold: number;
+  joinLogChannelId: string;
+  leaveLogChannelId: string;
   logChannelId: string;
   recruiterRoleId: string;
   recruitedRoleId: string;
@@ -21,6 +23,8 @@ const DEFAULT_CONFIG: Config = {
   stayDays: 7,
   minAccountAgeDays: 3,
   recruiterThreshold: 10,
+  joinLogChannelId: "",
+  leaveLogChannelId: "",
   logChannelId: "",
   recruiterRoleId: "",
   recruitedRoleId: "",
@@ -99,7 +103,21 @@ export default function InviteTrackerClient() {
           <section style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
               <div>
-                <div style={{ marginBottom: 6 }}>Log Channel</div>
+                <div style={{ marginBottom: 6 }}>Join Log Channel</div>
+                <select style={input} value={config.joinLogChannelId || ""} onChange={(e) => setConfig((p) => ({ ...p, joinLogChannelId: e.target.value }))}>
+                  <option value="">None</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Leave Log Channel</div>
+                <select style={input} value={config.leaveLogChannelId || ""} onChange={(e) => setConfig((p) => ({ ...p, leaveLogChannelId: e.target.value }))}>
+                  <option value="">None</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Shared Fallback Log Channel</div>
                 <select style={input} value={config.logChannelId || ""} onChange={(e) => setConfig((p) => ({ ...p, logChannelId: e.target.value }))}>
                   <option value="">None</option>
                   {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}

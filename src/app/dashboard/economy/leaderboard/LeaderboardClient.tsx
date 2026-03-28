@@ -163,7 +163,21 @@ export default function LeaderboardClient() {
               <div><label>Min account age days</label><input style={input} type="number" value={Number(runtime.config?.minAccountAgeDays || 3)} onChange={(event) => setRuntime((prev) => ({ ...prev, config: { ...(prev.config || {}), minAccountAgeDays: Number(event.target.value || 0) } }))} /></div>
               <div><label>Recruiter threshold</label><input style={input} type="number" value={Number(runtime.config?.recruiterThreshold || 10)} onChange={(event) => setRuntime((prev) => ({ ...prev, config: { ...(prev.config || {}), recruiterThreshold: Number(event.target.value || 0) } }))} /></div>
               <div>
-                <label>Log channel</label>
+                <label>Join Log Channel</label>
+                <select style={input} value={String(runtime.config?.joinLogChannelId || "")} onChange={(event) => setRuntime((prev) => ({ ...prev, config: { ...(prev.config || {}), joinLogChannelId: event.target.value } }))}>
+                  <option value="">None</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label>Leave Log Channel</label>
+                <select style={input} value={String(runtime.config?.leaveLogChannelId || "")} onChange={(event) => setRuntime((prev) => ({ ...prev, config: { ...(prev.config || {}), leaveLogChannelId: event.target.value } }))}>
+                  <option value="">None</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label>Shared Fallback Log Channel</label>
                 <select style={input} value={String(runtime.config?.logChannelId || "")} onChange={(event) => setRuntime((prev) => ({ ...prev, config: { ...(prev.config || {}), logChannelId: event.target.value } }))}>
                   <option value="">None</option>
                   {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}

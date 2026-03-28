@@ -150,7 +150,11 @@ const SECTIONS: Section[] = [
     key: "inviteTracker",
     label: "Invite Tracker",
     engine: "inviteTracker",
-    fields: [{ key: "logChannelId", label: "Log Channel", type: "text" }],
+    fields: [
+      { key: "joinLogChannelId", label: "Join Log Channel", type: "text" },
+      { key: "leaveLogChannelId", label: "Leave Log Channel", type: "text" },
+      { key: "logChannelId", label: "Fallback Log Channel", type: "text" }
+    ],
   },
   {
     key: "eventReactor",
