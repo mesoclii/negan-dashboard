@@ -135,22 +135,45 @@ export default function OnboardingBuilderClient() {
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0 }}>Gate Routing</h3>
+            <h3 style={{ marginTop: 0 }}>Step 1: Verification Routing</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
                 <label>Welcome channel</label>
-                <select style={input} value={String(onboarding.welcomeChannelId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, welcomeChannelId: event.target.value }))}>
+                <select style={input} value={String(verification.welcomeChannelId || "")} onChange={(event) => setVerification((prev) => ({ ...prev, welcomeChannelId: event.target.value }))}>
                   <option value="">(none)</option>
                   {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
                 </select>
               </div>
               <div>
                 <label>Rules channel</label>
-                <select style={input} value={String(onboarding.rulesChannelId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, rulesChannelId: event.target.value }))}>
+                <select style={input} value={String(verification.rulesChannelId || "")} onChange={(event) => setVerification((prev) => ({ ...prev, rulesChannelId: event.target.value }))}>
                   <option value="">(none)</option>
                   {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
                 </select>
               </div>
+              <div>
+                <label>Main chat / unlocked area</label>
+                <select style={input} value={String(verification.mainChatChannelId || "")} onChange={(event) => setVerification((prev) => ({ ...prev, mainChatChannelId: event.target.value }))}>
+                  <option value="">(none)</option>
+                  {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label>Verified role</label>
+                <select style={input} value={String(verification.verifiedRoleId || "")} onChange={(event) => setVerification((prev) => ({ ...prev, verifiedRoleId: event.target.value }))}>
+                  <option value="">(none)</option>
+                  {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void saveEngine("verification", verification, "Saved verification routing.")}>Save Verification Routing</button>
+            </div>
+          </div>
+
+          <div style={box}>
+            <h3 style={{ marginTop: 0 }}>Step 2: Optional ID Onboarding Routing</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div>
                 <label>ID verification channel</label>
                 <select style={input} value={String(onboarding.idChannelId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, idChannelId: event.target.value }))}>
@@ -190,14 +213,14 @@ export default function OnboardingBuilderClient() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               <div>
                 <label>Verified role</label>
-                <select style={input} value={String(onboarding.verifiedRoleId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, verifiedRoleId: event.target.value }))}>
+                <select style={input} value={String(verification.verifiedRoleId || "")} onChange={(event) => setVerification((prev) => ({ ...prev, verifiedRoleId: event.target.value }))}>
                   <option value="">(none)</option>
                   {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
                 </select>
               </div>
               <div>
                 <label>Decline role</label>
-                <select style={input} value={String(onboarding.declineRoleId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, declineRoleId: event.target.value }))}>
+                <select style={input} value={String(onboarding.declineRoleId || verification.declineRoleId || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, declineRoleId: event.target.value }))}>
                   <option value="">(none)</option>
                   {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
                 </select>
@@ -207,17 +230,9 @@ export default function OnboardingBuilderClient() {
                 <input style={input} type="number" value={Number(onboarding.idTimeoutMinutes || 30)} onChange={(event) => setOnboarding((prev) => ({ ...prev, idTimeoutMinutes: Number(event.target.value || 0) }))} />
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10, marginTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(180px,1fr))", gap: 10, marginTop: 10 }}>
               <label><input type="checkbox" checked={Boolean(verification.autoKickOnDecline)} onChange={(event) => setVerification((prev) => ({ ...prev, autoKickOnDecline: event.target.checked }))} /> Auto-kick on decline</label>
               <label><input type="checkbox" checked={Boolean(verification.autoKickOnTimeout)} onChange={(event) => setVerification((prev) => ({ ...prev, autoKickOnTimeout: event.target.checked }))} /> Auto-kick on timeout</label>
-              <div>
-                <label>Decline action</label>
-                <select style={input} value={String(verification.declineAction || "kick")} onChange={(event) => setVerification((prev) => ({ ...prev, declineAction: event.target.value }))}>
-                  <option value="kick">kick</option>
-                  <option value="ban">ban</option>
-                  <option value="none">none</option>
-                </select>
-              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
               <div>
@@ -235,17 +250,34 @@ export default function OnboardingBuilderClient() {
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0 }}>Welcome Copy + Panel Deploys</h3>
+            <h3 style={{ marginTop: 0 }}>Verification Copy + Panel Deploys</h3>
             <div style={{ marginBottom: 10 }}>
               <label>Welcome DM template</label>
-              <textarea style={{ ...input, minHeight: 80 }} value={String(onboarding.dmTemplate || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, dmTemplate: event.target.value }))} />
+              <textarea style={{ ...input, minHeight: 80 }} value={String(verification.dmTemplate || "")} onChange={(event) => setVerification((prev) => ({ ...prev, dmTemplate: event.target.value }))} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label>Verification panel title</label>
+              <input style={input} value={String(verification.panelTitle || "")} onChange={(event) => setVerification((prev) => ({ ...prev, panelTitle: event.target.value }))} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label>Verification panel description</label>
+              <textarea style={{ ...input, minHeight: 80 }} value={String(verification.panelDescription || "")} onChange={(event) => setVerification((prev) => ({ ...prev, panelDescription: event.target.value }))} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label>Verification panel footer</label>
+              <input style={input} value={String(verification.panelFooter || "")} onChange={(event) => setVerification((prev) => ({ ...prev, panelFooter: event.target.value }))} />
             </div>
             <div style={{ marginBottom: 10 }}>
               <label>Gate announcement template</label>
-              <textarea style={{ ...input, minHeight: 80 }} value={String(onboarding.gateAnnouncementTemplate || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, gateAnnouncementTemplate: event.target.value }))} />
+              <textarea style={{ ...input, minHeight: 80 }} value={String(verification.gateAnnouncementTemplate || "")} onChange={(event) => setVerification((prev) => ({ ...prev, gateAnnouncementTemplate: event.target.value }))} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label>Post-verified message</label>
+              <textarea style={{ ...input, minHeight: 80 }} value={String(onboarding.postVerifyTemplate || "")} onChange={(event) => setOnboarding((prev) => ({ ...prev, postVerifyTemplate: event.target.value }))} />
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void saveEngine("onboarding", onboarding, "Saved onboarding templates.")}>Save Welcome Copy</button>
+              <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void saveEngine("verification", verification, "Saved verification templates.")}>Save Verification Copy</button>
+              <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void saveEngine("onboarding", onboarding, "Saved post-verified onboarding copy.")}>Save Post-Verified Copy</button>
               <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void runAction("tickets", "deployPanel", "Deployed tickets panel.")}>Deploy Tickets Panel</button>
               <button type="button" disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={() => void runAction("selfroles", "deployPanels", "Deployed selfroles panels.")}>Deploy Selfroles</button>
               <Link href={`/dashboard/tickets?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Tickets</Link>

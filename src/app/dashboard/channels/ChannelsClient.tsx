@@ -23,6 +23,15 @@ const SAVIORS_GUILD_ID = "1431799056211906582";
 
 const SECTIONS: Section[] = [
   {
+    key: "preOnboarding",
+    label: "Pre-Onboarding",
+    engine: "preOnboarding",
+    fields: [
+      { key: "enforcementChannelId", label: "Enforcement Log Channel", type: "text" },
+    ],
+    note: "This is the hard gate before verification. Use the Pre-Onboarding page for blacklist/refusal policy and kick-vs-ban behavior.",
+  },
+  {
     key: "tickets",
     label: "Tickets",
     engine: "tickets",
@@ -44,11 +53,9 @@ const SECTIONS: Section[] = [
     label: "Onboarding",
     engine: "onboarding",
     fields: [
-      { key: "welcomeChannelId", label: "Welcome Channel", type: "text" },
-      { key: "mainChatChannelId", label: "Main Chat Channel", type: "text" },
-      { key: "rulesChannelId", label: "Rules Channel", type: "text" },
       { key: "idChannelId", label: "ID Channel", type: "text" },
       { key: "ticketCategoryId", label: "Ticket Category", type: "category" },
+      { key: "transcriptChannelId", label: "Transcript Channel", type: "text" },
       { key: "logChannelId", label: "Log Channel", type: "text" },
       { key: "hostingLegacyChannelId", label: "Hosting Legacy Channel", type: "text" },
       { key: "hostingEnhancedChannelId", label: "Hosting Enhanced Channel", type: "text" },
@@ -59,13 +66,18 @@ const SECTIONS: Section[] = [
       { key: "funChannelId", label: "Fun Channel", type: "text" },
       { key: "subscriptionChannelId", label: "Subscription Channel", type: "text" },
     ],
+    note: "Onboarding is the optional ID/ticket step after verification plus the post-verified handoff channels.",
   },
   {
     key: "verification",
     label: "Verification",
     engine: "verification",
-    fields: [],
-    note: "Verification does not own channel routes directly. It uses onboarding surfaces such as `idChannelId`, `ticketCategoryId`, and onboarding logs.",
+    fields: [
+      { key: "welcomeChannelId", label: "Welcome Channel", type: "text" },
+      { key: "mainChatChannelId", label: "Main Chat Channel", type: "text" },
+      { key: "rulesChannelId", label: "Rules Channel", type: "text" },
+    ],
+    note: "Verification owns the welcome intro, rules surface, and the verified-role handoff before onboarding ever begins.",
   },
   {
     key: "selfroles",
