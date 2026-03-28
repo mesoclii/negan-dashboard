@@ -13,6 +13,7 @@ type VerificationConfig = {
   mainChatChannelId: string;
   rulesChannelId: string;
   verifiedRoleId: string;
+  removeOnVerifyRoleIds: string[];
   dmTemplate: string;
   panelTitle: string;
   panelDescription: string;
@@ -26,6 +27,7 @@ const DEFAULTS: VerificationConfig = {
   mainChatChannelId: "",
   rulesChannelId: "",
   verifiedRoleId: "",
+  removeOnVerifyRoleIds: [],
   dmTemplate: "Welcome to {{guildName}}.\n\nStart verification in <#{{welcomeChannelId}}>. ",
   panelTitle: "Welcome to {{guildName}}",
   panelDescription: "Read the rules in <#{{rulesChannelId}}> and press verify to continue.",
@@ -81,6 +83,13 @@ export default function VerificationClient() {
   const textChannels = (channels as GuildChannel[]).filter(
     (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
   );
+
+  const toggleRole = (list: string[], id: string) => {
+    const set = new Set(list || []);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    return Array.from(set);
+  };
 
   if (!guildId) return <div style={{ color: "#ff8a8a", padding: 20 }}>Missing guildId. Open from /guilds.</div>;
   if (loading) return <div style={{ color: "#ff8a8a", padding: 20 }}>Loading verification...</div>;
@@ -167,6 +176,25 @@ export default function VerificationClient() {
             <label>Gate announcement to staff/log area</label>
             <textarea style={styles.area} value={cfg.gateAnnouncementTemplate || ""} onChange={(e) => setCfg({ ...cfg, gateAnnouncementTemplate: e.target.value })} />
           </div>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Verified role cleanup</h3>
+        <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>
+          Remove any temporary gate roles automatically once the member receives this guild&apos;s verified role.
+        </div>
+        <div style={{ maxHeight: 240, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+          {(roles as GuildRole[]).map((role) => (
+            <label key={`remove_${role.id}`} style={{ display: "block", marginBottom: 4 }}>
+              <input
+                type="checkbox"
+                checked={(cfg.removeOnVerifyRoleIds || []).includes(role.id)}
+                onChange={() => setCfg({ ...cfg, removeOnVerifyRoleIds: toggleRole(cfg.removeOnVerifyRoleIds || [], role.id) })}
+              />{" "}
+              @{role.name}
+            </label>
+          ))}
         </div>
       </div>
 
