@@ -94,7 +94,7 @@ export default function VerificationClient() {
       <div style={{ ...styles.card, borderColor: "#7a2200", background: "rgba(160,40,0,0.12)" }}>
         <strong>Step 1:</strong> this is the rules + welcome gate.
         <div style={{ marginTop: 8, color: "#ffd7a8", lineHeight: 1.6 }}>
-          Member joins - sees the welcome/rules message - presses verify - gets the verified access role - then moves on to onboarding if your guild uses ID review.
+          Member joins - sees the welcome/rules message - presses verify - gets the verified access role - then moves on to onboarding only if your guild uses optional ID review. Verification can run by itself.
         </div>
       </div>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}

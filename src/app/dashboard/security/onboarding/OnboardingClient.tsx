@@ -134,7 +134,10 @@ export default function OnboardingClient() {
       <div style={{ ...styles.card, borderColor: "#7a2200", background: "rgba(160,40,0,0.12)" }}>
         <strong>Step 2:</strong> this is the ID request / final-entry flow.
         <div style={{ marginTop: 8, color: "#ffd7a8", lineHeight: 1.6 }}>
-          Member verifies first. After that, onboarding handles ID tickets, staff review, post-verify cleanup, and the follow-up channels they should be sent to.
+          Member verifies first. After that, onboarding handles the optional ID ticket flow, staff review, post-verify cleanup, and the follow-up message they should receive after the verified role lands.
+          <div style={{ marginTop: 8 }}>
+            If your guild does not want ID review, leave the ID request channel/category blank. Members will still get the verified-role handoff and the post-verified message.
+          </div>
         </div>
       </div>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
