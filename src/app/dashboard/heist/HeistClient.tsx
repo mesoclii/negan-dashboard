@@ -4,7 +4,6 @@
 
 import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
-import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type Config = {
@@ -153,6 +152,10 @@ export default function HeistPage() {
       <p style={{ color: "#ffb7b7", marginTop: -4, lineHeight: 1.6 }}>
         Heist runs two live lanes in this build: <strong>LE</strong> and <strong>EE</strong>. Each lane is fixed to
         <strong> 1 host + 3 signup slots + 6 pending</strong>.
+      </p>
+      <p style={{ color: "#ff9d9d", marginTop: -6, lineHeight: 1.6 }}>
+        Staff command surface is intentionally minimal here: <strong>/heist start</strong> and <strong>/heist forcecancel</strong>,
+        each with an <strong>LE</strong> or <strong>EE</strong> lane choice.
       </p>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
 
@@ -310,14 +313,6 @@ export default function HeistPage() {
         <label>Notes</label>
         <textarea style={{ ...input, minHeight: 90 }} value={cfg.notes} onChange={(e) => setCfg({ ...cfg, notes: e.target.value })} />
       </div>
-
-      <ConfigJsonEditor
-        title="Advanced Heist Config"
-        value={cfg}
-        disabled={saving}
-        onApply={(next) => save(next as Partial<Config>)}
-      />
-
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <button onClick={() => save(cfg)} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
           {saving ? "Saving..." : "Save Heist Ops"}
