@@ -44,6 +44,38 @@ export async function readJsonOrThrow(res: Response) {
   return json;
 }
 
+function isAbortLikeError(error: unknown) {
+  const message = String((error as any)?.message || "");
+  return (error as any)?.name === "AbortError" || /aborted|timed out/i.test(message);
+}
+
+async function fetchJsonOrThrow(url: string, init: RequestInit = {}, timeoutMs = 30_000, retryCount = 1) {
+  let attempt = 0;
+  while (true) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        ...init,
+        cache: init.cache ?? "no-store",
+        signal: controller.signal,
+      });
+      return await readJsonOrThrow(res);
+    } catch (error: any) {
+      if (attempt < retryCount && isAbortLikeError(error)) {
+        attempt += 1;
+        continue;
+      }
+      if (isAbortLikeError(error)) {
+        throw new Error(`Dashboard request timed out after ${timeoutMs}ms.`);
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+}
+
 export function resolveGuildContext() {
   if (typeof window === "undefined") {
     return { guildId: "", guildName: "", userId: "" };
@@ -70,8 +102,8 @@ function resolveViewerUserId(explicitUserId = "") {
   return resolveGuildContext().userId;
 }
 
-export async function fetchGuildData(guildId: string) {
-  const userId = resolveViewerUserId();
+export async function fetchGuildData(guildId: string, explicitUserId = "") {
+  const userId = resolveViewerUserId(explicitUserId);
   const cacheKey = `${String(guildId || "").trim()}:${userId}`;
   const cached = guildDataCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -81,10 +113,9 @@ export async function fetchGuildData(guildId: string) {
   if (inflight) return inflight;
 
   const request = (async () => {
-    const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`, {
-      cache: "no-store",
-    });
-    const json = await readJsonOrThrow(res);
+    const json = await fetchJsonOrThrow(
+      `/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`
+    );
     const roles = Array.isArray(json?.roles) ? json.roles : [];
     roles.sort((a: GuildRole, b: GuildRole) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
     const value = {
@@ -115,11 +146,9 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
   if (inflight) return inflight;
 
   const request = (async () => {
-    const res = await fetch(
-      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`,
-      { cache: "no-store" }
+    const json = await fetchJsonOrThrow(
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
     );
-    const json = await readJsonOrThrow(res);
     runtimeEngineCache.set(cacheKey, { value: json, expiresAt: Date.now() + RUNTIME_ENGINE_TTL_MS });
     runtimeEngineInflight.delete(cacheKey);
     return json;
@@ -134,12 +163,11 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
 
 export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
-  const res = await fetch("/api/runtime/engine", {
+  const json = await fetchJsonOrThrow("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch, userId: actorUserId }),
   });
-  const json = await readJsonOrThrow(res);
   const cachePrefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
   for (const key of runtimeEngineCache.keys()) {
     if (key.startsWith(cachePrefix)) {
@@ -151,22 +179,20 @@ export async function saveRuntimeEngine(guildId: string, engine: string, patch: 
 
 export async function validateRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>) {
   const actorUserId = resolveViewerUserId();
-  const res = await fetch("/api/runtime/engine-validate", {
+  return await fetchJsonOrThrow("/api/runtime/engine-validate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch, userId: actorUserId }),
   });
-  return await readJsonOrThrow(res);
 }
 
 export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
-  const res = await fetch("/api/runtime/engine-action", {
+  return await fetchJsonOrThrow("/api/runtime/engine-action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, action, payload, userId: actorUserId }),
   });
-  return await readJsonOrThrow(res);
 }
 
 export async function fetchDashboardConfig(guildId: string) {
@@ -180,10 +206,9 @@ export async function fetchDashboardConfig(guildId: string) {
   if (inflight) return inflight;
 
   const request = (async () => {
-    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`, {
-      cache: "no-store",
-    });
-    const json = await readJsonOrThrow(res);
+    const json = await fetchJsonOrThrow(
+      `/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`
+    );
     const value = json?.config || {};
     dashboardConfigCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CONFIG_TTL_MS });
     dashboardConfigInflight.delete(cacheKey);
@@ -199,12 +224,11 @@ export async function fetchDashboardConfig(guildId: string) {
 
 export async function saveDashboardConfig(guildId: string, patch: Record<string, unknown>) {
   const userId = resolveViewerUserId();
-  const res = await fetch("/api/bot/dashboard-config", {
+  const json = await fetchJsonOrThrow("/api/bot/dashboard-config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, patch, userId }),
   });
-  const json = await readJsonOrThrow(res);
   for (const key of dashboardConfigCache.keys()) {
     if (key.startsWith(`${String(guildId || "").trim()}:`)) {
       dashboardConfigCache.delete(key);

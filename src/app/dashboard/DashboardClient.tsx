@@ -80,6 +80,26 @@ async function readJsonOrThrow(res: Response) {
   return json;
 }
 
+async function fetchJsonOrThrow(url: string, init: RequestInit = {}, timeoutMs = 30_000) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...init,
+      cache: init.cache ?? "no-store",
+      signal: controller.signal,
+    });
+    return await readJsonOrThrow(res);
+  } catch (error: any) {
+    if (error?.name === "AbortError" || /aborted|timed out/i.test(String(error?.message || ""))) {
+      throw new Error(`Dashboard request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 const DASHBOARD_CONFIG_TTL_MS = 60_000;
 const ENGINE_CONFIG_TTL_MS = 30_000;
 
@@ -99,8 +119,7 @@ async function getDashboardConfig(guildId: string, userId = "") {
     return dashboardConfigInflight.get(cacheKey);
   }
   const request = (async () => {
-    const res = await fetch(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`, { cache: "no-store" });
-    const json = await readJsonOrThrow(res);
+    const json = await fetchJsonOrThrow(`/api/bot/dashboard-config?guildId=${encodeURIComponent(guildId)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`);
     const value = json?.config || {};
     dashboardConfigCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CONFIG_TTL_MS });
     dashboardConfigInflight.delete(cacheKey);
@@ -114,12 +133,11 @@ async function getDashboardConfig(guildId: string, userId = "") {
 }
 
 async function saveDashboardFeature(guildId: string, key: string, value: boolean, userId = "") {
-  const res = await fetch("/api/bot/dashboard-config", {
+  await fetchJsonOrThrow("/api/bot/dashboard-config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, patch: { features: { [key]: value } }, userId }),
   });
-  await readJsonOrThrow(res);
   for (const cacheKey of dashboardConfigCache.keys()) {
     if (cacheKey.startsWith(`${String(guildId || "").trim()}:`)) {
       dashboardConfigCache.delete(cacheKey);
@@ -138,11 +156,9 @@ async function getEngineConfig(guildId: string, engine: string, userId = "") {
     return engineConfigInflight.get(cacheKey);
   }
   const request = (async () => {
-    const res = await fetch(
-      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`,
-      { cache: "no-store" }
+    const json = await fetchJsonOrThrow(
+      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
     );
-    const json = await readJsonOrThrow(res);
     const value = json?.config || {};
     engineConfigCache.set(cacheKey, { value, expiresAt: Date.now() + ENGINE_CONFIG_TTL_MS });
     engineConfigInflight.delete(cacheKey);
@@ -156,12 +172,11 @@ async function getEngineConfig(guildId: string, engine: string, userId = "") {
 }
 
 async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
-  const res = await fetch("/api/runtime/engine", {
+  await fetchJsonOrThrow("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ guildId, engine, patch, userId }),
   });
-  await readJsonOrThrow(res);
   const prefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
   for (const cacheKey of engineConfigCache.keys()) {
     if (cacheKey.startsWith(prefix)) {
@@ -650,7 +665,8 @@ export default function DashboardClient() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {group.cards.map((card) => {
                 const state = card.state;
-                const toggleBusy = state.saving || loadingStates;
+                const toggleSaving = state.saving;
+                const toggleLoading = loadingStates && state.value === null;
                 const statusLabel = state.value === null ? "..." : state.value ? "ON" : "OFF";
                 const lockedPremium = Boolean(premiumEnforced && card.premiumRequired && !premiumUnlocked);
 
@@ -684,10 +700,10 @@ export default function DashboardClient() {
                             <button
                               type="button"
                               onClick={() => toggleCard(card)}
-                              disabled={!guildId || !card.toggle || toggleBusy || lockedPremium}
+                              disabled={!guildId || !card.toggle || toggleSaving || toggleLoading || lockedPremium}
                               className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {toggleBusy ? "Saving" : lockedPremium ? "Premium" : state.value ? "Turn Off" : "Turn On"}
+                              {toggleSaving ? "Saving" : toggleLoading ? "Loading" : lockedPremium ? "Premium" : state.value ? "Turn Off" : "Turn On"}
                             </button>
                           </>
                         )}

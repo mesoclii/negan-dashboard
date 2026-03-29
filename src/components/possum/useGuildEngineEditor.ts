@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchGuildData, fetchRuntimeEngine } from "@/lib/liveRuntime";
 
 export type GuildRole = { id: string; name: string; position?: number; color?: string };
 export type GuildChannel = { id: string; name: string; type?: number | string; parentId?: string | null };
@@ -86,48 +87,34 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setMessage("");
     try {
       const [runtimeResult, guildResult] = await Promise.allSettled([
-        fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}${targetUserId ? `&userId=${encodeURIComponent(targetUserId)}` : ""}`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}${targetUserId ? `&userId=${encodeURIComponent(targetUserId)}` : ""}`, {
-          cache: "no-store",
-        }),
+        fetchRuntimeEngine(targetGuildId, engine, targetUserId),
+        fetchGuildData(targetGuildId, targetUserId),
       ]);
 
       const loadErrors: string[] = [];
 
       if (runtimeResult.status === "fulfilled") {
-        const runtimeRes = runtimeResult.value;
-        const runtimeJson = await runtimeRes.json().catch(() => ({}));
-        if (!runtimeRes.ok || runtimeJson?.success === false) {
-          loadErrors.push(String(runtimeJson?.error || "Failed to load engine runtime"));
-        } else {
-          setConfig({ ...(defaultsRef.current as any), ...(runtimeJson?.config || {}) });
-          setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
-          setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
-        }
+        const runtimeJson = runtimeResult.value;
+        setConfig({ ...(defaultsRef.current as any), ...(runtimeJson?.config || {}) });
+        setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
+        setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
       } else {
         loadErrors.push(runtimeResult.reason?.message || "Failed to load engine runtime");
       }
 
       if (guildResult.status === "fulfilled") {
-        const guildRes = guildResult.value;
-        const guildJson = await guildRes.json().catch(() => ({}));
-        if (!guildRes.ok || guildJson?.success === false) {
-          loadErrors.push(String(guildJson?.error || "Failed to load live guild channels and roles"));
-        } else {
-          const nextChannels: GuildChannel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
-          const nextRoles: GuildRole[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
-          setBotUser((guildJson?.botUser && typeof guildJson.botUser === "object") ? guildJson.botUser : null);
-          nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
-          setChannels(nextChannels);
-          setRoles(nextRoles);
+        const guildJson = guildResult.value as any;
+        const nextChannels: GuildChannel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
+        const nextRoles: GuildRole[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
+        setBotUser((guildJson?.botUser && typeof guildJson.botUser === "object") ? guildJson.botUser : null);
+        nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+        setChannels(nextChannels);
+        setRoles(nextRoles);
 
-          const nextGuildName = String(guildJson?.guild?.name || "").trim();
-          if (nextGuildName) {
-            setGuildName(nextGuildName);
-            localStorage.setItem("activeGuildName", nextGuildName);
-          }
+        const nextGuildName = String(guildJson?.guild?.name || "").trim();
+        if (nextGuildName) {
+          setGuildName(nextGuildName);
+          localStorage.setItem("activeGuildName", nextGuildName);
         }
       } else {
         loadErrors.push(guildResult.reason?.message || "Failed to load live guild channels and roles");

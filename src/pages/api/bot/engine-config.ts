@@ -5,7 +5,7 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { requirePremiumAccess, mapPremiumFeatureKey } from "@/lib/premiumGuard";
 
@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const query = new URLSearchParams({ guildId });
       if (engine) query.set("engine", engine);
 
-      const upstream = await fetch(`${BOT_API}/engine-config?${query.toString()}`, {
+      const upstream = await fetchBotApi(`${BOT_API}/engine-config?${query.toString()}`, {
         headers: buildBotApiHeaders(req),
         cache: "no-store",
       });
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           if (!allowed) return;
         }
       }
-      const upstream = await fetch(`${BOT_API}/engine-config`, {
+      const upstream = await fetchBotApi(`${BOT_API}/engine-config`, {
         method: req.method,
         headers: buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(body),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchGuildData } from "@/lib/liveRuntime";
 
 type GuildChannel = { id: string; name: string; type?: number | string };
 
@@ -337,15 +338,26 @@ function toggleIdEntries(value: any, id: string) {
 }
 
 async function readEngineConfig(guildId: string, engine: string) {
-  const res = await fetch(
-    `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
-    { cache: "no-store" }
-  );
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json?.success === false) {
-    throw new Error(json?.error || `Failed to load ${engine} channels.`);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30_000);
+  try {
+    const res = await fetch(
+      `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
+      { cache: "no-store", signal: controller.signal }
+    );
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error(json?.error || `Failed to load ${engine} channels.`);
+    }
+    return json?.config || {};
+  } catch (error: any) {
+    if (error?.name === "AbortError" || /aborted|timed out/i.test(String(error?.message || ""))) {
+      throw new Error(`Loading ${engine} channels timed out after 30000ms.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  return json?.config || {};
 }
 
 export default function ChannelsClient() {
@@ -359,19 +371,29 @@ export default function ChannelsClient() {
   useEffect(() => setGuildId(getGuildId()), []);
 
   async function loadAllConfigs(activeGuildId: string) {
-    const gd = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(activeGuildId)}`, { cache: "no-store" })
-      .then((r) => r.json());
+    const gd = await fetchGuildData(activeGuildId);
     setChannels(Array.isArray(gd?.channels) ? gd.channels : []);
 
-    const entries = await Promise.all(
+    const entries = await Promise.allSettled(
       SECTIONS.map(async (section) => {
         const config = await readEngineConfig(activeGuildId, section.engine);
         return [section.key, config] as const;
       })
     );
     const next: Record<string, any> = {};
-    for (const [key, config] of entries) next[key] = config;
+    const errors: string[] = [];
+    for (const entry of entries) {
+      if (entry.status === "fulfilled") {
+        const [key, config] = entry.value;
+        next[key] = config;
+      } else {
+        errors.push(entry.reason?.message || "Failed to load one channel section.");
+      }
+    }
     setConfigs(next);
+    if (errors.length) {
+      setMsg(errors.join(" | "));
+    }
   }
 
   useEffect(() => {

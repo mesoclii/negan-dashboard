@@ -13,7 +13,15 @@ export function buildServerBotApiHeaders(userId?: string) {
 }
 
 export async function readServerBotApiJson(response: Response) {
-  const text = await response.text();
+  let text = "";
+  try {
+    text = await response.text();
+  } catch (error: any) {
+    if (error?.name === "AbortError" || /aborted/i.test(String(error?.message || ""))) {
+      return { success: false, error: "Bot API response stream was interrupted before it finished." };
+    }
+    return { success: false, error: error?.message || "Failed to read Bot API response." };
+  }
   try {
     return text ? JSON.parse(text) : {};
   } catch {
