@@ -43,8 +43,8 @@ const DEFAULTS: Config = {
   announceChannelId: "",
   transcriptChannelId: "",
   hostRoleIds: [],
-  maxPlayers: 8,
-  reserveSlots: 2,
+  maxPlayers: 3,
+  reserveSlots: 6,
   weeklyLimit: 3,
   autoBumpMinutes: 10,
   joinWindowMinutes: 10,
@@ -105,7 +105,15 @@ export default function HeistPage() {
     save,
   } = useGuildEngineEditor<Config>("heist", DEFAULTS);
 
-  const cfg = useMemo(() => ({ ...DEFAULTS, ...(rawCfg || {}) }), [rawCfg]);
+  const cfg = useMemo(
+    () => ({
+      ...DEFAULTS,
+      ...(rawCfg || {}),
+      maxPlayers: 3,
+      reserveSlots: 6,
+    }),
+    [rawCfg]
+  );
   const textChannels = useMemo(
     () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
     [channels]
@@ -200,8 +208,12 @@ export default function HeistPage() {
       <div style={box}>
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Session Rules</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px, 1fr))", gap: 10 }}>
-          <div><label>Max players</label><input style={input} type="number" value={cfg.maxPlayers} onChange={(e) => setCfg({ ...cfg, maxPlayers: Number(e.target.value || 0) })} /></div>
-          <div><label>Reserve slots</label><input style={input} type="number" value={cfg.reserveSlots} onChange={(e) => setCfg({ ...cfg, reserveSlots: Number(e.target.value || 0) })} /></div>
+          <div>
+            <label>Heist layout</label>
+            <div style={{ ...input, display: "flex", alignItems: "center", minHeight: 42, opacity: 0.9 }}>
+              1 host + 3 signup slots + 6 pending
+            </div>
+          </div>
           <div><label>Weekly limit</label><input style={input} type="number" value={cfg.weeklyLimit} onChange={(e) => setCfg({ ...cfg, weeklyLimit: Number(e.target.value || 0) })} /></div>
           <div><label>Auto-bump (minutes)</label><input style={input} type="number" value={cfg.autoBumpMinutes} onChange={(e) => setCfg({ ...cfg, autoBumpMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Join window (minutes)</label><input style={input} type="number" value={cfg.joinWindowMinutes} onChange={(e) => setCfg({ ...cfg, joinWindowMinutes: Number(e.target.value || 0) })} /></div>
