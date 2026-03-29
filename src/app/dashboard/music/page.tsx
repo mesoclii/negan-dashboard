@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
+import OperatorLogPanel from "@/components/possum/OperatorLogPanel";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type MusicLibraryTrack = {
@@ -368,6 +369,7 @@ export default function MusicEnginePage() {
       ) : (
         <>
           <EngineInsights summary={summary} details={details} />
+          <OperatorLogPanel guildId={guildId} engine="music" title="Music Operator Logs" />
 
           <section style={{ ...box, marginTop: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>

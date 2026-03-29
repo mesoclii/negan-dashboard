@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
+import OperatorLogPanel from "@/components/possum/OperatorLogPanel";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 
 type TtsRoute = {
@@ -224,6 +225,7 @@ export default function TtsAccessPage() {
       ) : (
         <>
           <EngineInsights summary={summary} details={details} />
+          <OperatorLogPanel guildId={guildId} engine="tts" title="TTS Operator Logs" />
 
           <div style={{ ...card, marginTop: 12 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import EngineInsights from "@/components/possum/EngineInsights";
+import OperatorLogPanel from "@/components/possum/OperatorLogPanel";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 
@@ -140,6 +141,7 @@ export default function JedPage() {
       ) : (
         <>
           <EngineInsights summary={summary} details={details} />
+          <OperatorLogPanel guildId={guildId} engine="jed" title="JED Operator Logs" />
 
           <section style={box}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>

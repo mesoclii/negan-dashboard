@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import CreatorOnlyGate from "@/components/possum/CreatorOnlyGate";
+import OperatorLogPanel from "@/components/possum/OperatorLogPanel";
 import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext";
 
 type InstalledGuild = {
@@ -273,6 +274,10 @@ export default function CreatorMasterClient() {
             )}
           </section>
         ))}
+
+        {activeGuildId ? (
+          <OperatorLogPanel guildId={activeGuildId} title="Active Guild Operator Logs" limit={60} />
+        ) : null}
       </section>
     </CreatorOnlyGate>
   );
