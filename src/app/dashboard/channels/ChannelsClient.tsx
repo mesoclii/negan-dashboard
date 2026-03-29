@@ -345,7 +345,16 @@ async function readEngineConfig(guildId: string, engine: string) {
       `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}`,
       { cache: "no-store", signal: controller.signal }
     );
-    const json = await res.json().catch(() => ({}));
+    let text = "";
+    try {
+      text = await res.text();
+    } catch (error: any) {
+      if (error?.name === "AbortError" || /aborted|timed out/i.test(String(error?.message || ""))) {
+        throw new Error(`Loading ${engine} channels timed out after 30000ms.`);
+      }
+      throw error;
+    }
+    const json = text ? JSON.parse(text) : {};
     if (!res.ok || json?.success === false) {
       throw new Error(json?.error || `Failed to load ${engine} channels.`);
     }

@@ -26,7 +26,16 @@ export async function fetchGuildData(guildId: string, options: FetchGuildDataOpt
       headers: options.headers,
       signal: controller.signal,
     });
-    const json = await res.json().catch(() => ({}));
+    let text = "";
+    try {
+      text = await res.text();
+    } catch (error: any) {
+      if (error?.name === "AbortError" || /aborted|timed out/i.test(String(error?.message || ""))) {
+        throw new Error("Dashboard response stream was interrupted before it finished.");
+      }
+      throw error;
+    }
+    const json = text ? JSON.parse(text) : {};
     if (!res.ok || json?.success === false) {
       throw new Error(json?.error || "Guild fetch failed");
     }

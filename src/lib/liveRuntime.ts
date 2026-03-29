@@ -37,7 +37,25 @@ const dashboardConfigCache = new Map<string, TimedCacheEntry<any>>();
 const dashboardConfigInflight = new Map<string, Promise<any>>();
 
 export async function readJsonOrThrow(res: Response) {
-  const json = await res.json().catch(() => ({}));
+  let text = "";
+  try {
+    text = await res.text();
+  } catch (error: any) {
+    if (isAbortLikeError(error)) {
+      throw new Error("Dashboard response stream was interrupted before it finished.");
+    }
+    throw error;
+  }
+
+  let json: any = {};
+  if (text) {
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error(text || `Request failed (${res.status})`);
+    }
+  }
+
   if (!res.ok || json?.success === false) {
     throw new Error(json?.error || `Request failed (${res.status})`);
   }
@@ -113,19 +131,29 @@ export async function fetchGuildData(guildId: string, explicitUserId = "") {
   if (inflight) return inflight;
 
   const request = (async () => {
-    const json = await fetchJsonOrThrow(
-      `/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`
-    );
-    const roles = Array.isArray(json?.roles) ? json.roles : [];
-    roles.sort((a: GuildRole, b: GuildRole) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
-    const value = {
-      guild: json?.guild || null,
-      channels: Array.isArray(json?.channels) ? json.channels : [],
-      roles,
-    } as GuildDataPayload;
-    guildDataCache.set(cacheKey, { value, expiresAt: Date.now() + GUILD_DATA_TTL_MS });
-    guildDataInflight.delete(cacheKey);
-    return value;
+    try {
+      const json = await fetchJsonOrThrow(
+        `/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`
+      );
+      const roles = Array.isArray(json?.roles) ? json.roles : [];
+      roles.sort((a: GuildRole, b: GuildRole) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+      const value = {
+        guild: json?.guild || null,
+        channels: Array.isArray(json?.channels) ? json.channels : [],
+        roles,
+        botUser: json?.botUser || null,
+      } as GuildDataPayload & { botUser?: unknown };
+      guildDataCache.set(cacheKey, { value, expiresAt: Date.now() + GUILD_DATA_TTL_MS });
+      guildDataInflight.delete(cacheKey);
+      return value;
+    } catch (error) {
+      const stale = guildDataCache.get(cacheKey);
+      if (stale?.value) {
+        guildDataInflight.delete(cacheKey);
+        return stale.value;
+      }
+      throw error;
+    }
   })().catch((error) => {
     guildDataInflight.delete(cacheKey);
     throw error;
@@ -146,12 +174,21 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
   if (inflight) return inflight;
 
   const request = (async () => {
-    const json = await fetchJsonOrThrow(
-      `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
-    );
-    runtimeEngineCache.set(cacheKey, { value: json, expiresAt: Date.now() + RUNTIME_ENGINE_TTL_MS });
-    runtimeEngineInflight.delete(cacheKey);
-    return json;
+    try {
+      const json = await fetchJsonOrThrow(
+        `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
+      );
+      runtimeEngineCache.set(cacheKey, { value: json, expiresAt: Date.now() + RUNTIME_ENGINE_TTL_MS });
+      runtimeEngineInflight.delete(cacheKey);
+      return json;
+    } catch (error) {
+      const stale = runtimeEngineCache.get(cacheKey);
+      if (stale?.value) {
+        runtimeEngineInflight.delete(cacheKey);
+        return stale.value;
+      }
+      throw error;
+    }
   })().catch((error) => {
     runtimeEngineInflight.delete(cacheKey);
     throw error;

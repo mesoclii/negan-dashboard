@@ -14,6 +14,10 @@ type Config = {
   announceChannelId: string;
   transcriptChannelId: string;
   hostRoleIds: string[];
+  pingRoleIds?: {
+    EE: string[];
+    LE: string[];
+  };
   maxPlayers: number;
   reserveSlots: number;
   weeklyLimit: number;
@@ -43,6 +47,10 @@ const DEFAULTS: Config = {
   announceChannelId: "",
   transcriptChannelId: "",
   hostRoleIds: [],
+  pingRoleIds: {
+    EE: [],
+    LE: [],
+  },
   maxPlayers: 3,
   reserveSlots: 6,
   weeklyLimit: 3,
@@ -109,6 +117,18 @@ export default function HeistPage() {
     () => ({
       ...DEFAULTS,
       ...(rawCfg || {}),
+      pingRoleIds: {
+        EE: Array.isArray((rawCfg as any)?.pingRoleIds?.EE)
+          ? (rawCfg as any).pingRoleIds.EE
+          : Array.isArray((rawCfg as any)?.pingRoles?.EE)
+            ? (rawCfg as any).pingRoles.EE
+            : [],
+        LE: Array.isArray((rawCfg as any)?.pingRoleIds?.LE)
+          ? (rawCfg as any).pingRoleIds.LE
+          : Array.isArray((rawCfg as any)?.pingRoles?.LE)
+            ? (rawCfg as any).pingRoles.LE
+            : [],
+      },
       maxPlayers: 3,
       reserveSlots: 6,
     }),
@@ -130,6 +150,10 @@ export default function HeistPage() {
     <div style={{ color: "#ffb3b3", padding: 14, maxWidth: 1300 }}>
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Heist Ops Studio</h1>
       <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
+      <p style={{ color: "#ffb7b7", marginTop: -4, lineHeight: 1.6 }}>
+        Heist runs two live lanes in this build: <strong>LE</strong> and <strong>EE</strong>. Each lane is fixed to
+        <strong> 1 host + 3 signup slots + 6 pending</strong>.
+      </p>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
 
       <EngineInsights summary={summary} details={details} />
@@ -188,6 +212,52 @@ export default function HeistPage() {
               {roles.map((r) => (
                 <label key={`host_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
                   <input type="checkbox" checked={cfg.hostRoleIds.includes(r.id)} onChange={() => setCfg((p) => ({ ...p, hostRoleIds: toggle(p.hostRoleIds, r.id) }))} /> @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 6 }}>LE ping roles</div>
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`ping_le_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={cfg.pingRoleIds?.LE?.includes(r.id) || false}
+                    onChange={() =>
+                      setCfg((p) => ({
+                        ...p,
+                        pingRoleIds: {
+                          EE: p.pingRoleIds?.EE || [],
+                          LE: toggle(p.pingRoleIds?.LE || [], r.id),
+                        },
+                      }))
+                    }
+                  />{" "}
+                  @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 6 }}>EE ping roles</div>
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`ping_ee_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={cfg.pingRoleIds?.EE?.includes(r.id) || false}
+                    onChange={() =>
+                      setCfg((p) => ({
+                        ...p,
+                        pingRoleIds: {
+                          EE: toggle(p.pingRoleIds?.EE || [], r.id),
+                          LE: p.pingRoleIds?.LE || [],
+                        },
+                      }))
+                    }
+                  />{" "}
+                  @{r.name}
                 </label>
               ))}
             </div>
