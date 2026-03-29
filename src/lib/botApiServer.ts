@@ -1,7 +1,7 @@
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 export const SERVER_BOT_API = String(process.env.BOT_API_URL || "http://127.0.0.1:3001").trim();
-const SERVER_BOT_API_TIMEOUT_MS = Math.max(1_000, Number(process.env.BOT_API_TIMEOUT_MS || 6_000));
+const SERVER_BOT_API_TIMEOUT_MS = Math.max(5_000, Number(process.env.BOT_API_TIMEOUT_MS || 30_000));
 
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
@@ -34,6 +34,11 @@ export async function fetchServerBotApi(
       cache: init.cache ?? "no-store",
       signal: controller.signal,
     });
+  } catch (error: any) {
+    if (error?.name === "AbortError" || /aborted/i.test(String(error?.message || ""))) {
+      throw new Error(`Bot API timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }

@@ -85,7 +85,7 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
     setLoading(true);
     setMessage("");
     try {
-      const [runtimeRes, guildRes] = await Promise.all([
+      const [runtimeResult, guildResult] = await Promise.allSettled([
         fetch(`/api/runtime/engine?guildId=${encodeURIComponent(targetGuildId)}&engine=${encodeURIComponent(engine)}${targetUserId ? `&userId=${encodeURIComponent(targetUserId)}` : ""}`, {
           cache: "no-store",
         }),
@@ -94,28 +94,47 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
         }),
       ]);
 
-      const runtimeJson = await runtimeRes.json().catch(() => ({}));
-      const guildJson = await guildRes.json().catch(() => ({}));
+      const loadErrors: string[] = [];
 
-      if (!runtimeRes.ok || runtimeJson?.success === false) {
-        throw new Error(runtimeJson?.error || "Failed to load engine runtime");
+      if (runtimeResult.status === "fulfilled") {
+        const runtimeRes = runtimeResult.value;
+        const runtimeJson = await runtimeRes.json().catch(() => ({}));
+        if (!runtimeRes.ok || runtimeJson?.success === false) {
+          loadErrors.push(String(runtimeJson?.error || "Failed to load engine runtime"));
+        } else {
+          setConfig({ ...(defaultsRef.current as any), ...(runtimeJson?.config || {}) });
+          setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
+          setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
+        }
+      } else {
+        loadErrors.push(runtimeResult.reason?.message || "Failed to load engine runtime");
       }
 
-      setConfig({ ...(defaultsRef.current as any), ...(runtimeJson?.config || {}) });
-      setSummary(Array.isArray(runtimeJson?.summary) ? runtimeJson.summary : []);
-      setDetails((runtimeJson?.details && typeof runtimeJson.details === "object") ? runtimeJson.details : {});
+      if (guildResult.status === "fulfilled") {
+        const guildRes = guildResult.value;
+        const guildJson = await guildRes.json().catch(() => ({}));
+        if (!guildRes.ok || guildJson?.success === false) {
+          loadErrors.push(String(guildJson?.error || "Failed to load live guild channels and roles"));
+        } else {
+          const nextChannels: GuildChannel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
+          const nextRoles: GuildRole[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
+          setBotUser((guildJson?.botUser && typeof guildJson.botUser === "object") ? guildJson.botUser : null);
+          nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+          setChannels(nextChannels);
+          setRoles(nextRoles);
 
-      const nextChannels: GuildChannel[] = Array.isArray(guildJson?.channels) ? guildJson.channels : [];
-      const nextRoles: GuildRole[] = Array.isArray(guildJson?.roles) ? guildJson.roles : [];
-      setBotUser((guildJson?.botUser && typeof guildJson.botUser === "object") ? guildJson.botUser : null);
-      nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
-      setChannels(nextChannels);
-      setRoles(nextRoles);
+          const nextGuildName = String(guildJson?.guild?.name || "").trim();
+          if (nextGuildName) {
+            setGuildName(nextGuildName);
+            localStorage.setItem("activeGuildName", nextGuildName);
+          }
+        }
+      } else {
+        loadErrors.push(guildResult.reason?.message || "Failed to load live guild channels and roles");
+      }
 
-      const nextGuildName = String(guildJson?.guild?.name || "").trim();
-      if (nextGuildName) {
-        setGuildName(nextGuildName);
-        localStorage.setItem("activeGuildName", nextGuildName);
+      if (loadErrors.length) {
+        setMessage(loadErrors.join(" | "));
       }
     } catch (err: any) {
       setMessage(err?.message || "Failed to load engine.");
