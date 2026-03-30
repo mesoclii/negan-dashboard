@@ -13,6 +13,7 @@ type Config = {
   announceChannelId: string;
   transcriptChannelId: string;
   hostRoleIds: string[];
+  exemptRoleIds: string[];
   pingRoleIds?: {
     EE: string[];
     LE: string[];
@@ -46,6 +47,7 @@ const DEFAULTS: Config = {
   announceChannelId: "",
   transcriptChannelId: "",
   hostRoleIds: [],
+  exemptRoleIds: [],
   pingRoleIds: {
     EE: [],
     LE: [],
@@ -215,6 +217,16 @@ export default function HeistPage() {
               {roles.map((r) => (
                 <label key={`host_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
                   <input type="checkbox" checked={cfg.hostRoleIds.includes(r.id)} onChange={() => setCfg((p) => ({ ...p, hostRoleIds: toggle(p.hostRoleIds, r.id) }))} /> @{r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 6 }}>Weekly-limit exempt roles</div>
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+              {roles.map((r) => (
+                <label key={`exempt_${r.id}`} style={{ display: "block", marginBottom: 4 }}>
+                  <input type="checkbox" checked={cfg.exemptRoleIds.includes(r.id)} onChange={() => setCfg((p) => ({ ...p, exemptRoleIds: toggle(p.exemptRoleIds, r.id) }))} /> @{r.name}
                 </label>
               ))}
             </div>
