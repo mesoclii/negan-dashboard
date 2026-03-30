@@ -36,6 +36,12 @@ type Config = {
   mustBeVerified: boolean;
   verifiedRoleId: string;
   blockedRoleIds: string[];
+  panelTitleTemplate: string;
+  panelDescriptionTemplate: string;
+  signupAnnouncementTemplate: string;
+  bumpAnnouncementTemplate: string;
+  nextGroupAnnouncementTemplate: string;
+  nextUpTemplate: string;
   notes: string;
   updatedAt: string;
 };
@@ -56,10 +62,10 @@ const DEFAULTS: Config = {
   reserveSlots: 6,
   weeklyLimit: 3,
   autoBumpMinutes: 10,
-  joinWindowMinutes: 10,
-  sessionDurationMinutes: 45,
+  joinWindowMinutes: 0,
+  sessionDurationMinutes: 0,
   cooldownMinutes: 15,
-  autoLockOnStart: true,
+  autoLockOnStart: false,
   requireVoiceChannel: false,
   voiceChannelId: "",
   payoutEnabled: true,
@@ -70,6 +76,12 @@ const DEFAULTS: Config = {
   mustBeVerified: false,
   verifiedRoleId: "",
   blockedRoleIds: [],
+  panelTitleTemplate: "Supply Heist Signup ({edition})",
+  panelDescriptionTemplate: "💰 3mil instant finish\n\n👑 Host: {host}\n{slots}\n\n🕓 Pending Queue: {pending}\n\nStatus: **{status}**",
+  signupAnnouncementTemplate: "{roleMentions} {edition} heist signup is live.",
+  bumpAnnouncementTemplate: "{roleMentions} {edition} heist signup bumped.",
+  nextGroupAnnouncementTemplate: "{roleMentions} Next group ready!",
+  nextUpTemplate: "📣 {nextUp} you're up!",
   notes: "",
   updatedAt: "",
 };
@@ -318,6 +330,39 @@ export default function HeistPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
           <div><label>Win payout coins</label><input style={input} type="number" value={cfg.payoutCoinsWin} onChange={(e) => setCfg({ ...cfg, payoutCoinsWin: Number(e.target.value || 0) })} /></div>
           <div><label>Loss payout coins</label><input style={input} type="number" value={cfg.payoutCoinsLose} onChange={(e) => setCfg({ ...cfg, payoutCoinsLose: Number(e.target.value || 0) })} /></div>
+        </div>
+      </div>
+
+      <div style={box}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Messages and Copy</h3>
+        <div style={{ color: "#ffb7b7", marginBottom: 10, lineHeight: 1.6 }}>
+          Tokens you can use here: <code>{`{edition}`}</code>, <code>{`{host}`}</code>, <code>{`{slots}`}</code>, <code>{`{pending}`}</code>, <code>{`{status}`}</code>, <code>{`{nextUp}`}</code>, <code>{`{roleMentions}`}</code>.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px, 1fr))", gap: 10 }}>
+          <div>
+            <label>Panel title</label>
+            <input style={input} value={cfg.panelTitleTemplate} onChange={(e) => setCfg({ ...cfg, panelTitleTemplate: e.target.value })} />
+          </div>
+          <div>
+            <label>Next up message</label>
+            <input style={input} value={cfg.nextUpTemplate} onChange={(e) => setCfg({ ...cfg, nextUpTemplate: e.target.value })} />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label>Panel body</label>
+            <textarea style={{ ...input, minHeight: 140 }} value={cfg.panelDescriptionTemplate} onChange={(e) => setCfg({ ...cfg, panelDescriptionTemplate: e.target.value })} />
+          </div>
+          <div>
+            <label>Signup live announcement</label>
+            <textarea style={{ ...input, minHeight: 90 }} value={cfg.signupAnnouncementTemplate} onChange={(e) => setCfg({ ...cfg, signupAnnouncementTemplate: e.target.value })} />
+          </div>
+          <div>
+            <label>Autobump announcement</label>
+            <textarea style={{ ...input, minHeight: 90 }} value={cfg.bumpAnnouncementTemplate} onChange={(e) => setCfg({ ...cfg, bumpAnnouncementTemplate: e.target.value })} />
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label>Next group announcement</label>
+            <textarea style={{ ...input, minHeight: 90 }} value={cfg.nextGroupAnnouncementTemplate} onChange={(e) => setCfg({ ...cfg, nextGroupAnnouncementTemplate: e.target.value })} />
+          </div>
         </div>
       </div>
 
