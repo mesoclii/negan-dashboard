@@ -159,6 +159,9 @@ export default function HeistPage() {
         Staff command surface is intentionally minimal here: <strong>/heist start</strong> and <strong>/heist forcecancel</strong>,
         each with an <strong>LE</strong> or <strong>EE</strong> lane choice.
       </p>
+      <p style={{ color: "#ff9d9d", marginTop: -6, lineHeight: 1.6 }}>
+        Signups stay open until staff closes, cancels, or marks them done. They should not auto-close on their own anymore.
+      </p>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
 
       <EngineInsights summary={summary} details={details} />
@@ -166,7 +169,6 @@ export default function HeistPage() {
       <div style={box}>
         <label><input type="checkbox" checked={cfg.active} onChange={(e) => setCfg({ ...cfg, active: e.target.checked })} /> Heist engine active</label><br />
         <label><input type="checkbox" checked={cfg.signupEnabled} onChange={(e) => setCfg({ ...cfg, signupEnabled: e.target.checked })} /> Signup flow enabled</label><br />
-        <label><input type="checkbox" checked={cfg.autoLockOnStart} onChange={(e) => setCfg({ ...cfg, autoLockOnStart: e.target.checked })} /> Auto lock signup on start</label><br />
         <label><input type="checkbox" checked={cfg.requireVoiceChannel} onChange={(e) => setCfg({ ...cfg, requireVoiceChannel: e.target.checked })} /> Require voice channel</label>
       </div>
 
@@ -301,8 +303,6 @@ export default function HeistPage() {
           </div>
           <div><label>Weekly limit</label><input style={input} type="number" value={cfg.weeklyLimit} onChange={(e) => setCfg({ ...cfg, weeklyLimit: Number(e.target.value || 0) })} /></div>
           <div><label>Auto-bump (minutes)</label><input style={input} type="number" value={cfg.autoBumpMinutes} onChange={(e) => setCfg({ ...cfg, autoBumpMinutes: Number(e.target.value || 0) })} /></div>
-          <div><label>Join window (minutes)</label><input style={input} type="number" value={cfg.joinWindowMinutes} onChange={(e) => setCfg({ ...cfg, joinWindowMinutes: Number(e.target.value || 0) })} /></div>
-          <div><label>Session duration (minutes)</label><input style={input} type="number" value={cfg.sessionDurationMinutes} onChange={(e) => setCfg({ ...cfg, sessionDurationMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Cooldown (minutes)</label><input style={input} type="number" value={cfg.cooldownMinutes} onChange={(e) => setCfg({ ...cfg, cooldownMinutes: Number(e.target.value || 0) })} /></div>
           <div><label>Min account age (days)</label><input style={input} type="number" value={cfg.minAccountAgeDays} onChange={(e) => setCfg({ ...cfg, minAccountAgeDays: Number(e.target.value || 0) })} /></div>
         </div>
