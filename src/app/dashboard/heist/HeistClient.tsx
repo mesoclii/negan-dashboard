@@ -59,7 +59,7 @@ const DEFAULTS: Config = {
     LE: [],
   },
   maxPlayers: 3,
-  reserveSlots: 6,
+  reserveSlots: 0,
   weeklyLimit: 3,
   autoBumpMinutes: 10,
   joinWindowMinutes: 0,
@@ -143,7 +143,7 @@ export default function HeistPage() {
             : [],
       },
       maxPlayers: 3,
-      reserveSlots: 6,
+      reserveSlots: 0,
     }),
     [rawCfg]
   );
@@ -165,7 +165,7 @@ export default function HeistPage() {
       <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
       <p style={{ color: "#ffb7b7", marginTop: -4, lineHeight: 1.6 }}>
         Heist runs two live lanes in this build: <strong>LE</strong> and <strong>EE</strong>. Each lane is fixed to
-        <strong> 1 host + 3 signup slots + 6 pending</strong>.
+        <strong> 1 host + 3 signup slots + pending members</strong>.
       </p>
       <p style={{ color: "#ff9d9d", marginTop: -6, lineHeight: 1.6 }}>
         Staff command surface is intentionally minimal here: <strong>/heist start</strong> and <strong>/heist forcecancel</strong>,
@@ -310,7 +310,7 @@ export default function HeistPage() {
           <div>
             <label>Heist layout</label>
             <div style={{ ...input, display: "flex", alignItems: "center", minHeight: 42, opacity: 0.9 }}>
-              1 host + 3 signup slots + 6 pending
+              1 host + 3 signup slots + pending members
             </div>
           </div>
           <div><label>Weekly limit</label><input style={input} type="number" value={cfg.weeklyLimit} onChange={(e) => setCfg({ ...cfg, weeklyLimit: Number(e.target.value || 0) })} /></div>
