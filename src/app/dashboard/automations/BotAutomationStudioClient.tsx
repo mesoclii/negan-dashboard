@@ -29,6 +29,7 @@ type ConditionType =
   | "HAS_ROLE"
   | "LACKS_ROLE"
   | "IS_STAFF"
+  | "VOICE_SESSION_SHORTER_THAN"
   | "RANDOM_CHANCE";
 
 type ActionType =
@@ -115,6 +116,7 @@ const CONDITION_OPTIONS: Array<{ value: ConditionType; label: string }> = [
   { value: "HAS_ROLE", label: "Member has role" },
   { value: "LACKS_ROLE", label: "Member lacks role" },
   { value: "IS_STAFF", label: "Member is staff (admin)" },
+  { value: "VOICE_SESSION_SHORTER_THAN", label: "Voice stay shorter than" },
   { value: "RANDOM_CHANCE", label: "Random chance %" },
 ];
 
@@ -222,6 +224,7 @@ function defaultCondition(type: ConditionType): ConditionDraft {
   if (type === "CHANNEL_IS") return { id: uid("cond"), type, negate: false, config: { channelId: "" } };
   if (type === "CATEGORY_IS") return { id: uid("cond"), type, negate: false, config: { categoryId: "" } };
   if (type === "HAS_ROLE" || type === "LACKS_ROLE") return { id: uid("cond"), type, negate: false, config: { roleId: "" } };
+  if (type === "VOICE_SESSION_SHORTER_THAN") return { id: uid("cond"), type, negate: false, config: { seconds: 30 } };
   if (type === "RANDOM_CHANCE") return { id: uid("cond"), type, negate: false, config: { pct: 100 } };
   if (type === "IS_STAFF") return { id: uid("cond"), type, negate: false, config: {} };
   return { id: uid("cond"), type, negate: false, config: { value: "" } };
@@ -1142,6 +1145,17 @@ export default function BotAutomationStudioClient() {
                         onChange={(e) => updateConditionConfig(cond.id, { pct: Number(e.target.value || 0) })}
                         style={{ ...inputStyle, marginTop: 8 }}
                         placeholder="Chance percent (1-100)"
+                      />
+                    ) : null}
+
+                    {cond.type === "VOICE_SESSION_SHORTER_THAN" ? (
+                      <input
+                        type="number"
+                        min={1}
+                        value={asNumber(cond.config, "seconds", 30)}
+                        onChange={(e) => updateConditionConfig(cond.id, { seconds: Number(e.target.value || 0) })}
+                        style={{ ...inputStyle, marginTop: 8 }}
+                        placeholder="Seconds in voice before leaving"
                       />
                     ) : null}
                   </div>
