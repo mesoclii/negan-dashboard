@@ -6,6 +6,7 @@ import type { CSSProperties } from "react";
 
 type GuildRole = { id: string; name: string };
 type GuildChannel = { id: string; name: string; type?: string };
+type GuildEmoji = { id: string; name: string; animated?: boolean; available?: boolean; token: string };
 
 type TriggerType =
   | "MESSAGE_CREATE"
@@ -38,6 +39,7 @@ type ActionType =
   | "ADD_ROLE"
   | "REMOVE_ROLE"
   | "DM"
+  | "DELETE_TRIGGER_MESSAGE"
   | "DELAY"
   | "CREATE_THREAD";
 
@@ -124,6 +126,7 @@ const ACTION_OPTIONS: Array<{ value: ActionType; label: string }> = [
   { value: "ADD_ROLE", label: "Give role" },
   { value: "REMOVE_ROLE", label: "Remove role" },
   { value: "DM", label: "Send DM" },
+  { value: "DELETE_TRIGGER_MESSAGE", label: "Delete trigger message" },
   { value: "DELAY", label: "Delay" },
   { value: "CREATE_THREAD", label: "Create thread" },
 ];
@@ -188,6 +191,21 @@ function asBoolean(obj: Record<string, unknown>, key: string, fallback = false):
   return fallback;
 }
 
+function appendEmojiToken(currentValue: string, emojiToken: string): string {
+  const nextToken = String(emojiToken || "").trim();
+  if (!nextToken) return String(currentValue || "");
+  const existing = String(currentValue || "")
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!existing.includes(nextToken)) existing.push(nextToken);
+  return existing.join(", ");
+}
+
+function emojiDisplayName(emoji: GuildEmoji): string {
+  return emoji.animated ? `:${emoji.name}: (animated)` : `:${emoji.name}:`;
+}
+
 function defaultTriggerConfig(triggerType: TriggerType): Record<string, unknown> {
   switch (triggerType) {
     case "REACTION_ADD":
@@ -233,6 +251,7 @@ function defaultAction(type: ActionType): ActionDraft {
   if (type === "REACT") return { id: uid("act"), type, config: { emoji: "" } };
   if (type === "ADD_ROLE" || type === "REMOVE_ROLE") return { id: uid("act"), type, config: { roleId: "" } };
   if (type === "DM") return { id: uid("act"), type, config: { content: "", reactions: "" } };
+  if (type === "DELETE_TRIGGER_MESSAGE") return { id: uid("act"), type, config: {} };
   if (type === "DELAY") return { id: uid("act"), type, config: { ms: 1000 } };
   return { id: uid("act"), type, config: { name: "Thread", autoArchiveDuration: 60 } };
 }
@@ -286,6 +305,7 @@ export default function BotAutomationStudioClient() {
 
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [emojis, setEmojis] = useState<GuildEmoji[]>([]);
   const [automations, setAutomations] = useState<AutomationItem[]>([]);
   const [selectedId, setSelectedId] = useState<string>("new");
 
@@ -303,6 +323,7 @@ export default function BotAutomationStudioClient() {
   const [actions, setActions] = useState<ActionDraft[]>([defaultAction("SEND_MESSAGE")]);
   const [mentionRoleByAction, setMentionRoleByAction] = useState<Record<string, string>>({});
   const [mentionChannelByAction, setMentionChannelByAction] = useState<Record<string, string>>({});
+  const [emojiPickerByTarget, setEmojiPickerByTarget] = useState<Record<string, string>>({});
 
   const categoryChannels = useMemo(
     () => channels.filter((c) => String(c.type || "").toLowerCase().includes("category")),
@@ -325,6 +346,7 @@ export default function BotAutomationStudioClient() {
     setActions([defaultAction("SEND_MESSAGE")]);
     setMentionRoleByAction({});
     setMentionChannelByAction({});
+    setEmojiPickerByTarget({});
   }
 
   async function loadGuildMeta(targetGuildId: string) {
@@ -332,6 +354,7 @@ export default function BotAutomationStudioClient() {
     const j = await r.json().catch(() => ({}));
     setRoles(Array.isArray(j?.roles) ? j.roles : []);
     setChannels(Array.isArray(j?.channels) ? j.channels : []);
+    setEmojis(Array.isArray(j?.emojis) ? j.emojis : []);
     const nextGuildName = String(j?.guild?.name || "").trim();
     setGuildName(nextGuildName);
     if (nextGuildName) localStorage.setItem("activeGuildName", nextGuildName);
@@ -510,6 +533,59 @@ export default function BotAutomationStudioClient() {
         const next = current.trim().length ? `${current} ${mention}` : mention;
         return { ...a, config: { ...a.config, content: next } };
       })
+    );
+  }
+
+  function appendEmojiToActionConfig(actionId: string, configKey: string, emojiToken: string) {
+    const token = String(emojiToken || "").trim();
+    if (!token) return;
+    setActions((prev) =>
+      prev.map((action) => {
+        if (action.id !== actionId) return action;
+        const current = asString(action.config, configKey, "");
+        return {
+          ...action,
+          config: {
+            ...action.config,
+            [configKey]: configKey === "emoji" ? token : appendEmojiToken(current, token),
+          },
+        };
+      })
+    );
+  }
+
+  function appendEmojiToTriggerConfig(configKey: string, emojiToken: string) {
+    const token = String(emojiToken || "").trim();
+    if (!token) return;
+    setTriggerConfig((prev) => {
+      const current = Array.isArray(prev[configKey]) ? prev[configKey] : String(prev[configKey] || "").split(/[\r\n,]+/);
+      const next = current.map((item) => String(item || "").trim()).filter(Boolean);
+      if (!next.includes(token)) next.push(token);
+      return { ...prev, [configKey]: next };
+    });
+  }
+
+  function renderEmojiPicker(targetKey: string, onInsert: (emojiToken: string) => void) {
+    const availableEmojis = emojis.filter((emoji) => emoji.available !== false);
+    if (!availableEmojis.length) return null;
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+        <select
+          value={emojiPickerByTarget[targetKey] || ""}
+          onChange={(e) => setEmojiPickerByTarget((prev) => ({ ...prev, [targetKey]: e.target.value }))}
+          style={inputStyle}
+        >
+          <option value="">Select server emoji</option>
+          {availableEmojis.map((emoji) => (
+            <option key={emoji.id} value={emoji.token}>
+              {emojiDisplayName(emoji)} {emoji.token}
+            </option>
+          ))}
+        </select>
+        <button style={btnStyle} onClick={() => onInsert(emojiPickerByTarget[targetKey] || "")}>
+          Add Emoji
+        </button>
+      </div>
     );
   }
 
@@ -839,9 +915,12 @@ export default function BotAutomationStudioClient() {
                     value={Array.isArray(triggerConfig.emojis) ? triggerConfig.emojis.join(", ") : ""}
                     onChange={(e) => setTriggerConfig((prev) => ({ ...prev, emojis: e.target.value.split(/[,\r\n]+/).map((value) => value.trim()).filter(Boolean) }))}
                     style={inputStyle}
-                    placeholder="Example: ⭐, 🔥, <:custom:1234567890>"
+                    placeholder="Example: :star:, :fire:, <:custom:1234567890>"
                   />
                 </label>
+                <div style={{ marginTop: 8 }}>
+                  {renderEmojiPicker("trigger_emojis", (emojiToken) => appendEmojiToTriggerConfig("emojis", emojiToken))}
+                </div>
               </div>
             ) : null}
           </div>
@@ -1062,6 +1141,9 @@ export default function BotAutomationStudioClient() {
                         style={inputStyle}
                         placeholder="Reactions to add after sending (comma separated)"
                       />
+                      {renderEmojiPicker(`${action.id}_reactions`, (emojiToken) =>
+                        appendEmojiToActionConfig(action.id, "reactions", emojiToken)
+                      )}
                     </div>
                   ) : null}
 
@@ -1173,6 +1255,9 @@ export default function BotAutomationStudioClient() {
                         style={inputStyle}
                         placeholder="Reactions to add after sending (comma separated)"
                       />
+                      {renderEmojiPicker(`${action.id}_reactions`, (emojiToken) =>
+                        appendEmojiToActionConfig(action.id, "reactions", emojiToken)
+                      )}
                     </div>
                   ) : null}
 
@@ -1234,16 +1319,24 @@ export default function BotAutomationStudioClient() {
                         style={inputStyle}
                         placeholder="Reactions to add after replying (comma separated)"
                       />
+                      {renderEmojiPicker(`${action.id}_reactions`, (emojiToken) =>
+                        appendEmojiToActionConfig(action.id, "reactions", emojiToken)
+                      )}
                     </div>
                   ) : null}
 
                   {action.type === "REACT" ? (
-                    <input
-                      value={asString(action.config, "emoji", "")}
-                      onChange={(e) => updateActionConfig(action.id, { emoji: e.target.value })}
-                      style={{ ...inputStyle, marginTop: 8 }}
-                      placeholder="Emoji (example: :fire:)"
-                    />
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <input
+                        value={asString(action.config, "emoji", "")}
+                        onChange={(e) => updateActionConfig(action.id, { emoji: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Emoji (example: :fire:)"
+                      />
+                      {renderEmojiPicker(`${action.id}_emoji`, (emojiToken) =>
+                        appendEmojiToActionConfig(action.id, "emoji", emojiToken)
+                      )}
+                    </div>
                   ) : null}
 
                   {action.type === "ADD_ROLE" || action.type === "REMOVE_ROLE" ? (
@@ -1309,6 +1402,15 @@ export default function BotAutomationStudioClient() {
                         style={inputStyle}
                         placeholder="Reactions to add after DM send (comma separated)"
                       />
+                      {renderEmojiPicker(`${action.id}_reactions`, (emojiToken) =>
+                        appendEmojiToActionConfig(action.id, "reactions", emojiToken)
+                      )}
+                    </div>
+                  ) : null}
+
+                  {action.type === "DELETE_TRIGGER_MESSAGE" ? (
+                    <div style={{ ...miniCardStyle, marginTop: 8, color: "#ffb4b4" }}>
+                      Deletes the original trigger message when the automation fires, when the event supports message deletion.
                     </div>
                   ) : null}
 
