@@ -40,6 +40,7 @@ type ModeratorConfig = {
   };
   automod: {
     enabled: boolean;
+    logChannelId: string;
     badWordsAction: string;
     repeatedTextAction: string;
     spamAction: string;
@@ -143,6 +144,7 @@ const DEFAULT_CONFIG: ModeratorConfig = {
   },
   automod: {
     enabled: false,
+    logChannelId: "",
     badWordsAction: "Delete Message + Warn Member",
     repeatedTextAction: "Delete Message",
     spamAction: "Delete Message",
@@ -471,6 +473,20 @@ export default function ModeratorClient() {
             <label><input type="checkbox" checked={cfg.automod.autoModerateIgnoresBots} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, autoModerateIgnoresBots: e.target.checked } }))} /> Ignore bots</label>
             <label><input type="checkbox" checked={cfg.automod.sendWarningMessage} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, sendWarningMessage: e.target.checked } }))} /> DM warning</label>
             <label><input type="checkbox" checked={cfg.automod.replyToDeletion} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, replyToDeletion: e.target.checked } }))} /> Reply in channel</label>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <label>Automod log channel</label>
+            <select
+              style={input}
+              value={cfg.automod.logChannelId}
+              onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, logChannelId: e.target.value } }))}
+            >
+              <option value="">Use moderator audit log channel</option>
+              {channels.filter((channel) => [0, 5].includes(Number(channel.type || 0))).map((channel) => (
+                <option key={channel.id} value={channel.id}>#{channel.name}</option>
+              ))}
+            </select>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 12, marginTop: 14 }}>

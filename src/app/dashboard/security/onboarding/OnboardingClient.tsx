@@ -28,6 +28,7 @@ type OnboardingConfig = {
   botGuideChannelId: string;
   updatesChannelId: string;
   funChannelId: string;
+  funCategoryId: string;
   subscriptionChannelId: string;
   idPanelTitle: string;
   idPanelDescription: string;
@@ -67,6 +68,7 @@ const DEFAULTS: OnboardingConfig = {
   botGuideChannelId: "",
   updatesChannelId: "",
   funChannelId: "",
+  funCategoryId: "",
   subscriptionChannelId: "",
   idPanelTitle: "ID Verification - Final Gate",
   idPanelDescription: "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
@@ -338,7 +340,6 @@ export default function OnboardingClient() {
             ["selfRolesChannelId", "Self roles"],
             ["botGuideChannelId", "Bot guide"],
             ["updatesChannelId", "Updates"],
-            ["funChannelId", "Fun"],
             ["subscriptionChannelId", "Subscriptions"],
           ].map(([key, label]) => (
             <div key={key}>
@@ -349,6 +350,20 @@ export default function OnboardingClient() {
               </select>
             </div>
           ))}
+          <div>
+            <label>Fun channel</label>
+            <select style={styles.input} value={cfg.funChannelId || ""} onChange={(e) => setCfg({ ...cfg, funChannelId: e.target.value })}>
+              <option value="">Select channel</option>
+              {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label>Fun category</label>
+            <select style={styles.input} value={cfg.funCategoryId || ""} onChange={(e) => setCfg({ ...cfg, funCategoryId: e.target.value })}>
+              <option value="">Select category</option>
+              {categoryChannels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 

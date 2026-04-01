@@ -38,6 +38,7 @@ type NativeRule = {
 type NativeConfig = {
   active: boolean;
   slashEnabled: boolean;
+  logChannelId: string;
   notes: string;
   rules: Record<string, NativeRule>;
 };
@@ -152,6 +153,7 @@ function normalizeConfig(raw: any, entries: CommandEntry[]): NativeConfig {
   const next: NativeConfig = {
     active: raw?.active !== false,
     slashEnabled: raw?.slashEnabled !== false,
+    logChannelId: String(raw?.logChannelId || ""),
     notes: String(raw?.notes || ""),
     rules: {},
   };
@@ -255,7 +257,7 @@ export default function SlashCommandsClient() {
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [entries, setEntries] = useState<CommandEntry[]>([]);
-  const [config, setConfig] = useState<NativeConfig>({ active: true, slashEnabled: true, notes: "", rules: {} });
+  const [config, setConfig] = useState<NativeConfig>({ active: true, slashEnabled: true, logChannelId: "", notes: "", rules: {} });
   const [deployment, setDeployment] = useState<NativeDeployment>(emptyDeployment([]));
   const [selectedKey, setSelectedKey] = useState("");
   const [search, setSearch] = useState("");
@@ -498,6 +500,19 @@ export default function SlashCommandsClient() {
               </label>
               <div style={{ color: "#ffbcbc" }}>Registry entries: {entries.length}</div>
               <div style={{ color: "#ffbcbc" }}>Custom `!` commands: separate system</div>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <label>Slash command audit log channel</label>
+              <select
+                style={input}
+                value={config.logChannelId}
+                onChange={(e) => setConfig((prev) => ({ ...prev, logChannelId: e.target.value }))}
+              >
+                <option value="">Use moderator audit channel</option>
+                {channels.map((channel) => (
+                  <option key={channel.id} value={channel.id}>#{channel.name}</option>
+                ))}
+              </select>
             </div>
             <div style={{ marginTop: 12 }}>
               <label>Operator Notes</label>

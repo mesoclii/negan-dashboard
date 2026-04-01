@@ -65,6 +65,7 @@ const SECTIONS: Section[] = [
       { key: "botGuideChannelId", label: "Bot Guide Channel", type: "text" },
       { key: "updatesChannelId", label: "Updates Channel", type: "text" },
       { key: "funChannelId", label: "Fun Channel", type: "text" },
+      { key: "funCategoryId", label: "Fun Category", type: "category" },
       { key: "subscriptionChannelId", label: "Subscription Channel", type: "text" },
     ],
     note: "Onboarding is the optional ID/ticket step after verification plus the post-verified handoff channels.",

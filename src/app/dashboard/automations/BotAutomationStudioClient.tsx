@@ -317,6 +317,7 @@ export default function BotAutomationStudioClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [logChannelId, setLogChannelId] = useState("");
 
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
@@ -342,6 +343,10 @@ export default function BotAutomationStudioClient() {
 
   const categoryChannels = useMemo(
     () => channels.filter((c) => String(c.type || "").toLowerCase().includes("category")),
+    [channels]
+  );
+  const textChannels = useMemo(
+    () => channels.filter((c) => [0, 5].includes(Number(c.type || 0))),
     [channels]
   );
   const activeCount = useMemo(() => automations.filter((a) => a.enabled !== false).length, [automations]);
@@ -382,6 +387,15 @@ export default function BotAutomationStudioClient() {
     const items = parseAutomationsResponse(json);
     setAutomations(items);
     return items;
+  }
+
+  async function loadStudioConfig(targetGuildId: string) {
+    const res = await fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(targetGuildId)}&engine=automationStudio`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error((json as { error?: string })?.error || "Failed to load automation studio config");
+    }
+    setLogChannelId(String(json?.config?.logChannelId || ""));
   }
 
   async function loadAutomationDetail(id: string) {
@@ -428,7 +442,7 @@ export default function BotAutomationStudioClient() {
       setLoading(true);
       setMsg("");
       try {
-        await loadGuildMeta(gid);
+        await Promise.all([loadGuildMeta(gid), loadStudioConfig(gid)]);
         const items = await loadAutomations(gid);
         const requestedId = getAutomationIdFromQuery();
         if (cancelled) return;
@@ -471,6 +485,33 @@ export default function BotAutomationStudioClient() {
     setAutomationQueryParam("");
     resetDraft();
     setMsg("");
+  }
+
+  async function saveStudioSettings() {
+    if (!guildId) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/bot/engine-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "automationStudio",
+          patch: { logChannelId }
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.success === false) {
+        throw new Error((json as { error?: string })?.error || "Failed to save automation studio config");
+      }
+      setLogChannelId(String(json?.config?.logChannelId || ""));
+      setMsg("Automation studio logging saved.");
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Failed to save automation studio config");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function updateCondition(id: string, patch: Partial<ConditionDraft>) {
@@ -890,6 +931,23 @@ export default function BotAutomationStudioClient() {
       </div>
 
       {msg ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{msg}</div> : null}
+
+      <div style={{ ...panelStyle, marginTop: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px,420px) auto", gap: 10, alignItems: "end" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#ffabab", marginBottom: 6 }}>Automation audit log channel</div>
+            <select value={logChannelId} onChange={(e) => setLogChannelId(e.target.value)} style={inputStyle}>
+              <option value="">Use moderator audit channel</option>
+              {textChannels.map((channel) => (
+                <option key={channel.id} value={channel.id}>#{channel.name}</option>
+              ))}
+            </select>
+          </div>
+          <button onClick={saveStudioSettings} style={btnStyle} disabled={saving || loading}>
+            {saving ? "Saving..." : "Save Studio Log"}
+          </button>
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", gap: 12, marginTop: 12 }}>
         <aside style={panelStyle}>

@@ -288,6 +288,7 @@ export default function CustomCommandsPage() {
   const [guildId, setGuildId] = useState("");
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [logChannelId, setLogChannelId] = useState("");
   const [commands, setCommands] = useState<CustomCommand[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -311,6 +312,11 @@ export default function CustomCommandsPage() {
     return commands.filter((c) => c.name.toLowerCase().includes(q));
   }, [commands, search]);
 
+  const textChannels = useMemo(
+    () => channels.filter((channel) => [0, 5].includes(Number(channel.type || 0))),
+    [channels]
+  );
+
   async function loadGuildData(targetGuildId: string) {
     const r = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`);
     const j = await r.json();
@@ -325,17 +331,49 @@ export default function CustomCommandsPage() {
     setCommands(Array.isArray(j) ? j : []);
   }
 
+  async function loadStudioConfig(targetGuildId: string) {
+    const r = await fetch(`/api/bot/engine-config?guildId=${encodeURIComponent(targetGuildId)}&engine=customCommands`, { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load custom command studio config");
+    setLogChannelId(String(j?.config?.logChannelId || ""));
+  }
+
   const loadAll = useCallback(async (targetGuildId: string) => {
     setLoading(true);
     setMsg("");
     try {
-      await Promise.all([loadGuildData(targetGuildId), loadCommands(targetGuildId)]);
+      await Promise.all([loadGuildData(targetGuildId), loadCommands(targetGuildId), loadStudioConfig(targetGuildId)]);
     } catch (e: any) {
       setMsg(e?.message || "Load failed");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function saveStudioSettings() {
+    if (!guildId) return;
+    setSaving(true);
+    setMsg("");
+    try {
+      const r = await fetch("/api/bot/engine-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guildId,
+          engine: "customCommands",
+          patch: { logChannelId }
+        })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to save custom command studio settings");
+      setLogChannelId(String(j?.config?.logChannelId || ""));
+      setMsg("Custom command studio logging saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to save studio settings");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     const gid = getGuildId();
@@ -598,7 +636,25 @@ export default function CustomCommandsPage() {
       {loading ? <p>Loading...</p> : null}
 
       {!loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={panelStyle}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(240px,420px) auto", gap: 10, alignItems: "end" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: 6, color: "#ffb3b3" }}>Custom command audit log channel</label>
+                <select value={logChannelId} onChange={(e) => setLogChannelId(e.target.value)} style={inputStyle}>
+                  <option value="">Use moderator audit channel</option>
+                  {textChannels.map((channel) => (
+                    <option key={channel.id} value={channel.id}>#{channel.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={saveStudioSettings} disabled={saving} style={{ ...btnPrimary, alignSelf: "end" }}>
+                {saving ? "Saving..." : "Save Studio Log"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 14 }}>
           <div style={panelStyle}>
             <button onClick={() => setSelectedId("new")} style={btnPrimary}>
               + New Command
@@ -1000,6 +1056,7 @@ export default function CustomCommandsPage() {
                 {saving ? "Saving..." : draft.id ? "Save Command" : "Create Command"}
               </button>
             </div>
+          </div>
           </div>
         </div>
       ) : null}
