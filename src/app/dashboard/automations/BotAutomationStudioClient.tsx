@@ -39,6 +39,10 @@ type ActionType =
   | "REACT"
   | "ADD_ROLE"
   | "REMOVE_ROLE"
+  | "MUTE_MEMBER"
+  | "TIMEOUT_MEMBER"
+  | "KICK_MEMBER"
+  | "BAN_MEMBER"
   | "DM"
   | "DELETE_TRIGGER_MESSAGE"
   | "DELAY"
@@ -127,6 +131,10 @@ const ACTION_OPTIONS: Array<{ value: ActionType; label: string }> = [
   { value: "REACT", label: "React with emoji" },
   { value: "ADD_ROLE", label: "Give role" },
   { value: "REMOVE_ROLE", label: "Remove role" },
+  { value: "MUTE_MEMBER", label: "Mute member" },
+  { value: "TIMEOUT_MEMBER", label: "Timeout member" },
+  { value: "KICK_MEMBER", label: "Kick member" },
+  { value: "BAN_MEMBER", label: "Ban member" },
   { value: "DM", label: "Send DM" },
   { value: "DELETE_TRIGGER_MESSAGE", label: "Delete trigger message" },
   { value: "DELAY", label: "Delay" },
@@ -253,6 +261,10 @@ function defaultAction(type: ActionType): ActionDraft {
   if (type === "REPLY") return { id: uid("act"), type, config: { content: "", reactions: "", ephemeral: false } };
   if (type === "REACT") return { id: uid("act"), type, config: { emoji: "" } };
   if (type === "ADD_ROLE" || type === "REMOVE_ROLE") return { id: uid("act"), type, config: { roleId: "" } };
+  if (type === "MUTE_MEMBER") return { id: uid("act"), type, config: { roleId: "", reason: "" } };
+  if (type === "TIMEOUT_MEMBER") return { id: uid("act"), type, config: { minutes: 10, reason: "" } };
+  if (type === "KICK_MEMBER") return { id: uid("act"), type, config: { reason: "" } };
+  if (type === "BAN_MEMBER") return { id: uid("act"), type, config: { reason: "", deleteMessageSeconds: 0 } };
   if (type === "DM") return { id: uid("act"), type, config: { content: "", reactions: "" } };
   if (type === "DELETE_TRIGGER_MESSAGE") return { id: uid("act"), type, config: {} };
   if (type === "DELAY") return { id: uid("act"), type, config: { ms: 1000 } };
@@ -1405,7 +1417,7 @@ export default function BotAutomationStudioClient() {
                     </div>
                   ) : null}
 
-                  {action.type === "ADD_ROLE" || action.type === "REMOVE_ROLE" ? (
+                  {action.type === "ADD_ROLE" || action.type === "REMOVE_ROLE" || action.type === "MUTE_MEMBER" ? (
                     <select
                       value={asString(action.config, "roleId", "")}
                       onChange={(e) => updateActionConfig(action.id, { roleId: e.target.value })}
@@ -1416,6 +1428,63 @@ export default function BotAutomationStudioClient() {
                         <option key={r.id} value={r.id}>@{r.name}</option>
                       ))}
                     </select>
+                  ) : null}
+
+                  {action.type === "MUTE_MEMBER" ? (
+                    <input
+                      value={asString(action.config, "reason", "")}
+                      onChange={(e) => updateActionConfig(action.id, { reason: e.target.value })}
+                      style={{ ...inputStyle, marginTop: 8 }}
+                      placeholder="Mute reason (optional)"
+                    />
+                  ) : null}
+
+                  {action.type === "TIMEOUT_MEMBER" ? (
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <input
+                        type="number"
+                        min={1}
+                        value={asNumber(action.config, "minutes", 10)}
+                        onChange={(e) => updateActionConfig(action.id, { minutes: Number(e.target.value || 0) })}
+                        style={inputStyle}
+                        placeholder="Timeout minutes"
+                      />
+                      <input
+                        value={asString(action.config, "reason", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reason: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Reason (optional)"
+                      />
+                    </div>
+                  ) : null}
+
+                  {action.type === "KICK_MEMBER" ? (
+                    <input
+                      value={asString(action.config, "reason", "")}
+                      onChange={(e) => updateActionConfig(action.id, { reason: e.target.value })}
+                      style={{ ...inputStyle, marginTop: 8 }}
+                      placeholder="Kick reason (optional)"
+                    />
+                  ) : null}
+
+                  {action.type === "BAN_MEMBER" ? (
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <input
+                        value={asString(action.config, "reason", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reason: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Ban reason (optional)"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={604800}
+                        value={asNumber(action.config, "deleteMessageSeconds", 0)}
+                        onChange={(e) => updateActionConfig(action.id, { deleteMessageSeconds: Number(e.target.value || 0) })}
+                        style={inputStyle}
+                        placeholder="Delete recent messages (seconds)"
+                      />
+                    </div>
                   ) : null}
 
                   {action.type === "DM" ? (
