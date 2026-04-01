@@ -25,6 +25,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(upstream.status).json(data);
     }
 
+    if (req.method === "DELETE") {
+      const upstream = await fetch(`${BOT_API}/api/automation/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: buildBotApiHeaders(req),
+      });
+      const data = await readJsonSafe(upstream);
+      return res.status(upstream.status).json(data);
+    }
+
     return res.status(405).json({ success: false, error: "Method not allowed" });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || "Bot API unreachable" });

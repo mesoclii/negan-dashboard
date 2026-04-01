@@ -708,6 +708,42 @@ export default function BotAutomationStudioClient() {
     }
   }
 
+  async function deleteAutomation() {
+    if (selectedId === "new") {
+      setMsg("Save the automation before deleting it.");
+      return;
+    }
+    if (!guildId) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(`Delete automation "${name}"? This cannot be undone.`);
+      if (!ok) return;
+    }
+
+    setSaving(true);
+    setMsg("");
+    try {
+      const res = await fetch(`/api/bot/automation/${encodeURIComponent(selectedId)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((json as { error?: string })?.error || "Failed to delete automation");
+
+      const updatedItems = await loadAutomations(guildId);
+      createNewDraft();
+      if (updatedItems.length) {
+        const nextId = updatedItems[0]?.id || "";
+        if (nextId) {
+          await openAutomation(nextId);
+        }
+      }
+      setMsg("Automation deleted.");
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Failed to delete automation");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function applyStarterTemplate(templateKey: string) {
     if (templateKey === "from-scratch") {
       resetDraft("MESSAGE_CREATE");
@@ -825,7 +861,7 @@ export default function BotAutomationStudioClient() {
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ fontWeight: 900, fontSize: 20 }}>{selectedId === "new" ? "New Automation" : "Edit Automation"}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button style={{ ...btnStyle, opacity: 0.6 }} disabled title="Delete endpoint is not exposed by bot API.">
+              <button style={btnStyle} onClick={deleteAutomation} disabled={saving || loading || selectedId === "new"}>
                 Delete
               </button>
               <button style={btnStyle} onClick={discardDraft} disabled={saving || loading}>Discard</button>
