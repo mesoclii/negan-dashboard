@@ -541,25 +541,58 @@ export default function BotAutomationStudioClient() {
     );
   }
 
+  function toggleChannelMentionSelection(actionId: string, channelId: string) {
+    const cid = String(channelId || "").trim();
+    if (!cid) return;
+    setMentionChannelByAction((prev) => {
+      const selected = prev[actionId] || [];
+      return {
+        ...prev,
+        [actionId]: selected.includes(cid)
+          ? selected.filter((value) => value !== cid)
+          : [...selected, cid],
+      };
+    });
+  }
+
   function renderChannelMentionPicker(actionId: string) {
     const selected = mentionChannelByAction[actionId] || [];
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-        <select
-          multiple
-          value={selected}
-          onChange={(e) =>
-            setMentionChannelByAction((prev) => ({
-              ...prev,
-              [actionId]: Array.from(e.target.selectedOptions, (option) => option.value),
-            }))
-          }
-          style={{ ...inputStyle, minHeight: 112 }}
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ fontSize: 12, color: "#ffb5b5" }}>
+          Select one or more channels to tag. Selected: {selected.length}
+        </div>
+        <div
+          style={{
+            ...inputStyle,
+            minHeight: 112,
+            maxHeight: 180,
+            overflowY: "auto",
+            padding: 8,
+            display: "grid",
+            gap: 6,
+          }}
         >
           {channels.map((c) => (
-            <option key={c.id} value={c.id}>#{c.name}</option>
+            <label
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "#ffd6d6",
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(c.id)}
+                onChange={() => toggleChannelMentionSelection(actionId, c.id)}
+              />
+              <span>#{c.name}</span>
+            </label>
           ))}
-        </select>
+        </div>
         <button
           style={btnStyle}
           onClick={() => appendChannelMentionToAction(actionId, selected)}
