@@ -322,7 +322,7 @@ export default function BotAutomationStudioClient() {
   const [conditions, setConditions] = useState<ConditionDraft[]>([]);
   const [actions, setActions] = useState<ActionDraft[]>([defaultAction("SEND_MESSAGE")]);
   const [mentionRoleByAction, setMentionRoleByAction] = useState<Record<string, string>>({});
-  const [mentionChannelByAction, setMentionChannelByAction] = useState<Record<string, string>>({});
+  const [mentionChannelByAction, setMentionChannelByAction] = useState<Record<string, string[]>>({});
   const [emojiPickerByTarget, setEmojiPickerByTarget] = useState<Record<string, string>>({});
 
   const categoryChannels = useMemo(
@@ -521,18 +521,52 @@ export default function BotAutomationStudioClient() {
     );
   }
 
-  function appendChannelMentionToAction(actionId: string, channelId: string) {
-    const cid = String(channelId || "").trim();
-    if (!cid) return;
+  function appendChannelMentionToAction(actionId: string, channelIds: string | string[]) {
+    const ids = (Array.isArray(channelIds) ? channelIds : [channelIds])
+      .map((channelId) => String(channelId || "").trim())
+      .filter(Boolean);
+    if (!ids.length) return;
     setActions((prev) =>
       prev.map((a) => {
         if (a.id !== actionId) return a;
         if (!(a.type === "SEND_MESSAGE" || a.type === "SEND_EMBED" || a.type === "REPLY" || a.type === "DM")) return a;
         const current = asString(a.config, "content", "");
-        const mention = `<#${cid}>`;
-        const next = current.trim().length ? `${current} ${mention}` : mention;
+        const existing = current.trim().length ? current.trim().split(/\s+/) : [];
+        const mentions = ids.map((cid) => `<#${cid}>`).filter((mention) => !existing.includes(mention));
+        if (!mentions.length) return a;
+        const appended = mentions.join(" ");
+        const next = current.trim().length ? `${current} ${appended}` : appended;
         return { ...a, config: { ...a.config, content: next } };
       })
+    );
+  }
+
+  function renderChannelMentionPicker(actionId: string) {
+    const selected = mentionChannelByAction[actionId] || [];
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+        <select
+          multiple
+          value={selected}
+          onChange={(e) =>
+            setMentionChannelByAction((prev) => ({
+              ...prev,
+              [actionId]: Array.from(e.target.selectedOptions, (option) => option.value),
+            }))
+          }
+          style={{ ...inputStyle, minHeight: 112 }}
+        >
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>#{c.name}</option>
+          ))}
+        </select>
+        <button
+          style={btnStyle}
+          onClick={() => appendChannelMentionToAction(actionId, selected)}
+        >
+          Tag Channels
+        </button>
+      </div>
     );
   }
 
@@ -1153,24 +1187,7 @@ export default function BotAutomationStudioClient() {
                           Tag Role
                         </button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                        <select
-                          value={mentionChannelByAction[action.id] || ""}
-                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
-                          style={inputStyle}
-                        >
-                          <option value="">Select channel to tag</option>
-                          {channels.map((c) => (
-                            <option key={c.id} value={c.id}>#{c.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          style={btnStyle}
-                          onClick={() => appendChannelMentionToAction(action.id, mentionChannelByAction[action.id] || "")}
-                        >
-                          Tag Channel
-                        </button>
-                      </div>
+                      {renderChannelMentionPicker(action.id)}
                       <input
                         value={asString(action.config, "reactions", "")}
                         onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
@@ -1267,24 +1284,7 @@ export default function BotAutomationStudioClient() {
                           Tag Role
                         </button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                        <select
-                          value={mentionChannelByAction[action.id] || ""}
-                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
-                          style={inputStyle}
-                        >
-                          <option value="">Select channel to tag</option>
-                          {channels.map((c) => (
-                            <option key={c.id} value={c.id}>#{c.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          style={btnStyle}
-                          onClick={() => appendChannelMentionToAction(action.id, mentionChannelByAction[action.id] || "")}
-                        >
-                          Tag Channel
-                        </button>
-                      </div>
+                      {renderChannelMentionPicker(action.id)}
                       <input
                         value={asString(action.config, "reactions", "")}
                         onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
@@ -1331,24 +1331,7 @@ export default function BotAutomationStudioClient() {
                           Tag Role
                         </button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                        <select
-                          value={mentionChannelByAction[action.id] || ""}
-                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
-                          style={inputStyle}
-                        >
-                          <option value="">Select channel to tag</option>
-                          {channels.map((c) => (
-                            <option key={c.id} value={c.id}>#{c.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          style={btnStyle}
-                          onClick={() => appendChannelMentionToAction(action.id, mentionChannelByAction[action.id] || "")}
-                        >
-                          Tag Channel
-                        </button>
-                      </div>
+                      {renderChannelMentionPicker(action.id)}
                       <input
                         value={asString(action.config, "reactions", "")}
                         onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
@@ -1414,24 +1397,7 @@ export default function BotAutomationStudioClient() {
                           Tag Role
                         </button>
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                        <select
-                          value={mentionChannelByAction[action.id] || ""}
-                          onChange={(e) => setMentionChannelByAction((prev) => ({ ...prev, [action.id]: e.target.value }))}
-                          style={inputStyle}
-                        >
-                          <option value="">Select channel to tag</option>
-                          {channels.map((c) => (
-                            <option key={c.id} value={c.id}>#{c.name}</option>
-                          ))}
-                        </select>
-                        <button
-                          style={btnStyle}
-                          onClick={() => appendChannelMentionToAction(action.id, mentionChannelByAction[action.id] || "")}
-                        >
-                          Tag Channel
-                        </button>
-                      </div>
+                      {renderChannelMentionPicker(action.id)}
                       <input
                         value={asString(action.config, "reactions", "")}
                         onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
