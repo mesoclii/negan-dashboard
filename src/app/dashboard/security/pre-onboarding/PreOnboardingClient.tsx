@@ -10,6 +10,7 @@ type GuildRole = { id: string; name: string };
 type PreOnboardingConfig = {
   autoBanOnBlacklistRejoin: boolean;
   autoBanOnRefusalRole: boolean;
+  sendRemovalDm: boolean;
   enforcementAction: "kick" | "ban";
   refusalRoleId: string;
   enforcementChannelId: string;
@@ -20,6 +21,7 @@ type PreOnboardingConfig = {
 const DEFAULTS: PreOnboardingConfig = {
   autoBanOnBlacklistRejoin: true,
   autoBanOnRefusalRole: true,
+  sendRemovalDm: true,
   enforcementAction: "ban",
   refusalRoleId: "",
   enforcementChannelId: "",
@@ -97,6 +99,7 @@ export default function PreOnboardingClient() {
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <label><input type="checkbox" checked={!!cfg.autoBanOnBlacklistRejoin} onChange={(e) => setCfg({ ...cfg, autoBanOnBlacklistRejoin: e.target.checked })} /> Remove blacklisted rejoiners automatically</label>
           <label><input type="checkbox" checked={!!cfg.autoBanOnRefusalRole} onChange={(e) => setCfg({ ...cfg, autoBanOnRefusalRole: e.target.checked })} /> Remove members who get the refusal role</label>
+          <label><input type="checkbox" checked={!!cfg.sendRemovalDm} onChange={(e) => setCfg({ ...cfg, sendRemovalDm: e.target.checked })} /> Send removal DM</label>
           <button onClick={() => void reload()} disabled={saving} style={{ ...styles.input, width: "auto", cursor: "pointer", fontWeight: 800 }}>
             Refresh Live Config
           </button>

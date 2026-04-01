@@ -6,6 +6,8 @@ import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
 type TruthDareCfg = {
   enabled: boolean;
   channelId: string;
+  builtInTruthEnabled: boolean;
+  builtInDareEnabled: boolean;
   truthPool: string;
   darePool: string;
   minBet: number;
@@ -16,6 +18,8 @@ type TruthDareCfg = {
 const DEFAULT_CONFIG: TruthDareCfg = {
   enabled: true,
   channelId: "",
+  builtInTruthEnabled: true,
+  builtInDareEnabled: true,
   truthPool: "",
   darePool: "",
   minBet: 0,
@@ -51,7 +55,7 @@ export default function TruthDareEnginePage() {
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Truth Or Dare Engine</h1>
       <div style={{ color: "#ff9999", marginTop: 6 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Live prompt pools, bet limits, generated prompt gate, and channel lock all save straight into the bot runtime config.
+        Built-in prompts are included by default. Add your own prompts on top, or switch the built-in truth/dare pools off if a guild wants only custom questions.
       </div>
       {message ? <div style={{ marginTop: 8, color: "#ffd27a" }}>{message}</div> : null}
 
@@ -64,6 +68,8 @@ export default function TruthDareEnginePage() {
           <section style={{ ...card, marginTop: 12 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
               <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Enabled</label>
+              <label><input type="checkbox" checked={cfg.builtInTruthEnabled} onChange={(e) => setCfg((p) => ({ ...p, builtInTruthEnabled: e.target.checked }))} /> Built-In Truths Enabled</label>
+              <label><input type="checkbox" checked={cfg.builtInDareEnabled} onChange={(e) => setCfg((p) => ({ ...p, builtInDareEnabled: e.target.checked }))} /> Built-In Dares Enabled</label>
               <label><input type="checkbox" checked={cfg.generatedEnabled} onChange={(e) => setCfg((p) => ({ ...p, generatedEnabled: e.target.checked }))} /> Generated Prompts Enabled</label>
             </div>
           </section>
@@ -89,12 +95,12 @@ export default function TruthDareEnginePage() {
           </section>
 
           <section style={card}>
-            <div style={{ marginBottom: 6 }}>Truth Pool (one prompt per line)</div>
+            <div style={{ marginBottom: 6 }}>Additional Truth Prompts (one prompt per line)</div>
             <textarea style={{ ...input, minHeight: 150 }} value={cfg.truthPool} onChange={(e) => setCfg((p) => ({ ...p, truthPool: e.target.value }))} />
           </section>
 
           <section style={card}>
-            <div style={{ marginBottom: 6 }}>Dare Pool (one prompt per line)</div>
+            <div style={{ marginBottom: 6 }}>Additional Dare Prompts (one prompt per line)</div>
             <textarea style={{ ...input, minHeight: 150 }} value={cfg.darePool} onChange={(e) => setCfg((p) => ({ ...p, darePool: e.target.value }))} />
           </section>
 

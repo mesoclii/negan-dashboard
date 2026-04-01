@@ -210,7 +210,7 @@ function defaultCondition(type: ConditionType): ConditionDraft {
 }
 
 function defaultAction(type: ActionType): ActionDraft {
-  if (type === "SEND_MESSAGE") return { id: uid("act"), type, config: { channelId: "", content: "" } };
+  if (type === "SEND_MESSAGE") return { id: uid("act"), type, config: { channelId: "", content: "", reactions: "" } };
   if (type === "SEND_EMBED") {
     return {
       id: uid("act"),
@@ -224,14 +224,15 @@ function defaultAction(type: ActionType): ActionDraft {
         imageUrl: "",
         thumbnailUrl: "",
         footerText: "",
+        reactions: "",
         ephemeral: false,
       }
     };
   }
-  if (type === "REPLY") return { id: uid("act"), type, config: { content: "", ephemeral: false } };
+  if (type === "REPLY") return { id: uid("act"), type, config: { content: "", reactions: "", ephemeral: false } };
   if (type === "REACT") return { id: uid("act"), type, config: { emoji: "" } };
   if (type === "ADD_ROLE" || type === "REMOVE_ROLE") return { id: uid("act"), type, config: { roleId: "" } };
-  if (type === "DM") return { id: uid("act"), type, config: { content: "" } };
+  if (type === "DM") return { id: uid("act"), type, config: { content: "", reactions: "" } };
   if (type === "DELAY") return { id: uid("act"), type, config: { ms: 1000 } };
   return { id: uid("act"), type, config: { name: "Thread", autoArchiveDuration: 60 } };
 }
@@ -830,6 +831,19 @@ export default function BotAutomationStudioClient() {
                 );
               })}
             </div>
+            {triggerType === "REACTION_ADD" ? (
+              <div style={{ marginTop: 10 }}>
+                <label style={{ ...hintInline, display: "grid", gap: 6 }}>
+                  Reaction filter (optional, comma separated)
+                  <input
+                    value={Array.isArray(triggerConfig.emojis) ? triggerConfig.emojis.join(", ") : ""}
+                    onChange={(e) => setTriggerConfig((prev) => ({ ...prev, emojis: e.target.value.split(/[,\r\n]+/).map((value) => value.trim()).filter(Boolean) }))}
+                    style={inputStyle}
+                    placeholder="Example: ⭐, 🔥, <:custom:1234567890>"
+                  />
+                </label>
+              </div>
+            ) : null}
           </div>
 
           <div style={sectionStyle}>
@@ -1042,6 +1056,12 @@ export default function BotAutomationStudioClient() {
                           Tag Channel
                         </button>
                       </div>
+                      <input
+                        value={asString(action.config, "reactions", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Reactions to add after sending (comma separated)"
+                      />
                     </div>
                   ) : null}
 
@@ -1147,6 +1167,12 @@ export default function BotAutomationStudioClient() {
                           Tag Channel
                         </button>
                       </div>
+                      <input
+                        value={asString(action.config, "reactions", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Reactions to add after sending (comma separated)"
+                      />
                     </div>
                   ) : null}
 
@@ -1202,6 +1228,12 @@ export default function BotAutomationStudioClient() {
                           Tag Channel
                         </button>
                       </div>
+                      <input
+                        value={asString(action.config, "reactions", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Reactions to add after replying (comma separated)"
+                      />
                     </div>
                   ) : null}
 
@@ -1271,6 +1303,12 @@ export default function BotAutomationStudioClient() {
                           Tag Channel
                         </button>
                       </div>
+                      <input
+                        value={asString(action.config, "reactions", "")}
+                        onChange={(e) => updateActionConfig(action.id, { reactions: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Reactions to add after DM send (comma separated)"
+                      />
                     </div>
                   ) : null}
 

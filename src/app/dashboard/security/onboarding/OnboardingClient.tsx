@@ -9,6 +9,10 @@ type GuildRole = { id: string; name: string };
 
 type OnboardingConfig = {
   enabled: boolean;
+  idFlowEnabled: boolean;
+  sendPostVerifyMessage: boolean;
+  sendTicketTranscript: boolean;
+  removeRolesOnVerify: boolean;
   idChannelId: string;
   ticketCategoryId: string;
   transcriptChannelId: string;
@@ -29,6 +33,12 @@ type OnboardingConfig = {
   idPanelDescription: string;
   idPanelContent: string;
   postVerifyTemplate: string;
+  idTicketButtonLabel: string;
+  idReadyButtonLabel: string;
+  idDeclineButtonLabel: string;
+  ticketAcceptButtonLabel: string;
+  ticketVerifiedButtonLabel: string;
+  ticketCloseButtonLabel: string;
   autoKickOnDecline: boolean;
   autoKickOnTimeout: boolean;
   declineKickReason: string;
@@ -38,6 +48,10 @@ type OnboardingConfig = {
 
 const DEFAULTS: OnboardingConfig = {
   enabled: true,
+  idFlowEnabled: true,
+  sendPostVerifyMessage: true,
+  sendTicketTranscript: true,
+  removeRolesOnVerify: true,
   idChannelId: "",
   ticketCategoryId: "",
   transcriptChannelId: "",
@@ -58,6 +72,12 @@ const DEFAULTS: OnboardingConfig = {
   idPanelDescription: "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
   idPanelContent: "Survivor <@{{userId}}>",
   postVerifyTemplate: "<@{{userId}}> is now verified. Welcome to {{guildName}}.",
+  idTicketButtonLabel: "Open ID Verification Ticket",
+  idReadyButtonLabel: "I'm Ready To Submit ID",
+  idDeclineButtonLabel: "I'm Leaving The Safe Zone",
+  ticketAcceptButtonLabel: "Accept Ticket",
+  ticketVerifiedButtonLabel: "ID Verified",
+  ticketCloseButtonLabel: "Close Ticket",
   autoKickOnDecline: true,
   autoKickOnTimeout: true,
   declineKickReason: "Declined ID verification",
@@ -150,6 +170,16 @@ export default function OnboardingClient() {
           <button onClick={() => void reload()} disabled={saving} style={{ ...styles.input, width: "auto", cursor: "pointer", fontWeight: 800 }}>
             Refresh Live Config
           </button>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Feature toggles</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          <label><input type="checkbox" checked={!!cfg.idFlowEnabled} onChange={(e) => setCfg({ ...cfg, idFlowEnabled: e.target.checked })} /> Optional ID flow enabled</label>
+          <label><input type="checkbox" checked={!!cfg.sendPostVerifyMessage} onChange={(e) => setCfg({ ...cfg, sendPostVerifyMessage: e.target.checked })} /> Send post-verified message</label>
+          <label><input type="checkbox" checked={!!cfg.sendTicketTranscript} onChange={(e) => setCfg({ ...cfg, sendTicketTranscript: e.target.checked })} /> Send ticket transcript</label>
+          <label><input type="checkbox" checked={!!cfg.removeRolesOnVerify} onChange={(e) => setCfg({ ...cfg, removeRolesOnVerify: e.target.checked })} /> Remove configured roles after final verification</label>
         </div>
       </div>
 
@@ -252,6 +282,32 @@ export default function OnboardingClient() {
           <div>
             <label>Post-verify message</label>
             <textarea style={styles.area} value={cfg.postVerifyTemplate || ""} onChange={(e) => setCfg({ ...cfg, postVerifyTemplate: e.target.value })} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            <div>
+              <label>Post-verify ID ticket button</label>
+              <input style={styles.input} value={cfg.idTicketButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, idTicketButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>ID ready button</label>
+              <input style={styles.input} value={cfg.idReadyButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, idReadyButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>ID decline button</label>
+              <input style={styles.input} value={cfg.idDeclineButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, idDeclineButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Staff accept ticket button</label>
+              <input style={styles.input} value={cfg.ticketAcceptButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, ticketAcceptButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Staff verified button</label>
+              <input style={styles.input} value={cfg.ticketVerifiedButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, ticketVerifiedButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Ticket close button</label>
+              <input style={styles.input} value={cfg.ticketCloseButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, ticketCloseButtonLabel: e.target.value })} />
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label><input type="checkbox" checked={!!cfg.autoKickOnDecline} onChange={(e) => setCfg({ ...cfg, autoKickOnDecline: e.target.checked })} /> Auto-remove on decline</label>

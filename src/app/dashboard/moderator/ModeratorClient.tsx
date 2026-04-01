@@ -49,6 +49,9 @@ type ModeratorConfig = {
     mentionAction: string;
     zalgoAction: string;
     spamThreshold: number;
+    spamWindowSeconds: number;
+    repeatedTextThreshold: number;
+    repeatedTextWindowSeconds: number;
     capsThreshold: number;
     mentionThreshold: number;
     blockedWords: string[];
@@ -149,6 +152,9 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     mentionAction: "Delete Message",
     zalgoAction: "Disabled",
     spamThreshold: 5,
+    spamWindowSeconds: 60,
+    repeatedTextThreshold: 5,
+    repeatedTextWindowSeconds: 120,
     capsThreshold: 70,
     mentionThreshold: 5,
     blockedWords: [],
@@ -197,6 +203,13 @@ function toggleId(list: string[], id: string) {
   return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
 }
 
+function parseWordList(value: string): string[] {
+  return String(value || "")
+    .split(/[,\r\n]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function normalizeModerator(raw: any): ModeratorConfig {
   return {
     ...DEFAULT_CONFIG,
@@ -220,6 +233,7 @@ export default function ModeratorClient() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [cfg, setCfg] = useState<ModeratorConfig>(DEFAULT_CONFIG);
+  const [blockedWordsText, setBlockedWordsText] = useState("");
   const [nativeConfig, setNativeConfig] = useState<NativeConfig>({ active: true, slashEnabled: true, notes: "", rules: {} });
   const [nativeEntries, setNativeEntries] = useState<NativeEntry[]>([]);
   const [tab, setTab] = useState<TabKey>("automod");
@@ -259,7 +273,9 @@ export default function ModeratorClient() {
         throw new Error(cfgJson?.error || "Failed to load moderator config.");
       }
 
-      setCfg(normalizeModerator(cfgJson?.config || {}));
+      const nextCfg = normalizeModerator(cfgJson?.config || {});
+      setCfg(nextCfg);
+      setBlockedWordsText((nextCfg.automod.blockedWords || []).join(", "));
       setNativeConfig({
         active: nativeJson?.config?.active !== false,
         slashEnabled: nativeJson?.config?.slashEnabled !== false,
@@ -336,10 +352,17 @@ export default function ModeratorClient() {
     setSaving(true);
     setMessage("");
     try {
+      const moderatorPatch = {
+        ...cfg,
+        automod: {
+          ...cfg.automod,
+          blockedWords: parseWordList(blockedWordsText),
+        },
+      };
       const moderatorRes = await fetch("/api/bot/engine-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guildId, engine: "moderator", patch: cfg }),
+        body: JSON.stringify({ guildId, engine: "moderator", patch: moderatorPatch }),
       });
       const moderatorJson = await moderatorRes.json().catch(() => ({}));
       if (!moderatorRes.ok || moderatorJson?.success === false) {
@@ -356,7 +379,9 @@ export default function ModeratorClient() {
         throw new Error(nativeJson?.error || "Failed to save moderator commands.");
       }
 
-      setCfg(normalizeModerator(moderatorJson?.config || cfg));
+      const nextCfg = normalizeModerator(moderatorJson?.config || moderatorPatch);
+      setCfg(nextCfg);
+      setBlockedWordsText((nextCfg.automod.blockedWords || []).join(", "));
       setNativeConfig({
         active: nativeJson?.config?.active !== false,
         slashEnabled: nativeJson?.config?.slashEnabled !== false,
@@ -478,6 +503,21 @@ export default function ModeratorClient() {
               <input style={input} type="number" value={cfg.automod.spamThreshold} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, spamThreshold: Number(e.target.value || 0) } }))} />
             </div>
             <div>
+              <label>Spam window seconds</label>
+              <input style={input} type="number" value={cfg.automod.spamWindowSeconds} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, spamWindowSeconds: Number(e.target.value || 0) } }))} />
+            </div>
+            <div>
+              <label>Repeated text threshold</label>
+              <input style={input} type="number" value={cfg.automod.repeatedTextThreshold} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, repeatedTextThreshold: Number(e.target.value || 0) } }))} />
+            </div>
+            <div>
+              <label>Repeated text window seconds</label>
+              <input style={input} type="number" value={cfg.automod.repeatedTextWindowSeconds} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, repeatedTextWindowSeconds: Number(e.target.value || 0) } }))} />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(160px,1fr))", gap: 12, marginTop: 14 }}>
+            <div>
               <label>Caps threshold %</label>
               <input style={input} type="number" value={cfg.automod.capsThreshold} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, capsThreshold: Number(e.target.value || 0) } }))} />
             </div>
@@ -492,15 +532,16 @@ export default function ModeratorClient() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <label>Blocked words (comma separated)</label>
+            <label>Blocked words (comma or new-line separated)</label>
             <textarea
               style={{ ...input, minHeight: 90 }}
-              value={cfg.automod.blockedWords.join(", ")}
-              onChange={(e) => setCfg((prev) => ({
+              value={blockedWordsText}
+              onChange={(e) => setBlockedWordsText(e.target.value)}
+              onBlur={() => setCfg((prev) => ({
                 ...prev,
                 automod: {
                   ...prev.automod,
-                  blockedWords: e.target.value.split(",").map((value) => value.trim()).filter(Boolean),
+                  blockedWords: parseWordList(blockedWordsText),
                 },
               }))}
             />

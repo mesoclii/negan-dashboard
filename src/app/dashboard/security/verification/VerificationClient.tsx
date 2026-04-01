@@ -9,6 +9,12 @@ type GuildRole = { id: string; name: string };
 
 type VerificationConfig = {
   enabled: boolean;
+  sendWelcomeDm: boolean;
+  sendWelcomePanel: boolean;
+  requireRulesRead: boolean;
+  sendGateAnnouncement: boolean;
+  grantVerifiedRole: boolean;
+  removeRolesOnVerify: boolean;
   welcomeChannelId: string;
   mainChatChannelId: string;
   rulesChannelId: string;
@@ -19,10 +25,20 @@ type VerificationConfig = {
   panelDescription: string;
   panelFooter: string;
   gateAnnouncementTemplate: string;
+  rulesButtonLabel: string;
+  readRulesButtonLabel: string;
+  readRulesConfirmedButtonLabel: string;
+  verifyButtonLabel: string;
 };
 
 const DEFAULTS: VerificationConfig = {
   enabled: true,
+  sendWelcomeDm: true,
+  sendWelcomePanel: true,
+  requireRulesRead: true,
+  sendGateAnnouncement: true,
+  grantVerifiedRole: true,
+  removeRolesOnVerify: true,
   welcomeChannelId: "",
   mainChatChannelId: "",
   rulesChannelId: "",
@@ -33,6 +49,10 @@ const DEFAULTS: VerificationConfig = {
   panelDescription: "Read the rules in <#{{rulesChannelId}}> and press verify to continue.",
   panelFooter: "Verification comes first. Onboarding comes after this step.",
   gateAnnouncementTemplate: "Survivor <@{{userId}}> has reached the gates.",
+  rulesButtonLabel: "Open Rules",
+  readRulesButtonLabel: "I've Read the Survival Code",
+  readRulesConfirmedButtonLabel: "Rules Confirmed",
+  verifyButtonLabel: "Enter The Safe Zone (18+)",
 };
 
 const styles = {
@@ -120,6 +140,18 @@ export default function VerificationClient() {
       </div>
 
       <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Feature toggles</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+          <label><input type="checkbox" checked={!!cfg.sendWelcomeDm} onChange={(e) => setCfg({ ...cfg, sendWelcomeDm: e.target.checked })} /> Send welcome DM</label>
+          <label><input type="checkbox" checked={!!cfg.sendWelcomePanel} onChange={(e) => setCfg({ ...cfg, sendWelcomePanel: e.target.checked })} /> Send welcome panel</label>
+          <label><input type="checkbox" checked={!!cfg.requireRulesRead} onChange={(e) => setCfg({ ...cfg, requireRulesRead: e.target.checked })} /> Require rules read before verify</label>
+          <label><input type="checkbox" checked={!!cfg.sendGateAnnouncement} onChange={(e) => setCfg({ ...cfg, sendGateAnnouncement: e.target.checked })} /> Send gate announcement</label>
+          <label><input type="checkbox" checked={!!cfg.grantVerifiedRole} onChange={(e) => setCfg({ ...cfg, grantVerifiedRole: e.target.checked })} /> Grant verified role</label>
+          <label><input type="checkbox" checked={!!cfg.removeRolesOnVerify} onChange={(e) => setCfg({ ...cfg, removeRolesOnVerify: e.target.checked })} /> Remove gate roles on verify</label>
+        </div>
+      </div>
+
+      <div style={styles.card}>
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Where the verification step happens</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10 }}>
           <div>
@@ -175,6 +207,24 @@ export default function VerificationClient() {
           <div>
             <label>Gate announcement to staff/log area</label>
             <textarea style={styles.area} value={cfg.gateAnnouncementTemplate || ""} onChange={(e) => setCfg({ ...cfg, gateAnnouncementTemplate: e.target.value })} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            <div>
+              <label>Rules button label</label>
+              <input style={styles.input} value={cfg.rulesButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, rulesButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Read-rules button label</label>
+              <input style={styles.input} value={cfg.readRulesButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, readRulesButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Read-rules confirmed label</label>
+              <input style={styles.input} value={cfg.readRulesConfirmedButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, readRulesConfirmedButtonLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Verify button label</label>
+              <input style={styles.input} value={cfg.verifyButtonLabel || ""} onChange={(e) => setCfg({ ...cfg, verifyButtonLabel: e.target.value })} />
+            </div>
           </div>
         </div>
       </div>

@@ -141,8 +141,13 @@ export default function FunModesClient() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(truthDare.config?.enabled)} onChange={(event) => void saveEngine("truthDare", { enabled: event.target.checked }, `Truth / Dare ${event.target.checked ? "enabled" : "disabled"}.`)} /> Enabled</label>
+              <label><input type="checkbox" checked={truthDare.config?.builtInTruthEnabled !== false} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), builtInTruthEnabled: event.target.checked } }))} /> Built-in truths</label>
+              <label><input type="checkbox" checked={truthDare.config?.builtInDareEnabled !== false} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), builtInDareEnabled: event.target.checked } }))} /> Built-in dares</label>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10, marginTop: 10 }}>
               <div><label>Min bet</label><input style={input} type="number" value={Number(truthDare.config?.minBet || 0)} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), minBet: Number(event.target.value || 0) } }))} /></div>
               <div><label>Max bet</label><input style={input} type="number" value={Number(truthDare.config?.maxBet || 50000)} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), maxBet: Number(event.target.value || 0) } }))} /></div>
+              <label><input type="checkbox" checked={Boolean(truthDare.config?.generatedEnabled ?? true)} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), generatedEnabled: event.target.checked } }))} /> Generated prompts</label>
             </div>
             <div style={{ marginTop: 10 }}>
               <label>Prompt channel</label>
@@ -150,11 +155,11 @@ export default function FunModesClient() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
               <div>
-                <label>Truth pool</label>
+                <label>Additional truth prompts</label>
                 <textarea style={{ ...input, minHeight: 100 }} value={String(truthDare.config?.truthPool || "")} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), truthPool: event.target.value } }))} />
               </div>
               <div>
-                <label>Dare pool</label>
+                <label>Additional dare prompts</label>
                 <textarea style={{ ...input, minHeight: 100 }} value={String(truthDare.config?.darePool || "")} onChange={(event) => setTruthDare((prev) => ({ ...prev, config: { ...(prev.config || {}), darePool: event.target.value } }))} />
               </div>
             </div>
