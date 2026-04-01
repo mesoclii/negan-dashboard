@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
@@ -36,6 +36,31 @@ export default function PossumSidebar() {
   function navigateTo(href: string) {
     router.push(buildDashboardHref(href));
   }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hrefs = [
+      "/dashboard",
+      ...topLinks.map((item) => item.href),
+      ...sections.flatMap((section) => section.items.map((item) => item.href)),
+    ];
+    const uniqueHrefs = [...new Set(hrefs.map((href) => buildDashboardHref(href)))];
+    const prefetchAll = () => {
+      uniqueHrefs.forEach((href) => {
+        router.prefetch(href);
+      });
+    };
+    const withIdle = window as Window & {
+      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (typeof withIdle.requestIdleCallback === "function") {
+      const handle = withIdle.requestIdleCallback(prefetchAll, { timeout: 1200 });
+      return () => withIdle.cancelIdleCallback?.(handle);
+    }
+    const timeout = window.setTimeout(prefetchAll, 150);
+    return () => window.clearTimeout(timeout);
+  }, [router, sections, topLinks]);
 
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">

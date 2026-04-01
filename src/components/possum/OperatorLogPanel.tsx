@@ -10,10 +10,15 @@ type OperatorLogEntry = {
   level: string;
   stage: string;
   guildId?: string | null;
+  guildLabel?: string | null;
   routeId?: string | null;
+  routeLabel?: string | null;
   channelId?: string | null;
+  channelLabel?: string | null;
   voiceChannelId?: string | null;
+  voiceChannelLabel?: string | null;
   userId?: string | null;
+  userLabel?: string | null;
   event?: string | null;
   message: string;
   details?: Record<string, unknown> | null;
@@ -45,6 +50,16 @@ function pretty(value: unknown) {
   } catch {
     return String(value ?? "");
   }
+}
+
+function contextLine(entry: OperatorLogEntry) {
+  const parts = [`stage=${entry.stage || "runtime"}`];
+  if (entry.routeLabel) parts.push(`route=${entry.routeLabel}`);
+  if (entry.channelLabel) parts.push(`channel=${entry.channelLabel}`);
+  if (entry.voiceChannelLabel) parts.push(`voice=${entry.voiceChannelLabel}`);
+  if (entry.userLabel) parts.push(`user=${entry.userLabel}`);
+  if (entry.guildLabel) parts.push(`guild=${entry.guildLabel}`);
+  return parts.join(" · ");
 }
 
 export default function OperatorLogPanel({
@@ -149,13 +164,7 @@ export default function OperatorLogPanel({
               </div>
               <div style={{ color: "#caa", fontSize: 12 }}>{entry.at || "Unknown time"}</div>
             </div>
-            <div style={{ color: "#ffbaba", fontSize: 12, marginTop: 6 }}>
-              stage={entry.stage || "runtime"}
-              {entry.routeId ? ` · route=${entry.routeId}` : ""}
-              {entry.channelId ? ` · channel=${entry.channelId}` : ""}
-              {entry.voiceChannelId ? ` · voice=${entry.voiceChannelId}` : ""}
-              {entry.userId ? ` · user=${entry.userId}` : ""}
-            </div>
+            <div style={{ color: "#ffbaba", fontSize: 12, marginTop: 6 }}>{contextLine(entry)}</div>
             {entry.details ? (
               <pre style={{ marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#ffd7d7", fontSize: 12 }}>
                 {pretty(entry.details)}

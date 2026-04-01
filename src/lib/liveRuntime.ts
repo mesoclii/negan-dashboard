@@ -20,9 +20,9 @@ export type GuildDataPayload = {
   roles?: GuildRole[];
 };
 
-const GUILD_DATA_TTL_MS = 2_000;
-const RUNTIME_ENGINE_TTL_MS = 2_000;
-const DASHBOARD_CONFIG_TTL_MS = 5_000;
+const GUILD_DATA_TTL_MS = 10_000;
+const RUNTIME_ENGINE_TTL_MS = 10_000;
+const DASHBOARD_CONFIG_TTL_MS = 15_000;
 
 type TimedCacheEntry<T> = {
   value: T;
