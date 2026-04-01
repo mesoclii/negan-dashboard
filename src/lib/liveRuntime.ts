@@ -20,9 +20,9 @@ export type GuildDataPayload = {
   roles?: GuildRole[];
 };
 
-const GUILD_DATA_TTL_MS = 10_000;
-const RUNTIME_ENGINE_TTL_MS = 10_000;
-const DASHBOARD_CONFIG_TTL_MS = 15_000;
+const GUILD_DATA_TTL_MS = 45_000;
+const RUNTIME_ENGINE_TTL_MS = 30_000;
+const DASHBOARD_CONFIG_TTL_MS = 60_000;
 
 type TimedCacheEntry<T> = {
   value: T;
@@ -67,7 +67,7 @@ function isAbortLikeError(error: unknown) {
   return (error as any)?.name === "AbortError" || /aborted|timed out/i.test(message);
 }
 
-async function fetchJsonOrThrow(url: string, init: RequestInit = {}, timeoutMs = 30_000, retryCount = 1) {
+async function fetchJsonOrThrow(url: string, init: RequestInit = {}, timeoutMs = 30_000, retryCount = 2) {
   let attempt = 0;
   while (true) {
     const controller = new AbortController();

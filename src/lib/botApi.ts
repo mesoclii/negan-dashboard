@@ -2,7 +2,7 @@ import type { NextApiRequest } from "next";
 import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 export const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
-const BOT_API_TIMEOUT_MS = Math.max(5_000, Number(process.env.BOT_API_TIMEOUT_MS || 30_000));
+const BOT_API_TIMEOUT_MS = Math.max(5_000, Number(process.env.BOT_API_TIMEOUT_MS || 45_000));
 
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
