@@ -503,13 +503,15 @@ export default function DashboardClient() {
       setViewerUserId(nextUserId);
     };
     syncContext();
-    const interval = window.setInterval(syncContext, 1200);
     window.addEventListener("popstate", syncContext);
     window.addEventListener("storage", syncContext);
+    window.addEventListener("focus", syncContext);
+    document.addEventListener("visibilitychange", syncContext);
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("popstate", syncContext);
       window.removeEventListener("storage", syncContext);
+      window.removeEventListener("focus", syncContext);
+      document.removeEventListener("visibilitychange", syncContext);
     };
   }, []);
 
