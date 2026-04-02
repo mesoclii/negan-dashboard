@@ -30,7 +30,7 @@ export default function GamesClient() {
         </div>
         <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildName || guildId}</div>
         <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 8 }}>
-          This page is only for the external game stack: linked identities, Battle.net / launcher accounts, live presence, provider stats, hours, gamer cards, and squad finder.
+          This page is only for the external game stack: linked identities, Steam / Epic / Xbox / Battle.net / PlayStation / Rockstar accounts, live presence, provider stats, hours, gamer cards, and squad finder.
         </div>
         <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 8 }}>
           Cat Drop, Pokemon, Truth Dare, Crew, Dominion, and other server mini-game engines stay on their own dedicated dashboard pages.

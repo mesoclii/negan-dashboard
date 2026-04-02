@@ -48,7 +48,7 @@ const LINK_PROVIDERS = [
 ];
 const STATS_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "fortnite", "cod", "wow", "overwatch2", "diablo4", "destiny2", "valorant", "leagueoflegends", "rocketleague", "gtaonline", "minecraft", "custom"].includes(entry.value));
 const MAP_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "cod", "overwatch2"].includes(entry.value));
-const ADAPTER_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "fortnite", "cod", "wow", "overwatch2", "diablo4", "destiny2", "valorant", "leagueoflegends", "rocketleague", "gtaonline", "minecraft"].includes(entry.value));
+const ADAPTER_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "fortnite", "cod", "steam", "epic", "xbox", "battlenet", "playstation", "rockstar", "wow", "overwatch2", "diablo4", "destiny2", "valorant", "leagueoflegends", "rocketleague", "gtaonline", "minecraft"].includes(entry.value));
 const ROLE_SYNC_GAMES = [
   { key: "apex", label: "Apex Role Map", tiers: ["rookie", "bronze", "silver", "gold", "platinum", "diamond", "master", "predator"] },
   { key: "fortnite", label: "Fortnite Role Map", tiers: ["bronze", "silver", "gold", "platinum", "diamond", "elite", "champion", "unreal"] },
@@ -273,6 +273,24 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               <input style={input} type="number" placeholder="Max links per member" value={getValue(engines.gameIdentity, ["maxLinksPerMember"], 8)} onChange={(event) => updateConfig("gameIdentity", { maxLinksPerMember: Number(event.target.value || 0) })} />
               <select style={input} value={getValue(engines.gameIdentity, ["defaultVisibility"], "server")} onChange={(event) => updateConfig("gameIdentity", { defaultVisibility: event.target.value })}>{VISIBILITY.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
             </div>
+            <div style={{ marginTop: 10 }}>
+              <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>Linkable providers</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(180px,1fr))", gap: 8 }}>
+                {LINK_PROVIDERS.map((entry) => {
+                  const current = Array.isArray(engines.gameIdentity.config?.allowedProviders) ? engines.gameIdentity.config?.allowedProviders : [];
+                  return (
+                    <label key={`identity-provider-${entry.value}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={current.includes(entry.value)}
+                        onChange={() => updateConfig("gameIdentity", { allowedProviders: toggleProviderList(current, entry.value) })}
+                      />
+                      <span>{entry.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.privacyConsent, ["enabled"], true))} onChange={(event) => updateConfig("privacyConsent", { enabled: event.target.checked })} /> Privacy engine enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.privacyConsent, ["memberSelfServiceEnabled"], true))} onChange={(event) => updateConfig("privacyConsent", { memberSelfServiceEnabled: event.target.checked })} /> Member self-service</label>
@@ -306,7 +324,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
 
           <div style={card}>
             <h3 style={sectionTitle}>Game Provider</h3>
-            <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Manual snapshots still work across the full game stack, while routed provider sync can now be configured for Apex, Fortnite, CoD, Battle.net / WoW, Overwatch 2, Diablo IV, Destiny 2, Riot titles, Rocket League, GTA Online, Minecraft, and any future bridge you add.</div>
+            <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Manual snapshots still work across the full game stack, while routed provider sync can now be configured for Steam, Epic, Xbox, Battle.net, PlayStation, Rockstar, Apex, Fortnite, CoD, WoW, Overwatch 2, Diablo IV, Destiny 2, Riot titles, Rocket League, GTA Online, Minecraft, and any future bridge you add.</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["enabled"], true))} onChange={(event) => updateConfig("gameProvider", { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["allowManualStats"], true))} onChange={(event) => updateConfig("gameProvider", { allowManualStats: event.target.checked })} /> Manual stats</label>
