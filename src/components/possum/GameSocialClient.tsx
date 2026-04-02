@@ -169,6 +169,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
   const providerCapabilities = listRows(engines.gameProvider.details?.capabilities);
   const launcherReadiness = listRows(engines.gameProvider.details?.launcherReadiness);
   const providerHealth = listRows(engines.gameProvider.details?.syncHealth);
+  const authProviders = listRows(engines.gameIdentity.details?.authProviders);
   const showoffRows = listRows(engines.showoff.details?.previews);
   const squadRows = listRows(engines.squadFinder.details?.activeSquads);
   const memberState = engines.privacyConsent.details?.memberSelfService || engines.gameIdentity.details?.memberSelfService || null;
@@ -177,6 +178,32 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
   const myNotifications = listRows(memberState?.notifications);
   const messageChannels = useMemo(() => channels.filter((entry) => channelSupportsMessages(entry)), [channels]);
   const sortedRoles = useMemo(() => [...roles].sort((a, b) => Number(b.position || 0) - Number(a.position || 0) || a.name.localeCompare(b.name)), [roles]);
+  const identityAuthIndex = useMemo(() => new Map(myIdentities.map((entry) => [entry.providerKey, entry])), [myIdentities]);
+  const currentAuthProvider = useMemo(() => authProviders.find((entry) => entry.key === identityForm.providerKey) || null, [authProviders, identityForm.providerKey]);
+  const buildConnectHref = useCallback((providerKey: string, platform = "") => {
+    if (!guildId || !viewerUserId) return "";
+    const params = new URLSearchParams();
+    params.set("guildId", guildId);
+    params.set("provider", providerKey);
+    params.set("userId", viewerUserId);
+    if (platform) params.set("platform", platform);
+    return `/api/games/auth/start?${params.toString()}`;
+  }, [guildId, viewerUserId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const providerAuth = String(params.get("providerAuth") || "").trim();
+    if (!providerAuth) return;
+    const provider = String(params.get("provider") || "").trim();
+    const authMessage = String(params.get("authMessage") || "").trim();
+    setMessage(authMessage || (providerAuth === "success" ? `${provider || "Provider"} linked successfully.` : `${provider || "Provider"} login failed.`));
+    params.delete("providerAuth");
+    params.delete("provider");
+    params.delete("authMessage");
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash || ""}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, []);
 
   return (
     <div style={{ ...card, marginBottom: 16 }}>
@@ -219,6 +246,55 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                   <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameIdentity", "upsertIdentity", identityForm, "Saved your linked identity.")}>Save My Link</button>
                   <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameIdentity", "removeIdentity", identityForm, "Removed your linked identity.")}>Remove My Link</button>
                   <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameIdentity", "requestVerification", identityForm, "Verification challenge created.")}>Start Verification</button>
+                </div>
+                <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                  <div style={{ fontWeight: 800 }}>Provider Login Buttons</div>
+                  <div style={{ color: "#ffb3b3", fontSize: 12 }}>
+                    Use these when you want button-based login instead of typing handles manually. Steam is live through OpenID. The other providers turn live as soon as their auth env is configured.
+                  </div>
+                  {currentAuthProvider ? (
+                    <div style={{ ...card, marginBottom: 0 }}>
+                      <div style={{ fontWeight: 700 }}>{currentAuthProvider.title}</div>
+                      <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>{currentAuthProvider.value}</div>
+                      <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>
+                        {identityAuthIndex.get(identityForm.providerKey)
+                          ? `Connected as ${identityAuthIndex.get(identityForm.providerKey)?.handle || "linked account"}`
+                          : "No linked account through provider login yet."}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                        {currentAuthProvider.ready && viewerUserId ? (
+                          <a href={buildConnectHref(identityForm.providerKey, identityForm.platform)} style={{ ...button, textDecoration: "none", textAlign: "center" }}>
+                            Connect with {currentAuthProvider.title}
+                          </a>
+                        ) : (
+                          <button type="button" style={button} disabled>
+                            Connect unavailable
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {authProviders.length ? authProviders.map((entry) => {
+                      const linked = identityAuthIndex.get(entry.key);
+                      return (
+                        <div key={entry.key} style={{ ...card, marginBottom: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{entry.title}</div>
+                              <div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div>
+                              <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>{linked ? `Connected as ${linked.handle}` : "Not linked yet"}</div>
+                            </div>
+                            {entry.ready && viewerUserId ? (
+                              <a href={buildConnectHref(entry.key)} style={{ ...button, textDecoration: "none", textAlign: "center" }}>Connect</a>
+                            ) : (
+                              <button type="button" style={button} disabled>Unavailable</button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }) : <div style={{ color: "#ffb3b3" }}>No provider login rows available yet.</div>}
+                  </div>
                 </div>
                 <div style={{ marginTop: 12, display: "grid", gap: 8 }}>{myIdentities.length ? myIdentities.map((entry) => <div key={entry.id} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.providerLabel} - {entry.handle}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.platformKey ? `${entry.platformLabel} | ` : ""}{entry.verified ? `verified via ${entry.verificationMethod || "verified"}` : entry.verificationState || "unverified"}</div></div>) : <div style={{ color: "#ffb3b3" }}>No personal links saved yet.</div>}</div>
               </div>
