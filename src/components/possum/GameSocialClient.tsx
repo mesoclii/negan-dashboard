@@ -11,25 +11,54 @@ type EnginePayload = {
   summary?: Array<{ label: string; value: string }>;
   details?: Record<string, any>;
 };
+type GuildChannel = { id: string; name: string; type: number; parentId?: string | null; position?: number };
+type GuildRole = { id: string; name: string; position?: number };
 type Props = { guildId: string; guildName: string };
 
 const card: CSSProperties = { border: "1px solid rgba(255,0,0,.35)", borderRadius: 12, padding: 14, background: "rgba(90,0,0,.10)", marginBottom: 12 };
 const input: CSSProperties = { width: "100%", background: "#070707", border: "1px solid rgba(255,0,0,.45)", color: "#ffd3d3", borderRadius: 10, padding: "10px 12px" };
 const button: CSSProperties = { ...input, width: "auto", fontWeight: 800, cursor: "pointer" };
 const sectionTitle: CSSProperties = { marginTop: 0, color: "#ff6666", textTransform: "uppercase", letterSpacing: "0.08em" };
-const PROVIDERS = [
+const LINK_PROVIDERS = [
   { value: "apex", label: "Apex Legends" },
+  { value: "battlenet", label: "Battle.net" },
   { value: "fortnite", label: "Fortnite" },
   { value: "cod", label: "Call of Duty" },
+  { value: "wow", label: "World of Warcraft" },
+  { value: "overwatch2", label: "Overwatch 2" },
+  { value: "diablo4", label: "Diablo IV" },
+  { value: "destiny2", label: "Destiny 2" },
+  { value: "valorant", label: "VALORANT" },
+  { value: "leagueoflegends", label: "League of Legends" },
+  { value: "rocketleague", label: "Rocket League" },
+  { value: "gtaonline", label: "GTA Online" },
+  { value: "minecraft", label: "Minecraft" },
   { value: "steam", label: "Steam" },
   { value: "xbox", label: "Xbox" },
   { value: "playstation", label: "PlayStation" },
+  { value: "nintendo", label: "Nintendo" },
   { value: "epic", label: "Epic Games" },
-  { value: "activision", label: "Activision" },
+  { value: "activision", label: "Activision ID" },
   { value: "ea", label: "EA" },
   { value: "riot", label: "Riot" },
+  { value: "bungie", label: "Bungie" },
+  { value: "ubisoft", label: "Ubisoft Connect" },
+  { value: "rockstar", label: "Rockstar Social Club" },
+  { value: "custom", label: "Custom / Other" },
 ];
-const GAME_PROVIDERS = PROVIDERS.filter((entry) => ["apex", "fortnite", "cod"].includes(entry.value));
+const STATS_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "fortnite", "cod", "wow", "overwatch2", "diablo4", "destiny2", "valorant", "leagueoflegends", "rocketleague", "gtaonline", "minecraft", "custom"].includes(entry.value));
+const MAP_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "cod", "overwatch2"].includes(entry.value));
+const ADAPTER_PROVIDERS = LINK_PROVIDERS.filter((entry) => ["apex", "fortnite", "cod", "wow", "overwatch2", "diablo4", "destiny2", "valorant", "leagueoflegends", "rocketleague", "gtaonline", "minecraft"].includes(entry.value));
+const ROLE_SYNC_GAMES = [
+  { key: "apex", label: "Apex Role Map", tiers: ["rookie", "bronze", "silver", "gold", "platinum", "diamond", "master", "predator"] },
+  { key: "fortnite", label: "Fortnite Role Map", tiers: ["bronze", "silver", "gold", "platinum", "diamond", "elite", "champion", "unreal"] },
+  { key: "cod", label: "CoD Role Map", tiers: ["bronze", "silver", "gold", "platinum", "diamond", "crimson", "iridescent", "top250"] },
+  { key: "overwatch2", label: "Overwatch 2 Role Map", tiers: ["bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster", "champion"] },
+  { key: "valorant", label: "VALORANT Role Map", tiers: ["iron", "bronze", "silver", "gold", "platinum", "diamond", "ascendant", "immortal", "radiant"] },
+  { key: "leagueoflegends", label: "League Role Map", tiers: ["iron", "bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "grandmaster", "challenger"] },
+  { key: "rocketleague", label: "Rocket League Role Map", tiers: ["bronze", "silver", "gold", "platinum", "diamond", "champion", "grandchampion", "supersoniclegend"] },
+];
+const TEXT_CHANNEL_TYPES = new Set([0, 5]);
 const VISIBILITY = [{ value: "server", label: "Server" }, { value: "private", label: "Private" }, { value: "public", label: "Public" }];
 const PLATFORMS = [{ value: "", label: "Any / Unspecified" }, { value: "pc", label: "PC" }, { value: "xbox", label: "Xbox" }, { value: "playstation", label: "PlayStation" }, { value: "switch", label: "Switch" }, { value: "mobile", label: "Mobile" }];
 const SOURCES = [{ value: "manual", label: "Manual" }, { value: "estimate", label: "Estimate" }, { value: "public_profile", label: "Public Profile" }, { value: "provider_api", label: "Provider API" }, { value: "staff_verified", label: "Staff Verified" }];
@@ -57,11 +86,18 @@ function parseIdList(value: string) { return [...new Set(String(value || "").spl
 function formatIdList(value: any) { return Array.isArray(value) ? value.join(", ") : ""; }
 function toggleProviderList(current: string[], value: string) { return current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value]; }
 function runtimeCard(label: string, value: string) { return <div style={card}><div style={{ fontSize: 11, textTransform: "uppercase", color: "#ffadad" }}>{label}</div><div style={{ fontSize: 22, fontWeight: 900 }}>{value}</div></div>; }
+function channelSupportsMessages(channel: GuildChannel) { return TEXT_CHANNEL_TYPES.has(Number(channel?.type)); }
+function formatChannelLabel(channel: GuildChannel, channels: GuildChannel[]) {
+  const parent = channel.parentId ? channels.find((entry) => entry.id === channel.parentId) : null;
+  return parent?.name ? `${parent.name} / #${channel.name}` : `#${channel.name}`;
+}
 
 export default function GameSocialClient({ guildId, guildName }: Props) {
   const context = useMemo(() => resolveGuildContext(), []);
   const viewerUserId = context.userId;
   const [engines, setEngines] = useState<Record<EngineKey, EnginePayload>>({ gameIdentity: {}, privacyConsent: {}, presenceFusion: {}, playtime: {}, squadFinder: {}, gameProvider: {}, showoff: {} });
+  const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [roles, setRoles] = useState<GuildRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -79,7 +115,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
     try {
       setLoading(true);
       setMessage("");
-      const [gameIdentity, privacyConsent, presenceFusion, playtime, squadFinder, gameProvider, showoff] = await Promise.all([
+      const [gameIdentity, privacyConsent, presenceFusion, playtime, squadFinder, gameProvider, showoff, guildData] = await Promise.all([
         fetchRuntimeEngine(targetGuildId, "gameIdentity", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "privacyConsent", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "presenceFusion", viewerUserId),
@@ -87,9 +123,12 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
         fetchRuntimeEngine(targetGuildId, "squadFinder", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "gameProvider", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "showoff", viewerUserId),
+        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }).then((response) => response.json()).catch(() => ({})),
       ]);
       const next = { gameIdentity: normalizePayload(gameIdentity), privacyConsent: normalizePayload(privacyConsent), presenceFusion: normalizePayload(presenceFusion), playtime: normalizePayload(playtime), squadFinder: normalizePayload(squadFinder), gameProvider: normalizePayload(gameProvider), showoff: normalizePayload(showoff) } as Record<EngineKey, EnginePayload>;
       setEngines(next);
+      setChannels(Array.isArray(guildData?.channels) ? guildData.channels : []);
+      setRoles(Array.isArray(guildData?.roles) ? guildData.roles : []);
       const memberState = next.privacyConsent.details?.memberSelfService || next.gameIdentity.details?.memberSelfService || null;
       if (memberState?.privacy) setSelfPrivacy({ ...EMPTY_PRIVACY, ...memberState.privacy, watchlistUserIds: Array.isArray(memberState.privacy.watchlistUserIds) ? memberState.privacy.watchlistUserIds : [] });
     } catch (err: any) {
@@ -135,6 +174,8 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
   const myIdentities = listRows(memberState?.identities);
   const myPendingVerifications = listRows(memberState?.pendingVerifications);
   const myNotifications = listRows(memberState?.notifications);
+  const messageChannels = useMemo(() => channels.filter((entry) => channelSupportsMessages(entry)), [channels]);
+  const sortedRoles = useMemo(() => [...roles].sort((a, b) => Number(b.position || 0) - Number(a.position || 0) || a.name.localeCompare(b.name)), [roles]);
 
   return (
     <div style={{ ...card, marginBottom: 16 }}>
@@ -167,7 +208,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>My Linked Identity</div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <input style={input} value={identityForm.userId} readOnly />
-                  <select style={input} value={identityForm.providerKey} onChange={(event) => setIdentityForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
+                  <select style={input} value={identityForm.providerKey} onChange={(event) => setIdentityForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{LINK_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} placeholder="Gamertag / handle" value={identityForm.handle} onChange={(event) => setIdentityForm((prev) => ({ ...prev, handle: event.target.value }))} />
                   <select style={input} value={identityForm.platform} onChange={(event) => setIdentityForm((prev) => ({ ...prev, platform: event.target.value }))}>{PLATFORMS.map((entry) => <option key={entry.value || "any"} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} placeholder="Account ID / UID" value={identityForm.accountId} onChange={(event) => setIdentityForm((prev) => ({ ...prev, accountId: event.target.value }))} />
@@ -205,7 +246,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>This verifies the accounts linked to your own Discord profile. Staff-only verification stays tucked under the operator override.</div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <input style={input} value={verificationForm.userId || viewerUserId || ""} readOnly />
-                  <select style={input} value={verificationForm.providerKey} onChange={(event) => setVerificationForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
+                  <select style={input} value={verificationForm.providerKey} onChange={(event) => setVerificationForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{LINK_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <select style={input} value={verificationForm.platform} onChange={(event) => setVerificationForm((prev) => ({ ...prev, platform: event.target.value }))}>{PLATFORMS.map((entry) => <option key={entry.value || "any"} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} placeholder="Optional token override" value={verificationForm.proofToken} onChange={(event) => setVerificationForm((prev) => ({ ...prev, proofToken: event.target.value }))} />
                   <textarea style={{ ...input, minHeight: 90 }} placeholder="Paste the proof text that contains your challenge token" value={verificationForm.proofText} onChange={(event) => setVerificationForm((prev) => ({ ...prev, proofText: event.target.value }))} />
@@ -265,7 +306,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
 
           <div style={card}>
             <h3 style={sectionTitle}>Game Provider</h3>
-            <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Manual snapshots still work, but Apex, Fortnite, and CoD now run through built-in provider routes by default, with optional external bridge overrides, rate limits, cooldowns, failover, verification proof checks, and scheduled sync.</div>
+            <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Manual snapshots still work across the full game stack, while routed provider sync can now be configured for Apex, Fortnite, CoD, Battle.net / WoW, Overwatch 2, Diablo IV, Destiny 2, Riot titles, Rocket League, GTA Online, Minecraft, and any future bridge you add.</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["enabled"], true))} onChange={(event) => updateConfig("gameProvider", { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["allowManualStats"], true))} onChange={(event) => updateConfig("gameProvider", { allowManualStats: event.target.checked })} /> Manual stats</label>
@@ -284,8 +325,13 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               <input style={input} type="number" placeholder="Stale stats hours" value={getValue(engines.gameProvider, ["staleStatsHours"], 72)} onChange={(event) => updateConfig("gameProvider", { staleStatsHours: Number(event.target.value || 0) })} />
               <input style={input} type="number" placeholder="Stale map hours" value={getValue(engines.gameProvider, ["staleMapHours"], 12)} onChange={(event) => updateConfig("gameProvider", { staleMapHours: Number(event.target.value || 0) })} />
             </div>
-            <div style={{ marginTop: 10 }}><input style={input} placeholder="Rank change notification channel ID" value={getValue(engines.gameProvider, ["notificationChannelId"], "")} onChange={(event) => updateConfig("gameProvider", { notificationChannelId: event.target.value })} /></div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10 }}>{GAME_PROVIDERS.map((entry) => { const current = Array.isArray(engines.gameProvider.config?.allowedProviders) ? engines.gameProvider.config?.allowedProviders : []; const adapters = engines.gameProvider.config?.externalAdapters || {}; const adapter = adapters[entry.value] || {}; const endpoint = String(adapter.endpointUrl || ""); const builtIn = endpoint.startsWith("builtin://"); return <div key={entry.value} style={{ ...card, marginBottom: 0, minWidth: 260, flex: 1 }}><div style={{ fontWeight: 800, marginBottom: 8 }}>{entry.label} Provider Route</div><label><input type="checkbox" checked={current.includes(entry.value)} onChange={() => updateConfig("gameProvider", { allowedProviders: toggleProviderList(current, entry.value) })} /> Provider enabled</label><label style={{ display: "block", marginTop: 8 }}><input type="checkbox" checked={Boolean(adapter.enabled)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, enabled: event.target.checked } } })} /> Route enabled</label><div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>{builtIn ? "Built-in route active. Leave the endpoint as-is unless you want to override it with your own bridge." : "External override route active."}</div><div style={{ display: "grid", gap: 8, marginTop: 8 }}><select style={input} value={builtIn ? "builtin" : "external"} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, mode: event.target.value, endpointUrl: event.target.value === "builtin" ? `builtin://${entry.value}` : "" } } })}><option value="builtin">Built-in route</option><option value="external">External bridge override</option></select><input style={input} placeholder="Bridge endpoint URL override" value={endpoint} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, endpointUrl: event.target.value } } })} /><input style={input} placeholder="Optional adapter API key" value={String(adapter.apiKey || "")} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, apiKey: event.target.value } } })} /><div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(120px,1fr))", gap: 8 }}><input style={input} type="number" placeholder="RPM" value={String(adapter.requestsPerMinute ?? 10)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, requestsPerMinute: Number(event.target.value || 0) } } })} /><input style={input} type="number" placeholder="Cooldown min" value={String(adapter.cooldownMinutes ?? 30)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, cooldownMinutes: Number(event.target.value || 0) } } })} /></div></div></div>; })}</div>
+            <div style={{ marginTop: 10 }}>
+              <select style={input} value={getValue(engines.gameProvider, ["notificationChannelId"], "")} onChange={(event) => updateConfig("gameProvider", { notificationChannelId: event.target.value })}>
+                <option value="">Rank change notification channel</option>
+                {messageChannels.map((channel) => <option key={channel.id} value={channel.id}>{formatChannelLabel(channel, channels)}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 10 }}>{ADAPTER_PROVIDERS.map((entry) => { const current = Array.isArray(engines.gameProvider.config?.allowedProviders) ? engines.gameProvider.config?.allowedProviders : []; const adapters = engines.gameProvider.config?.externalAdapters || {}; const adapter = adapters[entry.value] || {}; const endpoint = String(adapter.endpointUrl || ""); const builtIn = endpoint.startsWith("builtin://"); return <div key={entry.value} style={{ ...card, marginBottom: 0, minWidth: 260, flex: 1 }}><div style={{ fontWeight: 800, marginBottom: 8 }}>{entry.label} Provider Route</div><label><input type="checkbox" checked={current.includes(entry.value)} onChange={() => updateConfig("gameProvider", { allowedProviders: toggleProviderList(current, entry.value) })} /> Provider enabled</label><label style={{ display: "block", marginTop: 8 }}><input type="checkbox" checked={Boolean(adapter.enabled)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, enabled: event.target.checked } } })} /> Route enabled</label><div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>{builtIn ? "Built-in route selected. Leave it as-is unless you want to point this provider at your own bridge." : "External override route active."}</div><div style={{ display: "grid", gap: 8, marginTop: 8 }}><select style={input} value={builtIn ? "builtin" : "external"} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, mode: event.target.value, endpointUrl: event.target.value === "builtin" ? `builtin://${entry.value}` : "" } } })}><option value="builtin">Built-in route</option><option value="external">External bridge override</option></select><input style={input} placeholder="Bridge endpoint URL override" value={endpoint} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, endpointUrl: event.target.value } } })} /><input style={input} placeholder="Optional adapter API key" value={String(adapter.apiKey || "")} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, apiKey: event.target.value } } })} /><div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(120px,1fr))", gap: 8 }}><input style={input} type="number" placeholder="RPM" value={String(adapter.requestsPerMinute ?? 10)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, requestsPerMinute: Number(event.target.value || 0) } } })} /><input style={input} type="number" placeholder="Cooldown min" value={String(adapter.cooldownMinutes ?? 30)} onChange={(event) => updateConfig("gameProvider", { externalAdapters: { ...(engines.gameProvider.config?.externalAdapters || {}), [entry.value]: { ...adapter, cooldownMinutes: Number(event.target.value || 0) } } })} /></div></div></div>; })}</div>
             <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
               <button type="button" style={button} disabled={saving} onClick={() => void saveConfig("gameProvider", engines.gameProvider.config || {}, "Saved provider engine settings.")}>Save Provider Engine</button>
               <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameProvider", "refreshProvidersNow", {}, "Ran scheduled provider sync now.")}>Run Provider Sync</button>
@@ -298,7 +344,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>This saves or refreshes your own linked account by default. Staff can open the operator override below when they need to target someone else.</div>
                 <div style={{ display: "grid", gap: 8 }}>
                   <input style={input} value={statsForm.userId || viewerUserId || ""} readOnly />
-                  <select style={input} value={statsForm.providerKey} onChange={(event) => setStatsForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{GAME_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
+                  <select style={input} value={statsForm.providerKey} onChange={(event) => setStatsForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{STATS_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <select style={input} value={statsForm.platform} onChange={(event) => setStatsForm((prev) => ({ ...prev, platform: event.target.value }))}>{PLATFORMS.map((entry) => <option key={entry.value || "any"} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} placeholder="Rank tier key" value={statsForm.rankTier} onChange={(event) => setStatsForm((prev) => ({ ...prev, rankTier: event.target.value }))} />
                   <input style={input} placeholder="Rank label" value={statsForm.rankLabel} onChange={(event) => setStatsForm((prev) => ({ ...prev, rankLabel: event.target.value }))} />
@@ -324,15 +370,15 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>Map Rotation + Rank Sync</div>
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>Map rotation is guild-wide. Rank sync defaults to your own linked account unless staff opens the operator override.</div>
                 <div style={{ display: "grid", gap: 8 }}>
-                  <select style={input} value={mapForm.providerKey} onChange={(event) => setMapForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{GAME_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
+                  <select style={input} value={mapForm.providerKey} onChange={(event) => setMapForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{MAP_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} placeholder="Mode / queue" value={mapForm.mode} onChange={(event) => setMapForm((prev) => ({ ...prev, mode: event.target.value }))} />
                   <input style={input} placeholder="Current map" value={mapForm.currentMap} onChange={(event) => setMapForm((prev) => ({ ...prev, currentMap: event.target.value }))} />
                   <input style={input} placeholder="Next map" value={mapForm.nextMap} onChange={(event) => setMapForm((prev) => ({ ...prev, nextMap: event.target.value }))} />
                   <input style={input} placeholder="Expires in minutes" value={mapForm.expiresInMinutes} onChange={(event) => setMapForm((prev) => ({ ...prev, expiresInMinutes: event.target.value }))} />
                   <select style={input} value={mapForm.sourceKey} onChange={(event) => setMapForm((prev) => ({ ...prev, sourceKey: event.target.value }))}>{SOURCES.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <input style={input} value={rankSyncForm.userId || viewerUserId || ""} readOnly />
-                  <select style={input} value={rankSyncForm.gameKey} onChange={(event) => setRankSyncForm((prev) => ({ ...prev, gameKey: event.target.value }))}><option value="">All games</option>{GAME_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
-                  <select style={input} value={refreshForm.providerKey} onChange={(event) => setRefreshForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{GAME_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
+                  <select style={input} value={rankSyncForm.gameKey} onChange={(event) => setRankSyncForm((prev) => ({ ...prev, gameKey: event.target.value }))}><option value="">All games</option>{ROLE_SYNC_GAMES.map((entry) => <option key={entry.key} value={entry.key}>{entry.label.replace(" Role Map", "")}</option>)}</select>
+                  <select style={input} value={refreshForm.providerKey} onChange={(event) => setRefreshForm((prev) => ({ ...prev, providerKey: event.target.value }))}>{ADAPTER_PROVIDERS.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select>
                   <select style={input} value={refreshForm.platform} onChange={(event) => setRefreshForm((prev) => ({ ...prev, platform: event.target.value }))}>{PLATFORMS.map((entry) => <option key={entry.value || "any"} value={entry.value}>{entry.label}</option>)}</select>
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
@@ -348,10 +394,51 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 </details>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 12, marginTop: 12 }}>
-              <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Apex Role Map</div><textarea style={{ ...input, minHeight: 140 }} value={formatRoleMap(getValue(engines.gameProvider, ["rankRoleSync", "apex"], {}))} onChange={(event) => updateConfig("gameProvider", { rankRoleSync: { ...(engines.gameProvider.config?.rankRoleSync || {}), apex: parseRoleMap(event.target.value) } })} /></div>
-              <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Fortnite Role Map</div><textarea style={{ ...input, minHeight: 140 }} value={formatRoleMap(getValue(engines.gameProvider, ["rankRoleSync", "fortnite"], {}))} onChange={(event) => updateConfig("gameProvider", { rankRoleSync: { ...(engines.gameProvider.config?.rankRoleSync || {}), fortnite: parseRoleMap(event.target.value) } })} /></div>
-              <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>CoD Role Map</div><textarea style={{ ...input, minHeight: 140 }} value={formatRoleMap(getValue(engines.gameProvider, ["rankRoleSync", "cod"], {}))} onChange={(event) => updateConfig("gameProvider", { rankRoleSync: { ...(engines.gameProvider.config?.rankRoleSync || {}), cod: parseRoleMap(event.target.value) } })} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
+              {ROLE_SYNC_GAMES.map((entry) => {
+                const roleMap = getValue(engines.gameProvider, ["rankRoleSync", entry.key], {});
+                return (
+                  <div key={entry.key} style={card}>
+                    <div style={{ fontWeight: 800, marginBottom: 8 }}>{entry.label}</div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {entry.tiers.map((tier) => (
+                        <label key={`${entry.key}-${tier}`} style={{ display: "grid", gap: 4 }}>
+                          <span style={{ color: "#ffb3b3", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>{tier}</span>
+                          <select
+                            style={input}
+                            value={String(roleMap?.[tier] || "")}
+                            onChange={(event) => updateConfig("gameProvider", {
+                              rankRoleSync: {
+                                ...(engines.gameProvider.config?.rankRoleSync || {}),
+                                [entry.key]: {
+                                  ...(engines.gameProvider.config?.rankRoleSync?.[entry.key] || {}),
+                                  [tier]: event.target.value,
+                                },
+                              },
+                            })}
+                          >
+                            <option value="">No synced role</option>
+                            {sortedRoles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                    <details style={{ marginTop: 10 }}>
+                      <summary style={{ cursor: "pointer", fontWeight: 800 }}>Raw ID map</summary>
+                      <textarea
+                        style={{ ...input, minHeight: 120, marginTop: 10 }}
+                        value={formatRoleMap(roleMap)}
+                        onChange={(event) => updateConfig("gameProvider", {
+                          rankRoleSync: {
+                            ...(engines.gameProvider.config?.rankRoleSync || {}),
+                            [entry.key]: parseRoleMap(event.target.value),
+                          },
+                        })}
+                      />
+                    </details>
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Adapter Health</div><div style={{ display: "grid", gap: 8 }}>{providerHealth.length ? providerHealth.map((entry) => <div key={entry.key} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No adapter health data yet.</div>}</div></div>
@@ -367,7 +454,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
 
           <div style={card}><h3 style={sectionTitle}>Showoff Card</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}><label><input type="checkbox" checked={Boolean(getValue(engines.showoff, ["enabled"], true))} onChange={(event) => updateConfig("showoff", { enabled: event.target.checked })} /> Enabled</label><label><input type="checkbox" checked={Boolean(getValue(engines.showoff, ["includeLinks"], true))} onChange={(event) => updateConfig("showoff", { includeLinks: event.target.checked })} /> Links</label><label><input type="checkbox" checked={Boolean(getValue(engines.showoff, ["includePresence"], true))} onChange={(event) => updateConfig("showoff", { includePresence: event.target.checked })} /> Presence</label><label><input type="checkbox" checked={Boolean(getValue(engines.showoff, ["includeStats"], true))} onChange={(event) => updateConfig("showoff", { includeStats: event.target.checked })} /> Stats</label></div><div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10, marginTop: 10 }}><label><input type="checkbox" checked={Boolean(getValue(engines.showoff, ["includePlaytime"], true))} onChange={(event) => updateConfig("showoff", { includePlaytime: event.target.checked })} /> Playtime</label><input style={input} placeholder="Accent color" value={getValue(engines.showoff, ["accentColor"], "#b91c1c")} onChange={(event) => updateConfig("showoff", { accentColor: event.target.value })} /><input style={input} placeholder="Card title" value={getValue(engines.showoff, ["cardTitle"], "{{user}} Gamer Card")} onChange={(event) => updateConfig("showoff", { cardTitle: event.target.value })} /><input style={input} placeholder="Headline" value={getValue(engines.showoff, ["headline"], "Unified game profile card")} onChange={(event) => updateConfig("showoff", { headline: event.target.value })} /></div><div style={{ marginTop: 10 }}><input style={input} placeholder="Notes" value={getValue(engines.showoff, ["notes"], "")} onChange={(event) => updateConfig("showoff", { notes: event.target.value })} /></div><div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}><button type="button" style={button} disabled={saving} onClick={() => void saveConfig("showoff", engines.showoff.config || {}, "Saved showoff card settings.")}>Save Showoff Engine</button></div><div style={{ marginTop: 12, display: "grid", gap: 8 }}>{showoffRows.length ? showoffRows.map((entry, index) => <div key={`${entry.userId || entry.title}-${index}`} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No preview candidates yet.</div>}</div></div>
 
-          <div style={card}><h3 style={sectionTitle}>Squad Finder</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}><label><input type="checkbox" checked={Boolean(getValue(engines.squadFinder, ["enabled"], true))} onChange={(event) => updateConfig("squadFinder", { enabled: event.target.checked })} /> Enabled</label><label><input type="checkbox" checked={Boolean(getValue(engines.squadFinder, ["autoCreateThread"], true))} onChange={(event) => updateConfig("squadFinder", { autoCreateThread: event.target.checked })} /> Auto thread</label><input style={input} placeholder="Default LFG channel ID" value={getValue(engines.squadFinder, ["defaultChannelId"], "")} onChange={(event) => updateConfig("squadFinder", { defaultChannelId: event.target.value })} /><input style={input} type="number" placeholder="Default TTL (hours)" value={getValue(engines.squadFinder, ["defaultTtlHours"], 6)} onChange={(event) => updateConfig("squadFinder", { defaultTtlHours: Number(event.target.value || 0) })} /></div><div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}><button type="button" style={button} disabled={saving} onClick={() => void saveConfig("squadFinder", engines.squadFinder.config || {}, "Saved squad finder settings.")}>Save Squad Finder</button><button type="button" style={button} disabled={saving} onClick={() => void runAction("squadFinder", "closeAllSessions", {}, "Closed all active squad sessions.")}>Close All Sessions</button></div><div style={{ marginTop: 12, display: "grid", gap: 8 }}>{squadRows.length ? squadRows.map((entry) => <div key={entry.sessionId} style={{ ...card, marginBottom: 0 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><div><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div><button type="button" style={button} disabled={saving} onClick={() => void runAction("squadFinder", "closeSession", { sessionId: entry.sessionId }, "Squad session closed.")}>Close</button></div></div>) : <div style={{ color: "#ffb3b3" }}>No active squad sessions.</div>}</div></div>
+          <div style={card}><h3 style={sectionTitle}>Squad Finder</h3><div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}><label><input type="checkbox" checked={Boolean(getValue(engines.squadFinder, ["enabled"], true))} onChange={(event) => updateConfig("squadFinder", { enabled: event.target.checked })} /> Enabled</label><label><input type="checkbox" checked={Boolean(getValue(engines.squadFinder, ["autoCreateThread"], true))} onChange={(event) => updateConfig("squadFinder", { autoCreateThread: event.target.checked })} /> Auto thread</label><select style={input} value={getValue(engines.squadFinder, ["defaultChannelId"], "")} onChange={(event) => updateConfig("squadFinder", { defaultChannelId: event.target.value })}><option value="">Default LFG channel</option>{messageChannels.map((channel) => <option key={channel.id} value={channel.id}>{formatChannelLabel(channel, channels)}</option>)}</select><input style={input} type="number" placeholder="Default TTL (hours)" value={getValue(engines.squadFinder, ["defaultTtlHours"], 6)} onChange={(event) => updateConfig("squadFinder", { defaultTtlHours: Number(event.target.value || 0) })} /></div><div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}><button type="button" style={button} disabled={saving} onClick={() => void saveConfig("squadFinder", engines.squadFinder.config || {}, "Saved squad finder settings.")}>Save Squad Finder</button><button type="button" style={button} disabled={saving} onClick={() => void runAction("squadFinder", "closeAllSessions", {}, "Closed all active squad sessions.")}>Close All Sessions</button></div><div style={{ marginTop: 12, display: "grid", gap: 8 }}>{squadRows.length ? squadRows.map((entry) => <div key={entry.sessionId} style={{ ...card, marginBottom: 0 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><div><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div><button type="button" style={button} disabled={saving} onClick={() => void runAction("squadFinder", "closeSession", { sessionId: entry.sessionId }, "Squad session closed.")}>Close</button></div></div>) : <div style={{ color: "#ffb3b3" }}>No active squad sessions.</div>}</div></div>
         </>
       ) : null}
     </div>
