@@ -216,6 +216,10 @@ function emojiDisplayName(emoji: GuildEmoji): string {
   return emoji.animated ? `:${emoji.name}: (animated)` : `:${emoji.name}:`;
 }
 
+function toggleId(list: string[], id: string): string[] {
+  return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
+}
+
 function defaultTriggerConfig(triggerType: TriggerType): Record<string, unknown> {
   switch (triggerType) {
     case "REACTION_ADD":
@@ -318,6 +322,7 @@ export default function BotAutomationStudioClient() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [logChannelId, setLogChannelId] = useState("");
+  const [exemptRoleIds, setExemptRoleIds] = useState<string[]>([]);
 
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
@@ -348,6 +353,10 @@ export default function BotAutomationStudioClient() {
   const textChannels = useMemo(
     () => channels.filter((c) => [0, 5].includes(Number(c.type || 0))),
     [channels]
+  );
+  const sortedRoles = useMemo(
+    () => [...roles].sort((a, b) => a.name.localeCompare(b.name)),
+    [roles]
   );
   const activeCount = useMemo(() => automations.filter((a) => a.enabled !== false).length, [automations]);
 
@@ -396,6 +405,11 @@ export default function BotAutomationStudioClient() {
       throw new Error((json as { error?: string })?.error || "Failed to load automation studio config");
     }
     setLogChannelId(String(json?.config?.logChannelId || ""));
+    setExemptRoleIds(
+      Array.isArray(json?.config?.exemptRoleIds)
+        ? json.config.exemptRoleIds.map((id: unknown) => String(id || "").trim()).filter(Boolean)
+        : []
+    );
   }
 
   async function loadAutomationDetail(id: string) {
@@ -498,7 +512,7 @@ export default function BotAutomationStudioClient() {
         body: JSON.stringify({
           guildId,
           engine: "automationStudio",
-          patch: { logChannelId }
+          patch: { logChannelId, exemptRoleIds }
         })
       });
       const json = await res.json().catch(() => ({}));
@@ -506,7 +520,12 @@ export default function BotAutomationStudioClient() {
         throw new Error((json as { error?: string })?.error || "Failed to save automation studio config");
       }
       setLogChannelId(String(json?.config?.logChannelId || ""));
-      setMsg("Automation studio logging saved.");
+      setExemptRoleIds(
+        Array.isArray(json?.config?.exemptRoleIds)
+          ? json.config.exemptRoleIds.map((id: unknown) => String(id || "").trim()).filter(Boolean)
+          : []
+      );
+      setMsg("Automation studio settings saved.");
     } catch (err: unknown) {
       setMsg(err instanceof Error ? err.message : "Failed to save automation studio config");
     } finally {
@@ -933,7 +952,7 @@ export default function BotAutomationStudioClient() {
       {msg ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{msg}</div> : null}
 
       <div style={{ ...panelStyle, marginTop: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px,420px) auto", gap: 10, alignItems: "end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px,420px) minmax(260px,1fr) auto", gap: 10, alignItems: "start" }}>
           <div>
             <div style={{ fontSize: 12, color: "#ffabab", marginBottom: 6 }}>Automation audit log channel</div>
             <select value={logChannelId} onChange={(e) => setLogChannelId(e.target.value)} style={inputStyle}>
@@ -942,6 +961,43 @@ export default function BotAutomationStudioClient() {
                 <option key={channel.id} value={channel.id}>#{channel.name}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: "#ffabab", marginBottom: 6 }}>Exempt roles</div>
+            <div
+              style={{
+                ...inputStyle,
+                minHeight: 112,
+                maxHeight: 180,
+                overflowY: "auto",
+                padding: 8,
+                display: "grid",
+                gap: 6,
+              }}
+            >
+              {sortedRoles.map((role) => (
+                <label
+                  key={role.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    color: "#ffd6d6",
+                    fontSize: 13,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={exemptRoleIds.includes(role.id)}
+                    onChange={() => setExemptRoleIds((prev) => toggleId(prev, role.id))}
+                  />
+                  <span>@{role.name}</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: "#ffabab", marginTop: 6 }}>
+              Members with these roles will be skipped by Automation Studio triggers.
+            </div>
           </div>
           <button onClick={saveStudioSettings} style={btnStyle} disabled={saving || loading}>
             {saving ? "Saving..." : "Save Studio Log"}
