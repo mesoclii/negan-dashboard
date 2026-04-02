@@ -167,6 +167,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
   const statRows = listRows(engines.gameProvider.details?.stats);
   const mapRows = listRows(engines.gameProvider.details?.mapRotations);
   const providerCapabilities = listRows(engines.gameProvider.details?.capabilities);
+  const launcherReadiness = listRows(engines.gameProvider.details?.launcherReadiness);
   const providerHealth = listRows(engines.gameProvider.details?.syncHealth);
   const showoffRows = listRows(engines.showoff.details?.previews);
   const squadRows = listRows(engines.squadFinder.details?.activeSquads);
@@ -459,7 +460,10 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               })}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
+              <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Launcher Readiness</div><div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>This is the live-readiness check for Steam, Epic, Xbox, Battle.net, PlayStation, and Rockstar. `endpoint ready` means the bot has a route to call. `missing bridge` means the dashboard is wired, but the bot still needs a real upstream endpoint or bridge URL in env.</div><div style={{ display: "grid", gap: 8 }}>{launcherReadiness.length ? launcherReadiness.map((entry) => <div key={entry.title} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No launcher readiness rows yet.</div>}</div></div>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Adapter Health</div><div style={{ display: "grid", gap: 8 }}>{providerHealth.length ? providerHealth.map((entry) => <div key={entry.key} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No adapter health data yet.</div>}</div></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(1,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Provider Capabilities</div><div style={{ display: "grid", gap: 8 }}>{providerCapabilities.length ? providerCapabilities.map((entry) => <div key={entry.key} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No provider capability rows found.</div>}</div></div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
