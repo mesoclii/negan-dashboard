@@ -14,6 +14,22 @@ type CrewCfg = {
   recruitChannelId: string;
   inviteExpiryHours: number;
   crewRolePrefix: string;
+  signupPanelEnabled: boolean;
+  signupPanelChannelId: string;
+  signupPanelCategoryId: string;
+  signupPanelMessageId: string;
+  signupPanelTitle: string;
+  signupPanelDescription: string;
+  signupPanelFooter: string;
+  signupPanelButtonLabel: string;
+  signupPanelAccentColor: string;
+  signupPanelImageUrl: string;
+  signupPanelThumbnailUrl: string;
+  identityBadgesEnabled: boolean;
+  identityBadgeChannelIds: string[];
+  identityBadgeCooldownSeconds: number;
+  identityBadgeTemplate: string;
+  identityBadgeReplyMode: boolean;
 };
 
 const DEFAULT_CREW: CrewCfg = {
@@ -25,11 +41,36 @@ const DEFAULT_CREW: CrewCfg = {
   recruitChannelId: "",
   inviteExpiryHours: 72,
   crewRolePrefix: "Crew",
+  signupPanelEnabled: false,
+  signupPanelChannelId: "",
+  signupPanelCategoryId: "",
+  signupPanelMessageId: "",
+  signupPanelTitle: "Join a Crew",
+  signupPanelDescription:
+    "Browse the active crews below and choose who you want to roll with. Crew membership ties into vaults, GTA progression, and crew-vs-crew systems automatically.",
+  signupPanelFooter: "Choose a crew below to join instantly.",
+  signupPanelButtonLabel: "Choose a Crew",
+  signupPanelAccentColor: "#ff4444",
+  signupPanelImageUrl: "",
+  signupPanelThumbnailUrl: "",
+  identityBadgesEnabled: false,
+  identityBadgeChannelIds: [],
+  identityBadgeCooldownSeconds: 900,
+  identityBadgeTemplate: "Representing {crewTagLine}",
+  identityBadgeReplyMode: true,
 };
 
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1280 };
 const card: React.CSSProperties = { border: "1px solid #6a0000", borderRadius: 12, background: "rgba(120,0,0,0.10)", padding: 14, marginBottom: 12 };
 const input: React.CSSProperties = { width: "100%", padding: "10px 12px", background: "#0b0b0b", color: "#ffd8d8", border: "1px solid #7a0000", borderRadius: 8 };
+const micro: React.CSSProperties = { color: "#ffb2b2", fontSize: 12, lineHeight: 1.7 };
+
+function normalizeHex(value: string) {
+  const text = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(text)) return text;
+  if (/^[0-9a-f]{6}$/i.test(text)) return `#${text}`;
+  return "#ff4444";
+}
 
 export default function CrewEnginePage() {
   const {
@@ -50,9 +91,14 @@ export default function CrewEnginePage() {
   const [inviteTargetUserId, setInviteTargetUserId] = useState("");
   const [inviteNote, setInviteNote] = useState("");
   const [inviteMessage, setInviteMessage] = useState("");
+  const [panelMessage, setPanelMessage] = useState("");
 
   const textChannels = useMemo(
-    () => channels.filter((c) => Number(c?.type) === 0 || String(c?.type || "").toLowerCase().includes("text")),
+    () => channels.filter((c) => Number(c?.type) === 0 || Number(c?.type) === 5 || String(c?.type || "").toLowerCase().includes("text")),
+    [channels]
+  );
+  const categoryChannels = useMemo(
+    () => channels.filter((c) => Number(c?.type) === 4 || String(c?.type || "").toLowerCase().includes("category")),
     [channels]
   );
 
@@ -91,6 +137,16 @@ export default function CrewEnginePage() {
     return match ? match[0] : "";
   }
 
+  function toggleBadgeChannel(channelId: string) {
+    setCfg((prev) => {
+      const current = Array.isArray(prev.identityBadgeChannelIds) ? prev.identityBadgeChannelIds : [];
+      const next = current.includes(channelId)
+        ? current.filter((id) => id !== channelId)
+        : [...current, channelId];
+      return { ...prev, identityBadgeChannelIds: next };
+    });
+  }
+
   async function sendInvite() {
     const targetUserId = normalizeUserId(inviteTargetUserId);
     if (!targetUserId) {
@@ -122,6 +178,21 @@ export default function CrewEnginePage() {
     }
   }
 
+  async function deployPanel() {
+    setPanelMessage("");
+    const saved = await save();
+    if (!saved) {
+      setPanelMessage("Save the crew panel settings first.");
+      return;
+    }
+    const result = await runAction("deploySignupPanel");
+    if (result?.ok) {
+      setPanelMessage(`Crew panel live in <#${result.channelId}>.`);
+      return;
+    }
+    setPanelMessage("Crew panel deploy failed.");
+  }
+
   if (!guildId) return <div style={{ ...shell, color: "#ff8a8a" }}>Missing guildId. Open from /guilds first.</div>;
 
   return (
@@ -129,7 +200,7 @@ export default function CrewEnginePage() {
       <h1 style={{ margin: 0, color: "#ff4444", letterSpacing: "0.12em", textTransform: "uppercase" }}>Crew Engine</h1>
       <div style={{ color: "#ff9c9c", marginTop: 6 }}>Guild: {guildName || guildId}</div>
       <div style={{ color: "#ffb0b0", fontSize: 12, marginTop: 4 }}>
-        Real bot controls for crew creation cost, size limits, recruitment routing, and live crew state.
+        Crew is the GTA-side identity spine: recruiting, vaults, dominion ownership, and crew-linked progression all land here.
       </div>
       {message ? <div style={{ color: "#ffd27a", marginTop: 8 }}>{message}</div> : null}
 
@@ -139,11 +210,12 @@ export default function CrewEnginePage() {
         <>
           <EngineContractPanel
             engineKey="crew"
-            intro="Crew is the identity and treasury layer for the GTA side of the bot. This surface controls how expensive it is to found a crew, how large crews can grow, and whether public recruiting stays open."
+            intro="Crew is the identity and treasury layer for the GTA side of the bot. This surface controls how expensive it is to found a crew, how large crews can grow, whether public recruiting stays open, and how crew identity gets surfaced back to the guild."
             related={[
               { label: "Dominion", route: "/dashboard/dominion", reason: "dominion raids, wars, and territory ownership resolve by crew identity" },
               { label: "Contracts", route: "/dashboard/contracts", reason: "crew-facing objectives should stay economically aligned with contract payouts" },
               { label: "Profile", route: "/dashboard/profile", reason: "crew status, rank, and member-facing identity should stay aligned with profile surfaces" },
+              { label: "Gaming Hub", route: "/dashboard/games", reason: "crew identity can sit beside gamer profiles and GTA-facing social surfaces" },
             ]}
           />
           <EngineInsights summary={summary} details={details} />
@@ -152,23 +224,8 @@ export default function CrewEnginePage() {
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
               <label><input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((p) => ({ ...p, enabled: e.target.checked }))} /> Crew Enabled</label>
               <label><input type="checkbox" checked={cfg.allowPublicRecruitment} onChange={(e) => setCfg((p) => ({ ...p, allowPublicRecruitment: e.target.checked }))} /> Allow public recruitment</label>
-            </div>
-          </section>
-
-          <section style={card}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
-              <div>
-                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Founding Rules</div>
-                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-                  Creation cost and max crews define how scarce crew ownership feels. If these are too soft, dominion and treasury loops lose value fast.
-                </div>
-              </div>
-              <div>
-                <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Recruitment Surface</div>
-                <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-                  Public recruitment should only be on when a clear recruiting lane exists. Otherwise the engine should be staff-driven and routed through direct management commands.
-                </div>
-              </div>
+              <label><input type="checkbox" checked={cfg.signupPanelEnabled} onChange={(e) => setCfg((p) => ({ ...p, signupPanelEnabled: e.target.checked }))} /> Enable crew signup panel</label>
+              <label><input type="checkbox" checked={cfg.identityBadgesEnabled} onChange={(e) => setCfg((p) => ({ ...p, identityBadgesEnabled: e.target.checked }))} /> Enable crew identity badges</label>
             </div>
           </section>
 
@@ -206,8 +263,117 @@ export default function CrewEnginePage() {
                   {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
                 </select>
               </div>
-              <div style={{ color: "#ffb2b2", fontSize: 12, lineHeight: 1.7 }}>
-                Used as the public crew recruiting lane when recruitment stays enabled. Leave it blank if recruiting should remain controlled by staff only.
+              <div style={micro}>
+                Used as the public recruiting lane when public joins stay open. If public recruitment is off, staff can still push members in through the invite lane below.
+              </div>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ marginBottom: 10, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Crew Signup Panel</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, alignItems: "end" }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>Panel Category</div>
+                <select style={input} value={cfg.signupPanelCategoryId || ""} onChange={(e) => setCfg((p) => ({ ...p, signupPanelCategoryId: e.target.value }))}>
+                  <option value="">Select category</option>
+                  {categoryChannels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Panel Channel</div>
+                <select style={input} value={cfg.signupPanelChannelId || ""} onChange={(e) => setCfg((p) => ({ ...p, signupPanelChannelId: e.target.value }))}>
+                  <option value="">Select channel</option>
+                  {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Panel Accent Color</div>
+                <input style={input} value={cfg.signupPanelAccentColor} onChange={(e) => setCfg((p) => ({ ...p, signupPanelAccentColor: normalizeHex(e.target.value) }))} />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Select Placeholder</div>
+                <input style={input} value={cfg.signupPanelButtonLabel} onChange={(e) => setCfg((p) => ({ ...p, signupPanelButtonLabel: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ marginBottom: 6 }}>Panel Title</div>
+                <input style={input} value={cfg.signupPanelTitle} onChange={(e) => setCfg((p) => ({ ...p, signupPanelTitle: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ marginBottom: 6 }}>Panel Description</div>
+                <textarea style={{ ...input, minHeight: 100 }} value={cfg.signupPanelDescription} onChange={(e) => setCfg((p) => ({ ...p, signupPanelDescription: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ marginBottom: 6 }}>Panel Footer</div>
+                <input style={input} value={cfg.signupPanelFooter} onChange={(e) => setCfg((p) => ({ ...p, signupPanelFooter: e.target.value }))} />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Panel Image URL</div>
+                <input style={input} value={cfg.signupPanelImageUrl} onChange={(e) => setCfg((p) => ({ ...p, signupPanelImageUrl: e.target.value }))} />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Panel Thumbnail URL</div>
+                <input style={input} value={cfg.signupPanelThumbnailUrl} onChange={(e) => setCfg((p) => ({ ...p, signupPanelThumbnailUrl: e.target.value }))} />
+              </div>
+              <div style={micro}>
+                This deploys a persistent crew signup message tied to the live crew engine. As crews are created, filled, or left, the panel refreshes to keep the list honest.
+                {cfg.signupPanelMessageId ? ` Current message: ${cfg.signupPanelMessageId}` : ""}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => void deployPanel()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+                  {saving ? "Deploying..." : "Deploy / Refresh Panel"}
+                </button>
+              </div>
+              {panelMessage ? <div style={{ gridColumn: "1 / -1", color: "#ffd27a" }}>{panelMessage}</div> : null}
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ marginBottom: 10, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Crew Identity Badges</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+              <div>
+                <div style={{ marginBottom: 6 }}>Badge Template</div>
+                <input
+                  style={input}
+                  value={cfg.identityBadgeTemplate}
+                  onChange={(e) => setCfg((p) => ({ ...p, identityBadgeTemplate: e.target.value }))}
+                />
+                <div style={{ ...micro, marginTop: 6 }}>Tokens: {"{crewName}"}, {"{crewTag}"}, {"{crewTagLine}"}, {"{user}"}.</div>
+              </div>
+              <div>
+                <div style={{ marginBottom: 6 }}>Cooldown (seconds)</div>
+                <input
+                  style={input}
+                  type="number"
+                  min={0}
+                  value={cfg.identityBadgeCooldownSeconds}
+                  onChange={(e) => setCfg((p) => ({ ...p, identityBadgeCooldownSeconds: Number(e.target.value || 0) }))}
+                />
+                <label style={{ display: "block", marginTop: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={cfg.identityBadgeReplyMode}
+                    onChange={(e) => setCfg((p) => ({ ...p, identityBadgeReplyMode: e.target.checked }))}
+                  />{" "}
+                  Post badge as a reply
+                </label>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ marginBottom: 6 }}>Badge Channels</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 8 }}>
+                  {textChannels.map((channel) => (
+                    <label key={channel.id} style={{ border: "1px solid #4f0000", borderRadius: 8, padding: "8px 10px", background: "rgba(80,0,0,0.16)" }}>
+                      <input
+                        type="checkbox"
+                        checked={(cfg.identityBadgeChannelIds || []).includes(channel.id)}
+                        onChange={() => toggleBadgeChannel(channel.id)}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ ...micro, marginTop: 8 }}>
+                  Leave every channel unchecked if you want crew identity badges to be allowed in any text lane. This is the safe bot-side version of “representing a crew” since bots cannot inject native Discord user tags into normal member messages.
+                </div>
               </div>
             </div>
           </section>
@@ -217,7 +383,7 @@ export default function CrewEnginePage() {
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={{ marginBottom: 6, color: "#ff9c9c", textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 12 }}>Staff Invite Lane</div>
                 <div style={{ color: "#ffd0d0", lineHeight: 1.7 }}>
-                  Use this when a crew is staff-run or public recruitment is off. The bot sends a real invite the member can accept, and it honors the crew&apos;s live size limit.
+                  Use this when a crew is staff-run or public recruitment is off. The bot sends a real invite the member can accept, and it still honors the crew&apos;s live size limit.
                 </div>
               </div>
               <div>
@@ -251,7 +417,7 @@ export default function CrewEnginePage() {
                   placeholder="Optional note about the crew or what they should know before joining."
                 />
               </div>
-              <div style={{ color: "#ffb2b2", fontSize: 12, lineHeight: 1.7 }}>
+              <div style={micro}>
                 Invite delivery uses the recruit channel when one is set and also tries DM. If buttons fail, the invited member can still use <code>/crew join</code>.
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
