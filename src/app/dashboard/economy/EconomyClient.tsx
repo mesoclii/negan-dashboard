@@ -10,7 +10,7 @@ type EnginePayload = {
   summary?: Array<{ label: string; value: string }>;
 };
 
-type EngineKey = "store" | "progression" | "inviteTracker" | "radio" | "giveaways";
+type EngineKey = "store" | "progression" | "inviteTracker" | "radio" | "giveaways" | "eventPoints";
 
 const card: CSSProperties = {
   border: "1px solid rgba(255,0,0,.28)",
@@ -31,6 +31,7 @@ const input: CSSProperties = {
 };
 
 const LINKS: Array<{ engine: EngineKey; href: string; title: string; description: string }> = [
+  { engine: "eventPoints", href: "/dashboard/economy/events", title: "Event Points", description: "Separate event-only currency, house standings, and custom event boards." },
   { engine: "store", href: "/dashboard/economy/store", title: "Store", description: "Catalog, stock, pricing, and role/item grant behavior." },
   { engine: "progression", href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level rewards, multipliers, and anti-abuse." },
   { engine: "inviteTracker", href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite leaderboard routing and recruiter thresholds." },
@@ -43,6 +44,7 @@ export default function EconomyClient() {
   const [guildName, setGuildName] = useState("");
   const [economyEnabled, setEconomyEnabled] = useState(true);
   const [engines, setEngines] = useState<Record<EngineKey, EnginePayload>>({
+    eventPoints: {},
     store: {},
     progression: {},
     inviteTracker: {},

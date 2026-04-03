@@ -96,6 +96,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       label: "Economy",
       items: [
         { href: "/dashboard/economy", label: "Economy" },
+        { href: "/dashboard/economy/events", label: "Event Points" },
         { href: "/dashboard/economy/rewards", label: "Daily + Work" },
         { href: "/dashboard/economy/store", label: "Store" },
         { href: "/dashboard/economy/progression", label: "Progression" },

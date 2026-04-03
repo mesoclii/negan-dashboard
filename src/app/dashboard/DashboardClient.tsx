@@ -437,6 +437,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/security/verification", title: "Verification", description: "Verification decisions, timeout behavior, and follow-up staff controls.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite tracking tiers, recruiter thresholds, and leaderboard behavior.", toggle: engineController("inviteTracker") },
   { href: "/dashboard/economy", title: "Economy", description: "Economy baseline and related systems.", toggle: featureController("economyEnabled") },
+  { href: "/dashboard/economy/events", title: "Event Points", description: "Separate event-only currency, house boards, and custom event scoring that can optionally mirror into economy.", toggle: engineController("eventPoints", ["enabled"]) },
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: engineController("progression", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },

@@ -50,6 +50,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "runtime-router", label: "AI Talking Rules", description: "Simple split between free Possum AI replies and Persona AI channels", group: "Automation", route: "/dashboard/runtime-router" },
 
   { id: "economy", label: "Economy", description: "Economy/store/progression baseline", group: "Economy", route: "/dashboard/economy", featureKey: "economyEnabled" },
+  { id: "event-points", label: "Event Points", description: "Separate per-guild event currency, house scoring, and event board runtime", group: "Economy", route: "/dashboard/economy/events", featureKey: "economyEnabled" },
   { id: "birthday", label: "Birthday/Radio", description: "Birthday engine controls", group: "Economy", route: "/dashboard/economy/radio-birthday", featureKey: "birthdayEnabled" },
   { id: "invite", label: "Invite Tracker", description: "Invite tracking and leaderboard", group: "Economy", route: "/dashboard/economy/leaderboard" },
   { id: "profile", label: "Profile", description: "Profile display, rank surfaces, and stat aggregation", group: "Economy", route: "/dashboard/profile" },
