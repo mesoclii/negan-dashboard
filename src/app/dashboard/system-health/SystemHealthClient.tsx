@@ -101,6 +101,7 @@ export default function SystemHealthPage() {
   const [engineHealth, setEngineHealth] = useState<any>(null);
   const [eventReactorFailures, setEventReactorFailures] = useState<any[]>([]);
   const [engineFailures, setEngineFailures] = useState<any>(null);
+  const [bindingReconciliationBusy, setBindingReconciliationBusy] = useState(false);
 
   async function loadAll(gid: string) {
     if (!gid) return;
@@ -209,6 +210,25 @@ export default function SystemHealthPage() {
     await loadAll(guildId);
   }
 
+  async function applyBindingReconciliation() {
+    if (!guildId) return;
+    setBindingReconciliationBusy(true);
+    try {
+      const r = await fetch("/api/bot/binding-reconciliation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guildId }),
+      });
+      const j = await r.json().catch(() => ({}));
+      setMsg(j?.success
+        ? `Binding cleanup applied (${Number(j?.appliedChangeCount || 0)} changes).`
+        : j?.error || "Binding cleanup failed.");
+      await loadAll(guildId);
+    } finally {
+      setBindingReconciliationBusy(false);
+    }
+  }
+
   return (
     <div style={{ padding: 18, color: "#ffd7d7" }}>
       <h1 style={{ marginTop: 0, color: "#ff4d4d", letterSpacing: "0.06em" }}>System Health + Ops</h1>
@@ -286,6 +306,50 @@ export default function SystemHealthPage() {
       {engineHealth?.validation && (
         <div style={box}>
           <h3 style={{ marginTop: 0, color: "#ff4444" }}>Startup Validation</h3>
+          {(() => {
+            const bindingReconciliation = engineHealth?.bindingReconciliation || null;
+            return bindingReconciliation ? (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: "#0f0f0f", border: "1px solid #300000" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ color: "#ff8c8c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>Binding Cleanup Preview</div>
+                    <div style={{ color: "#ffdada", fontWeight: 800, marginTop: 6 }}>
+                      {bindingReconciliation.totals?.changeCount || 0} cleanup changes ready across {bindingReconciliation.totals?.engineCount || 0} engine{Number(bindingReconciliation.totals?.engineCount || 0) === 1 ? "" : "s"}
+                    </div>
+                    <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>
+                      This safely clears broken role/channel/category bindings from live engine config.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => void applyBindingReconciliation()}
+                    disabled={bindingReconciliationBusy || !(bindingReconciliation.totals?.changeCount > 0)}
+                    style={{
+                      borderRadius: 999,
+                      padding: "9px 14px",
+                      cursor: bindingReconciliationBusy || !(bindingReconciliation.totals?.changeCount > 0) ? "not-allowed" : "pointer",
+                      opacity: bindingReconciliationBusy || !(bindingReconciliation.totals?.changeCount > 0) ? 0.65 : 1,
+                      ...actionStyle("danger"),
+                    }}
+                  >
+                    {bindingReconciliationBusy ? "Applying..." : "Apply Binding Cleanup"}
+                  </button>
+                </div>
+
+                {Array.isArray(bindingReconciliation.changes) && bindingReconciliation.changes.length > 0 ? (
+                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                    {bindingReconciliation.changes.slice(0, 8).map((change: any, index: number) => (
+                      <div key={`binding_change_${index}`} style={{ border: "1px solid #240000", borderRadius: 8, padding: 8 }}>
+                        <div style={{ color: "#ffdada", fontWeight: 700 }}>{change.engine || "runtime"} · {change.path || "binding"}</div>
+                        <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{change.summary || change.reason || "Pending cleanup."}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 10, color: "#9effb8", fontSize: 12 }}>No cleanup actions are pending right now.</div>
+                )}
+              </div>
+            ) : null;
+          })()}
           <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
             {[
               ["Env Errors", engineHealth.validation.env?.errors?.length || 0, (engineHealth.validation.env?.errors?.length || 0) === 0],

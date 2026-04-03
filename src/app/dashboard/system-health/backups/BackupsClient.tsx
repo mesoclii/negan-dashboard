@@ -34,8 +34,11 @@ export default function BackupsPage() {
   }, [guildId]);
 
   useEffect(() => {
-    loadSnapshots().catch(() => {});
-    loadEngineCatalog().catch(() => {});
+    const handle = window.setTimeout(() => {
+      loadSnapshots().catch(() => {});
+      loadEngineCatalog().catch(() => {});
+    }, 0);
+    return () => window.clearTimeout(handle);
   }, [loadEngineCatalog, loadSnapshots]);
 
   async function createSnapshot() {
