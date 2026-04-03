@@ -1,8 +1,6 @@
 "use client";
 
-
-
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function getGuildId() {
   if (typeof window === "undefined") return "";
@@ -17,18 +15,28 @@ export default function BackupsPage() {
   const [guildId] = useState(() => getGuildId());
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [backupText, setBackupText] = useState("");
+  const [engineBackupText, setEngineBackupText] = useState("");
+  const [engineFilter, setEngineFilter] = useState("");
+  const [engineKeys, setEngineKeys] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
 
-  async function loadSnapshots() {
+  const loadSnapshots = useCallback(async () => {
     const r = await fetch("/api/system/snapshots");
     const j = await r.json();
     setSnapshots(Array.isArray(j?.snapshots) ? j.snapshots : []);
-  }
+  }, []);
+
+  const loadEngineCatalog = useCallback(async () => {
+    if (!guildId) return;
+    const r = await fetch(`/api/bot/engine-catalog?guildId=${guildId}`, { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    setEngineKeys(Array.isArray(j?.engineKeys) ? j.engineKeys : []);
+  }, [guildId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSnapshots().catch(() => {});
-  }, []);
+    loadEngineCatalog().catch(() => {});
+  }, [loadEngineCatalog, loadSnapshots]);
 
   async function createSnapshot() {
     const r = await fetch("/api/system/snapshots", {
@@ -69,6 +77,43 @@ export default function BackupsPage() {
     setMsg(j?.success ? `Import complete (${mode}).` : j?.error || "Import failed.");
   }
 
+  async function exportEngineConfig() {
+    if (!guildId) return;
+    const query = new URLSearchParams({ guildId });
+    if (engineFilter) query.set("engine", engineFilter);
+    const r = await fetch(`/api/bot/engine-backup?${query.toString()}`, { cache: "no-store" });
+    const j = await r.json();
+    if (!j?.success) {
+      setMsg(j?.error || "Engine export failed.");
+      return;
+    }
+    setEngineBackupText(JSON.stringify(j.backup, null, 2));
+    if (Array.isArray(j?.backup?.engines)) {
+      setEngineKeys(j.backup.engines);
+    }
+    setMsg(engineFilter ? `Exported ${engineFilter} engine config.` : "Exported live bot engine config.");
+  }
+
+  async function importEngineConfig(mode: "merge" | "replace") {
+    let payload: any;
+    try {
+      payload = JSON.parse(engineBackupText || "{}");
+    } catch {
+      setMsg("Engine backup JSON is invalid.");
+      return;
+    }
+    const r = await fetch("/api/bot/engine-backup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guildId, mode, payload }),
+    });
+    const j = await r.json();
+    setMsg(j?.success ? `Engine restore complete (${mode}).` : j?.error || "Engine restore failed.");
+    if (j?.success && j?.backup) {
+      setEngineBackupText(JSON.stringify(j.backup, null, 2));
+    }
+  }
+
   return (
     <div style={{ padding: 18 }}>
       <h1 style={{ marginTop: 0 }}>Backups + Restore</h1>
@@ -91,6 +136,31 @@ export default function BackupsPage() {
           value={backupText}
           onChange={(e) => setBackupText(e.target.value)}
           placeholder="Backup JSON shows here (or paste to import)"
+          style={{ width: "100%", minHeight: 320, marginTop: 8, background: "#0c0c0c", color: "#ffd7d7" }}
+        />
+      </div>
+
+      <div style={{ marginTop: 12, padding: 12, border: "1px solid #5f0000", borderRadius: 10 }}>
+        <div style={{ marginBottom: 8, color: "#ffd7d7", fontWeight: 700 }}>Live Bot Engine Config</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select
+            value={engineFilter}
+            onChange={(e) => setEngineFilter(e.target.value)}
+            style={{ minWidth: 220, background: "#0c0c0c", color: "#ffd7d7", border: "1px solid #5f0000", borderRadius: 8, padding: "8px 10px" }}
+          >
+            <option value="">All engines</option>
+            {engineKeys.map((engineKey) => (
+              <option key={engineKey} value={engineKey}>{engineKey}</option>
+            ))}
+          </select>
+          <button onClick={exportEngineConfig}>Export Bot Engine Config</button>
+          <button onClick={() => importEngineConfig("merge")}>Restore (Merge)</button>
+          <button onClick={() => importEngineConfig("replace")}>Restore (Replace)</button>
+        </div>
+        <textarea
+          value={engineBackupText}
+          onChange={(e) => setEngineBackupText(e.target.value)}
+          placeholder="Live bot engine config backup shows here (or paste exported JSON to restore)"
           style={{ width: "100%", minHeight: 320, marginTop: 8, background: "#0c0c0c", color: "#ffd7d7" }}
         />
       </div>
