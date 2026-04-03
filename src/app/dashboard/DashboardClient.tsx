@@ -446,7 +446,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/halloffame", title: "Hall of Fame", description: "Recognition layer for top achievers and prestige-ready members.", toggle: engineController("hallOfFame") },
   { href: "/dashboard/achievements", title: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic.", toggle: engineController("achievements", ["active"]) },
   { href: "/dashboard/loyalty", title: "Loyalty", description: "Retention timing, tenure rewards, and VIP-adjacent loyalty benefits.", toggle: engineController("loyalty", ["active"]) },
-  { href: "/dashboard/games", title: "Games", description: "Live games hub across Pokemon, GTA crew systems, and spawn-driven engines.", goOnly: true, goLabel: "Go" },
+  { href: "/dashboard/games", title: "Gaming Hub", description: "Link Steam, Epic, Xbox, Battle.net, PlayStation, Rockstar, and other launcher accounts for live gamer profiles and squads.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/crew", title: "Crew", description: "Crew create/join/leave/vault controls.", toggle: engineController("crew") },
   { href: "/dashboard/dominion", title: "Dominion", description: "Dominion raid/alliance/war settings.", toggle: engineController("dominion") },
   { href: "/dashboard/contracts", title: "Contracts", description: "Objective progression, task tracking, and contract reward flow.", toggle: engineController("contracts") },

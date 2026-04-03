@@ -20,9 +20,9 @@ export type GuildDataPayload = {
   roles?: GuildRole[];
 };
 
-const GUILD_DATA_TTL_MS = 45_000;
-const RUNTIME_ENGINE_TTL_MS = 30_000;
-const DASHBOARD_CONFIG_TTL_MS = 60_000;
+const GUILD_DATA_TTL_MS = 120_000;
+const RUNTIME_ENGINE_TTL_MS = 90_000;
+const DASHBOARD_CONFIG_TTL_MS = 120_000;
 
 type TimedCacheEntry<T> = {
   value: T;
@@ -118,6 +118,18 @@ function resolveViewerUserId(explicitUserId = "") {
   const direct = String(explicitUserId || "").trim();
   if (direct) return direct;
   return resolveGuildContext().userId;
+}
+
+export function peekGuildData(guildId: string, explicitUserId = "") {
+  const userId = resolveViewerUserId(explicitUserId);
+  const cacheKey = `${String(guildId || "").trim()}:${userId}`;
+  return guildDataCache.get(cacheKey)?.value || null;
+}
+
+export function peekRuntimeEngine(guildId: string, engine: string, userId = "") {
+  const actorUserId = resolveViewerUserId(userId);
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}`;
+  return runtimeEngineCache.get(cacheKey)?.value || null;
 }
 
 export async function fetchGuildData(guildId: string, explicitUserId = "") {

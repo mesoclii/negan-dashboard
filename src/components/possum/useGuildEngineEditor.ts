@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchGuildData, fetchRuntimeEngine } from "@/lib/liveRuntime";
+import { fetchGuildData, fetchRuntimeEngine, peekGuildData, peekRuntimeEngine } from "@/lib/liveRuntime";
 
 export type GuildRole = { id: string; name: string; position?: number; color?: string };
 export type GuildChannel = { id: string; name: string; type?: number | string; parentId?: string | null };
@@ -30,18 +30,26 @@ function resolveViewerUserId() {
 }
 
 export function useGuildEngineEditor<T>(engine: string, defaults: T) {
+  const initialGuildId = typeof window === "undefined" ? "" : resolveGuildId();
+  const initialViewerUserId = typeof window === "undefined" ? "" : resolveViewerUserId();
+  const initialRuntime = typeof window === "undefined" ? null : peekRuntimeEngine(initialGuildId, engine, initialViewerUserId);
+  const initialGuild = typeof window === "undefined" ? null : peekGuildData(initialGuildId, initialViewerUserId);
   const defaultsRef = useRef(defaults);
-  const contextRef = useRef({ guildId: "", viewerUserId: "" });
-  const [guildId, setGuildId] = useState("");
-  const [viewerUserId, setViewerUserId] = useState("");
-  const [guildName, setGuildName] = useState("");
-  const [config, setConfig] = useState<T>(defaults);
-  const [channels, setChannels] = useState<GuildChannel[]>([]);
-  const [roles, setRoles] = useState<GuildRole[]>([]);
-  const [botUser, setBotUser] = useState<GuildBotUser | null>(null);
-  const [summary, setSummary] = useState<EngineSummaryItem[]>([]);
-  const [details, setDetails] = useState<EngineDetails>({});
-  const [loading, setLoading] = useState(true);
+  const contextRef = useRef({ guildId: initialGuildId, viewerUserId: initialViewerUserId });
+  const [guildId, setGuildId] = useState(initialGuildId);
+  const [viewerUserId, setViewerUserId] = useState(initialViewerUserId);
+  const [guildName, setGuildName] = useState(String((initialGuild as any)?.guild?.name || "").trim());
+  const [config, setConfig] = useState<T>({ ...(defaults as any), ...(initialRuntime?.config || {}) });
+  const [channels, setChannels] = useState<GuildChannel[]>(Array.isArray((initialGuild as any)?.channels) ? (initialGuild as any).channels : []);
+  const [roles, setRoles] = useState<GuildRole[]>(() => {
+    const nextRoles: GuildRole[] = Array.isArray((initialGuild as any)?.roles) ? (initialGuild as any).roles : [];
+    nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+    return nextRoles;
+  });
+  const [botUser, setBotUser] = useState<GuildBotUser | null>(((initialGuild as any)?.botUser && typeof (initialGuild as any).botUser === "object") ? (initialGuild as any).botUser : null);
+  const [summary, setSummary] = useState<EngineSummaryItem[]>(Array.isArray(initialRuntime?.summary) ? initialRuntime.summary : []);
+  const [details, setDetails] = useState<EngineDetails>((initialRuntime?.details && typeof initialRuntime.details === "object") ? initialRuntime.details : {});
+  const [loading, setLoading] = useState(!(initialRuntime || initialGuild));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -85,7 +93,31 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const warmRuntime = peekRuntimeEngine(targetGuildId, engine, targetUserId);
+    const warmGuild = peekGuildData(targetGuildId, targetUserId);
+    const hasWarmPayload = Boolean(warmRuntime || warmGuild);
+
+    if (warmRuntime) {
+      setConfig({ ...(defaultsRef.current as any), ...(warmRuntime?.config || {}) });
+      setSummary(Array.isArray(warmRuntime?.summary) ? warmRuntime.summary : []);
+      setDetails((warmRuntime?.details && typeof warmRuntime.details === "object") ? warmRuntime.details : {});
+    }
+
+    if (warmGuild) {
+      const nextChannels: GuildChannel[] = Array.isArray((warmGuild as any)?.channels) ? (warmGuild as any).channels : [];
+      const nextRoles: GuildRole[] = Array.isArray((warmGuild as any)?.roles) ? (warmGuild as any).roles : [];
+      nextRoles.sort((a, b) => (Number(b.position || 0) - Number(a.position || 0)) || a.name.localeCompare(b.name));
+      setChannels(nextChannels);
+      setRoles(nextRoles);
+      setBotUser((((warmGuild as any)?.botUser) && typeof (warmGuild as any).botUser === "object") ? (warmGuild as any).botUser : null);
+      const warmGuildName = String((warmGuild as any)?.guild?.name || "").trim();
+      if (warmGuildName) {
+        setGuildName(warmGuildName);
+        localStorage.setItem("activeGuildName", warmGuildName);
+      }
+    }
+
+    setLoading(!hasWarmPayload);
     setMessage("");
     try {
       const [runtimeResult, guildResult] = await Promise.allSettled([

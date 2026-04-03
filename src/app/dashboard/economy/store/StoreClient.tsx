@@ -1,10 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ConfigJsonEditor from "@/components/possum/ConfigJsonEditor";
 import EngineInsights from "@/components/possum/EngineInsights";
 import { useGuildEngineEditor } from "@/components/possum/useGuildEngineEditor";
+import { fetchRuntimeEngine } from "@/lib/liveRuntime";
 
 type Role = { id: string; name: string };
 type Channel = { id: string; name: string; type?: number | string };
@@ -17,6 +18,7 @@ type StoreItem = {
   type: "role" | "item" | "perk";
   roleId: string;
   priceCoins: number;
+  priceCurrencyType: "coins" | "eventPoints";
   stock: number;
   oneTime: boolean;
   enabled: boolean;
@@ -50,7 +52,7 @@ const DEFAULT_CONFIG: StoreConfig = {
     enabled: true,
     channelId: "",
     title: "Server Store",
-    description: "Spend coins on roles, perks, and items.",
+    description: "Spend coins or event currency on roles, perks, and items.",
     buttonLabel: "Open Store",
     embedColor: "#ff3b3b",
     imageUrl: "",
@@ -70,6 +72,7 @@ const DEFAULT_CONFIG: StoreConfig = {
       type: "role",
       roleId: "",
       priceCoins: 5000,
+      priceCurrencyType: "coins",
       stock: -1,
       oneTime: true,
       enabled: true,
@@ -86,6 +89,7 @@ function createDraftItem(id = `item-${Date.now()}`): StoreItem {
     type: "item",
     roleId: "",
     priceCoins: 0,
+    priceCurrencyType: "coins",
     stock: -1,
     oneTime: false,
     enabled: true,
@@ -101,6 +105,8 @@ function normalizeItems(raw: unknown): StoreItem[] {
     const rawType = String(item.type || "item");
     const type: StoreItem["type"] = rawType === "role" || rawType === "perk" ? rawType : "item";
     const rawPrice = Number(item.priceCoins ?? item.price ?? 0);
+    const rawCurrencyType = String(item.priceCurrencyType ?? item.currencyType ?? meta.currencyType ?? "coins").trim().toLowerCase();
+    const priceCurrencyType: StoreItem["priceCurrencyType"] = rawCurrencyType === "eventpoints" || rawCurrencyType === "event_points" || rawCurrencyType === "event" ? "eventPoints" : "coins";
     const rawStock = Number(item.stock);
     return {
       id: String(item.id || `item-${index + 1}`).trim() || `item-${index + 1}`,
@@ -109,6 +115,7 @@ function normalizeItems(raw: unknown): StoreItem[] {
       type,
       roleId: String(item.roleId || "").trim(),
       priceCoins: Number.isFinite(rawPrice) ? Math.max(0, rawPrice) : 0,
+      priceCurrencyType,
       stock: Number.isFinite(rawStock) ? rawStock : -1,
       oneTime: Boolean(item.oneTime ?? meta.oneTime),
       enabled: item.enabled !== false,
@@ -188,12 +195,36 @@ export default function StorePage() {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newImageLabel, setNewImageLabel] = useState("");
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [eventCurrencyLabel, setEventCurrencyLabel] = useState("event currency");
   const visibleMessage = localMsg || message;
   const textChannels = (channels as Channel[]).filter(
     (channel) => Number(channel?.type) === 0 || Number(channel?.type) === 5 || String(channel?.type || "").toLowerCase().includes("text")
   );
   const activeItemIndex = cfg.items.length ? Math.max(0, Math.min(selectedItemIndex, cfg.items.length - 1)) : -1;
   const activeItem = activeItemIndex >= 0 ? cfg.items[activeItemIndex] : null;
+
+  useEffect(() => {
+    if (!guildId) return;
+    let ignore = false;
+    void fetchRuntimeEngine(guildId, "eventPoints")
+      .then((json) => {
+        if (ignore) return;
+        const currencyName = String(json?.config?.currencyName || "event currency").trim() || "event currency";
+        const currencyEmoji = String(json?.config?.currencyEmoji || "").trim();
+        setEventCurrencyLabel(`${currencyEmoji ? `${currencyEmoji} ` : ""}${currencyName}`.trim());
+      })
+      .catch(() => {
+        if (!ignore) setEventCurrencyLabel("event currency");
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [guildId]);
+
+  function formatPrice(item: StoreItem | null | undefined) {
+    if (!item) return "";
+    return item.priceCurrencyType === "eventPoints" ? `${item.priceCoins} ${eventCurrencyLabel}` : `${item.priceCoins} coins`;
+  }
 
   async function saveStore(nextConfig: StoreConfig = cfg) {
     setLocalMsg("");
@@ -534,7 +565,7 @@ export default function StorePage() {
                           {item.name || "Untitled Item"}
                         </div>
                         <div style={{ marginTop: 4, color: "#ffb3b3", fontSize: 12 }}>
-                          {item.priceCoins} coins | {item.type}
+                          {formatPrice(item)} | {item.type}
                         </div>
                         <div style={{ marginTop: 4, color: item.enabled ? "#9cffb0" : "#ff9d9d", fontSize: 12 }}>
                           {item.enabled ? "Live" : "Disabled"}{item.oneTime ? " | one-time" : ""}
@@ -558,7 +589,7 @@ export default function StorePage() {
                           </div>
                           <div style={{ padding: 10 }}>
                             <div style={{ fontWeight: 900, color: "#fff2f2" }}>{activeItem.name || "Untitled Item"}</div>
-                            <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>{activeItem.priceCoins} coins</div>
+                            <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4 }}>{formatPrice(activeItem)}</div>
                             <div style={{ color: "#ff9f9f", fontSize: 12, marginTop: 6 }}>{activeItem.description || "Add a short description for this item."}</div>
                           </div>
                         </div>
@@ -609,13 +640,24 @@ export default function StorePage() {
                             />
                           </div>
                           <div>
-                            <label>Price</label>
+                            <label>Price amount</label>
                             <input
                               style={input}
                               type="number"
                               value={activeItem.priceCoins}
                               onChange={(e) => updateItem(activeItemIndex, { priceCoins: Number(e.target.value || 0) })}
                             />
+                          </div>
+                          <div>
+                            <label>Price currency</label>
+                            <select
+                              style={input}
+                              value={activeItem.priceCurrencyType}
+                              onChange={(e) => updateItem(activeItemIndex, { priceCurrencyType: e.target.value as StoreItem["priceCurrencyType"] })}
+                            >
+                              <option value="coins">Server coins</option>
+                              <option value="eventPoints">{eventCurrencyLabel}</option>
+                            </select>
                           </div>
                         </div>
 

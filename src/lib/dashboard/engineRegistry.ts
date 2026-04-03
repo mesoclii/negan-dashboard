@@ -59,7 +59,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "prestige", label: "Prestige", description: "Capstone reset loop and long-tail prestige reward ladder", group: "Economy", route: "/dashboard/prestige" },
   { id: "achievements", label: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic", group: "Economy", route: "/dashboard/achievements" },
 
-  { id: "games", label: "Outside Games", description: "External game identity, presence, stats, hours, and squad finder", group: "Fun", route: "/dashboard/games" },
+  { id: "games", label: "Gaming Hub", description: "External game identity linking, presence fusion, launcher accounts, stats, hours, and squad finder", group: "Fun", route: "/dashboard/games" },
   { id: "pokemon", label: "Pokemon Catching", description: "Wild spawn lanes, catch economy, and trainer intake", group: "Fun", route: "/dashboard/pokemon-catching", featureKey: "pokemonEnabled" },
   { id: "pokemon-battle", label: "Pokemon Battle", description: "Pokemon battle routing and logs", group: "Fun", route: "/dashboard/pokemon-battle", featureKey: "pokemonEnabled" },
   { id: "pokemon-trade", label: "Pokemon Trade", description: "Pokemon trade routing and logs", group: "Fun", route: "/dashboard/pokemon-trade", featureKey: "pokemonEnabled" },

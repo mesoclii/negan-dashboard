@@ -26,7 +26,7 @@ export default function GamesClient() {
     <div style={{ maxWidth: 1280, color: "#ffcaca" }}>
       <div style={card}>
         <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>
-          Outside Games Control
+          Gaming Hub
         </div>
         <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildName || guildId}</div>
         <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 8 }}>

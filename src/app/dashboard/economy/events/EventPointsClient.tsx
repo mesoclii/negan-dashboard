@@ -26,6 +26,8 @@ type Config = {
   enabled: boolean;
   currencyName: string;
   currencyEmoji: string;
+  groupLabelSingular: string;
+  groupLabelPlural: string;
   eventChannelId: string;
   announceChannelId: string;
   logChannelId: string;
@@ -60,6 +62,8 @@ const DEFAULTS: Config = {
   enabled: false,
   currencyName: "Crowns",
   currencyEmoji: "??",
+  groupLabelSingular: "House",
+  groupLabelPlural: "Houses",
   eventChannelId: "",
   announceChannelId: "",
   logChannelId: "",
@@ -68,9 +72,9 @@ const DEFAULTS: Config = {
   linkToEconomy: false,
   economyCoinsPerCurrency: 0,
   boardColorHex: "#ff4a4a",
-  boardTitleTemplate: "{eventTitle} - House Standings",
-  boardDescriptionTemplate: "{eventDescription}\n\n{houseStandings}",
-  awardAnnouncementTemplate: "{houseEmoji} {houseName} earned **{points}** points and **{currency} {currencyEmoji} {currencyName}** for {reason}.",
+  boardTitleTemplate: "{eventTitle} - {groupLabelPlural} Standings",
+  boardDescriptionTemplate: "{eventDescription}\n\n{groupStandings}",
+  awardAnnouncementTemplate: "{groupEmoji} {groupName} earned **{points}** points and **{currency} {currencyEmoji} {currencyName}** for {reason}.",
   closeAnnouncementTemplate: "{eventTitle} is complete. {winnerLine}",
   boardImageUrl: "",
   boardThumbnailUrl: "",
@@ -103,17 +107,19 @@ const input: CSSProperties = {
   color: "#ffd7d7",
 };
 
-function slugify(value: string, fallback: string) {
-  const next = String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return next || fallback;
-}
-
 function readSnowflake(value: string) {
   const match = String(value || "").match(/\d{16,20}/);
   return match ? match[0] : "";
+}
+
+function makeGroupEntry(index: number, singularLabel = "House"): HouseConfig {
+  return {
+    id: `house_${index + 1}`,
+    label: `${singularLabel} ${index + 1}`,
+    emoji: "??",
+    roleId: "",
+    colorHex: "#ff4a4a",
+  };
 }
 
 export default function EventPointsClient() {
@@ -142,10 +148,14 @@ export default function EventPointsClient() {
   const houseRows = useMemo(() => (Array.isArray((details as any)?.houses) ? ((details as any).houses as RuntimeRow[]) : []), [details]);
   const balanceRows = useMemo(() => (Array.isArray((details as any)?.memberBalances) ? ((details as any).memberBalances as RuntimeRow[]) : []), [details]);
   const recentAwardRows = useMemo(() => (Array.isArray((details as any)?.recentAwards) ? ((details as any).recentAwards as RuntimeRow[]) : []), [details]);
+  const groupLabelSingular = String(cfg.groupLabelSingular || "House").trim() || "House";
+  const groupLabelPlural = String(cfg.groupLabelPlural || "Houses").trim() || "Houses";
+  const groupLabelSingularLower = groupLabelSingular.toLowerCase();
+  const groupLabelPluralLower = groupLabelPlural.toLowerCase();
 
   const [createForm, setCreateForm] = useState({
     title: "Friday Event Night",
-    description: "Track each house as they finish event tasks.",
+    description: "Track each team as they finish event tasks.",
     channelId: "",
     imageUrl: "",
     thumbnailUrl: "",
@@ -168,13 +178,13 @@ export default function EventPointsClient() {
   }
 
   function addHouse() {
-    const next = [...cfg.houses, { id: `house_${cfg.houses.length + 1}`, label: `House ${cfg.houses.length + 1}`, emoji: "??", roleId: "", colorHex: "#ff4a4a" }];
+    const next = [...cfg.houses, makeGroupEntry(cfg.houses.length, groupLabelSingular)];
     setCfg({ ...cfg, houses: next });
   }
 
   function removeHouse(index: number) {
     const next = cfg.houses.filter((_, entryIndex) => entryIndex !== index);
-    setCfg({ ...cfg, houses: next.length ? next : DEFAULTS.houses });
+    setCfg({ ...cfg, houses: next.length ? next : [makeGroupEntry(0, groupLabelSingular)] });
   }
 
   function updateTask(index: number, patch: Partial<TaskConfig>) {
@@ -228,7 +238,7 @@ export default function EventPointsClient() {
       <h1 style={{ marginTop: 0, color: "#ff3b3b", letterSpacing: "0.08em", textTransform: "uppercase" }}>Event Points Studio</h1>
       <p style={{ marginTop: 0 }}>Guild: {guildName || guildId}</p>
       <p style={{ color: "#ffb7b7", marginTop: -4, lineHeight: 1.6 }}>
-        This is a separate per-guild event currency and house-score engine. It stays separate from the main economy,
+        This is a separate per-guild event currency and scoring engine for {groupLabelPluralLower}. It stays separate from the main economy,
         but can mirror rewards into economy coins when you want the two systems tied together.
       </p>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
@@ -249,6 +259,16 @@ export default function EventPointsClient() {
             <label>Currency emoji</label>
             <input style={input} value={cfg.currencyEmoji} onChange={(e) => setCfg({ ...cfg, currencyEmoji: e.target.value })} />
           </div>
+          <div>
+            <label>{groupLabelSingular} label</label>
+            <input style={input} value={cfg.groupLabelSingular} onChange={(e) => setCfg({ ...cfg, groupLabelSingular: e.target.value })} />
+          </div>
+          <div>
+            <label>{groupLabelPlural} label</label>
+            <input style={input} value={cfg.groupLabelPlural} onChange={(e) => setCfg({ ...cfg, groupLabelPlural: e.target.value })} />
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(180px, 1fr))", gap: 10, marginTop: 10 }}>
           <div>
             <label>Economy coins per currency</label>
             <input style={input} type="number" value={cfg.economyCoinsPerCurrency} onChange={(e) => setCfg({ ...cfg, economyCoinsPerCurrency: Number(e.target.value || 0) })} />
@@ -293,7 +313,7 @@ export default function EventPointsClient() {
       <div style={box}>
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Images and Copy</h3>
         <div style={{ color: "#ffb7b7", marginBottom: 10, lineHeight: 1.6 }}>
-          Tokens: <code>{`{eventTitle}`}</code>, <code>{`{eventDescription}`}</code>, <code>{`{houseStandings}`}</code>, <code>{`{currencyName}`}</code>, <code>{`{currencyEmoji}`}</code>, <code>{`{winnerLine}`}</code>, <code>{`{houseName}`}</code>, <code>{`{houseEmoji}`}</code>, <code>{`{points}`}</code>, <code>{`{currency}`}</code>, <code>{`{reason}`}</code>.
+          Tokens: <code>{`{eventTitle}`}</code>, <code>{`{eventDescription}`}</code>, <code>{`{houseStandings}`}</code>, <code>{`{groupStandings}`}</code>, <code>{`{currencyName}`}</code>, <code>{`{currencyEmoji}`}</code>, <code>{`{winnerLine}`}</code>, <code>{`{houseName}`}</code>, <code>{`{houseEmoji}`}</code>, <code>{`{groupName}`}</code>, <code>{`{groupEmoji}`}</code>, <code>{`{groupLabelSingular}`}</code>, <code>{`{groupLabelPlural}`}</code>, <code>{`{points}`}</code>, <code>{`{currency}`}</code>, <code>{`{reason}`}</code>.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px, 1fr))", gap: 10 }}>
           <div>
@@ -332,21 +352,21 @@ export default function EventPointsClient() {
       </div>
 
       <div style={box}>
-        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Houses</h3>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>{groupLabelPlural}</h3>
         <div style={{ display: "grid", gap: 10 }}>
           {cfg.houses.map((house, index) => (
-            <div key={`${house.id}_${index}`} style={{ border: "1px solid #530000", borderRadius: 10, padding: 10 }}>
+            <div key={house.id || `house-${index}`} style={{ border: "1px solid #530000", borderRadius: 10, padding: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 0.6fr 1fr 0.7fr auto", gap: 10, alignItems: "end" }}>
                 <div>
-                  <label>House name</label>
-                  <input style={input} value={house.label} onChange={(e) => updateHouse(index, { label: e.target.value, id: slugify(e.target.value, `house_${index + 1}`) })} />
+                  <label>{groupLabelSingular} name</label>
+                  <input style={input} value={house.label} onChange={(e) => updateHouse(index, { label: e.target.value })} />
                 </div>
                 <div>
                   <label>Emoji</label>
                   <input style={input} value={house.emoji} onChange={(e) => updateHouse(index, { emoji: e.target.value })} />
                 </div>
                 <div>
-                  <label>House role</label>
+                  <label>{groupLabelSingular} role</label>
                   <select style={input} value={house.roleId} onChange={(e) => updateHouse(index, { roleId: e.target.value })}>
                     <option value="">No role</option>
                     {roles.map((role) => <option key={role.id} value={role.id}>@{role.name}</option>)}
@@ -362,7 +382,7 @@ export default function EventPointsClient() {
           ))}
         </div>
         <div style={{ marginTop: 10 }}>
-          <button type="button" style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={addHouse}>Add House</button>
+          <button type="button" style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 800 }} onClick={addHouse}>Add {groupLabelSingular}</button>
         </div>
       </div>
 
@@ -370,11 +390,11 @@ export default function EventPointsClient() {
         <h3 style={{ marginTop: 0, color: "#ff4444" }}>Task Templates</h3>
         <div style={{ display: "grid", gap: 10 }}>
           {cfg.taskTemplates.map((task, index) => (
-            <div key={`${task.id}_${index}`} style={{ border: "1px solid #530000", borderRadius: 10, padding: 10 }}>
+            <div key={task.id || `task-${index}`} style={{ border: "1px solid #530000", borderRadius: 10, padding: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 0.5fr 0.5fr 0.5fr auto", gap: 10, alignItems: "end" }}>
                 <div>
                   <label>Task label</label>
-                  <input style={input} value={task.label} onChange={(e) => updateTask(index, { label: e.target.value, id: slugify(e.target.value, `task_${index + 1}`) })} />
+                  <input style={input} value={task.label} onChange={(e) => updateTask(index, { label: e.target.value })} />
                 </div>
                 <div>
                   <label>Emoji</label>
@@ -437,7 +457,7 @@ export default function EventPointsClient() {
       </div>
 
       <div style={box}>
-        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Award Houses</h3>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Award {groupLabelPlural}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 10 }}>
           <div>
             <label>Event</label>
@@ -447,9 +467,9 @@ export default function EventPointsClient() {
             </select>
           </div>
           <div>
-            <label>House</label>
+            <label>{groupLabelSingular}</label>
             <select style={input} value={selectedHouseId} onChange={(e) => setAwardForm((prev) => ({ ...prev, houseId: e.target.value }))}>
-              <option value="">Select house</option>
+              <option value="">Select {groupLabelSingularLower}</option>
               {cfg.houses.map((house) => <option key={house.id} value={house.id}>{house.emoji} {house.label}</option>)}
             </select>
           </div>
@@ -482,7 +502,7 @@ export default function EventPointsClient() {
             Award Task Template
           </button>
           <button type="button" style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }} disabled={saving} onClick={() => void awardCustom()}>
-            Award Custom Points
+            Award Custom {groupLabelSingular}
           </button>
         </div>
       </div>
@@ -516,13 +536,13 @@ export default function EventPointsClient() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px, 1fr))", gap: 12 }}>
         <div style={box}>
-          <h3 style={{ marginTop: 0, color: "#ff4444" }}>Current House Totals</h3>
+          <h3 style={{ marginTop: 0, color: "#ff4444" }}>Current {groupLabelPlural} Totals</h3>
           {houseRows.length ? houseRows.map((row) => (
             <div key={String(row.id || row.title)} style={{ padding: "8px 0", borderTop: "1px solid #330000" }}>
               <div style={{ fontWeight: 800 }}>{row.name || row.title}</div>
               <div style={{ color: "#ffb3b3", fontSize: 12 }}>{row.value}</div>
             </div>
-          )) : <div style={{ color: "#ffb3b3" }}>No house totals recorded yet.</div>}
+          )) : <div style={{ color: "#ffb3b3" }}>No {groupLabelPluralLower} totals recorded yet.</div>}
         </div>
         <div style={box}>
           <h3 style={{ marginTop: 0, color: "#ff4444" }}>Member Currency Leaders</h3>

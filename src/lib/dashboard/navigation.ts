@@ -110,9 +110,14 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       ],
     },
     {
+      label: "Gaming",
+      items: [
+        { href: "/dashboard/games", label: "Gaming Hub" },
+      ],
+    },
+    {
       label: "Fun + Games",
       items: [
-        { href: "/dashboard/games", label: "Outside Games" },
         { href: "/dashboard/crew", label: "Crew" },
         { href: "/dashboard/dominion", label: "Dominion" },
         { href: "/dashboard/contracts", label: "Contracts" },

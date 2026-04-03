@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { fetchRuntimeEngine, resolveGuildContext, runRuntimeEngineAction, saveRuntimeEngine } from "@/lib/liveRuntime";
+import { fetchGuildData, fetchRuntimeEngine, resolveGuildContext, runRuntimeEngineAction, saveRuntimeEngine } from "@/lib/liveRuntime";
 
 type EngineKey = "gameIdentity" | "privacyConsent" | "presenceFusion" | "playtime" | "squadFinder" | "gameProvider" | "showoff";
 type RuntimeRow = Record<string, any>;
@@ -123,12 +123,13 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
         fetchRuntimeEngine(targetGuildId, "squadFinder", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "gameProvider", viewerUserId),
         fetchRuntimeEngine(targetGuildId, "showoff", viewerUserId),
-        fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }).then((response) => response.json()).catch(() => ({})),
+        fetchGuildData(targetGuildId, viewerUserId).catch(() => ({})),
       ]);
       const next = { gameIdentity: normalizePayload(gameIdentity), privacyConsent: normalizePayload(privacyConsent), presenceFusion: normalizePayload(presenceFusion), playtime: normalizePayload(playtime), squadFinder: normalizePayload(squadFinder), gameProvider: normalizePayload(gameProvider), showoff: normalizePayload(showoff) } as Record<EngineKey, EnginePayload>;
+      const safeGuildData = (guildData && typeof guildData === "object" ? guildData : {}) as { channels?: GuildChannel[]; roles?: GuildRole[] };
       setEngines(next);
-      setChannels(Array.isArray(guildData?.channels) ? guildData.channels : []);
-      setRoles(Array.isArray(guildData?.roles) ? guildData.roles : []);
+      setChannels(Array.isArray(safeGuildData.channels) ? safeGuildData.channels : []);
+      setRoles(Array.isArray(safeGuildData.roles) ? safeGuildData.roles : []);
       const memberState = next.privacyConsent.details?.memberSelfService || next.gameIdentity.details?.memberSelfService || null;
       if (memberState?.privacy) setSelfPrivacy({ ...EMPTY_PRIVACY, ...memberState.privacy, watchlistUserIds: Array.isArray(memberState.privacy.watchlistUserIds) ? memberState.privacy.watchlistUserIds : [] });
     } catch (err: any) {
@@ -209,7 +210,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
     <div style={{ ...card, marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>Outside Games Control</div>
+          <div style={{ fontSize: 24, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 900, color: "#ff2f2f" }}>Gaming Hub</div>
           <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildName || guildId}</div>
           <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 8 }}>This stack now covers provider sync, ownership verification, privacy + consent, rank automation, gamer cards, and squad finder.</div>
         </div>
