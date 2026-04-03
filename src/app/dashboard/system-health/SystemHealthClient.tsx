@@ -287,6 +287,7 @@ export default function SystemHealthPage() {
               ["Warnings", engineFailures.summary?.warning || 0],
               ["Disabled", engineFailures.summary?.disabled || 0],
               ["Process Failures", engineFailures.summary?.processFailures || 0],
+              ["Failure Inbox", engineFailures.summary?.inboxFailures || 0],
             ].map(([label, value]) => (
               <div key={String(label)} style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
                 <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>{label}</div>
@@ -353,7 +354,9 @@ export default function SystemHealthPage() {
                         <div key={`${engine.engine}_failure_${index}`} style={{ marginBottom: index < Math.min(engine.failures.length, 3) - 1 ? 8 : 0 }}>
                           <div style={{ color: "#ffdada", fontWeight: 700 }}>{failure.event || "runtime"}</div>
                           <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>{failure.error}</div>
-                          <div style={{ color: "#caa", fontSize: 11, marginTop: 4 }}>{failure.at || "Unknown time"}</div>
+                          <div style={{ color: "#caa", fontSize: 11, marginTop: 4 }}>
+                            {failure.at || "Unknown time"}{failure.requestId ? ` · req ${failure.requestId}` : ""}
+                          </div>
                         </div>
                       ))}
                     </div>
