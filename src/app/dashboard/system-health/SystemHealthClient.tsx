@@ -53,6 +53,12 @@ function actionStyle(tone: string) {
   } as const;
 }
 
+function validationTone(ok: boolean | null | undefined) {
+  if (ok === true) return "#9effb8";
+  if (ok === false) return "#ff9b9b";
+  return "#ffd27a";
+}
+
 function getGuildId() {
   if (typeof window === "undefined") return "";
   const url = new URLSearchParams(window.location.search).get("guildId") || "";
@@ -274,6 +280,68 @@ export default function SystemHealthPage() {
               <button onClick={clearEventReactorFailures} style={{ marginTop: 8 }}>Clear Failures</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {engineHealth?.validation && (
+        <div style={box}>
+          <h3 style={{ marginTop: 0, color: "#ff4444" }}>Startup Validation</h3>
+          <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+            {[
+              ["Env Errors", engineHealth.validation.env?.errors?.length || 0, (engineHealth.validation.env?.errors?.length || 0) === 0],
+              ["Env Warnings", engineHealth.validation.env?.warnings?.length || 0, (engineHealth.validation.env?.warnings?.length || 0) === 0],
+              ["Missing Intents", engineHealth.validation.intents?.missingRequired?.length || 0, (engineHealth.validation.intents?.missingRequired?.length || 0) === 0],
+              ["Missing Bindings", engineHealth.validation.bindings?.totals?.missing || 0, (engineHealth.validation.bindings?.totals?.missing || 0) === 0],
+              ["Configured Bindings", engineHealth.validation.bindings?.totals?.configured || 0, true],
+              ["Provider Bridge", engineHealth.validation.bridge?.status || "unknown", engineHealth.validation.bridge?.ok],
+            ].map(([label, value, ok]) => (
+              <div key={String(label)} style={{ background: "#0f0f0f", borderRadius: 10, padding: 10 }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#ff8c8c" }}>{label}</div>
+                <div style={{ fontWeight: 800, marginTop: 6, color: validationTone(ok as boolean | null | undefined) }}>{String(value)}</div>
+              </div>
+            ))}
+          </div>
+
+          {Array.isArray(engineHealth.validation.intents?.missingRequired) && engineHealth.validation.intents.missingRequired.length > 0 ? (
+            <div style={{ marginTop: 12, color: "#ffbdbd", fontSize: 12 }}>
+              Missing required intents: {engineHealth.validation.intents.missingRequired.join(", ")}
+            </div>
+          ) : null}
+
+          {Array.isArray(engineHealth.validation.env?.errors) && engineHealth.validation.env.errors.length > 0 ? (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: "#ff8c8c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Env Errors
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {engineHealth.validation.env.errors.slice(0, 8).map((entry: string, index: number) => (
+                  <div key={`env_error_${index}`} style={{ border: "1px solid #300000", borderRadius: 8, padding: 8, background: "#0f0f0f", color: "#ffbdbd", fontSize: 12 }}>
+                    {entry}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {Array.isArray(engineHealth.validation.bindings?.issues) && engineHealth.validation.bindings.issues.length > 0 ? (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: "#ff8c8c", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Missing or Invalid Guild Bindings
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {engineHealth.validation.bindings.issues.slice(0, 10).map((issue: any, index: number) => (
+                  <div key={`binding_issue_${index}`} style={{ border: "1px solid #300000", borderRadius: 8, padding: 8, background: "#0f0f0f" }}>
+                    <div style={{ color: "#ffdada", fontWeight: 700 }}>
+                      {issue.engine || "runtime"} · {issue.path || issue.kind || "binding"}
+                    </div>
+                    <div style={{ color: "#ffbdbd", fontSize: 12, marginTop: 4 }}>
+                      {issue.error || "Configured binding is invalid."}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
