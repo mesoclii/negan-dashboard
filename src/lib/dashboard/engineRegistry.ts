@@ -41,6 +41,7 @@ export const ENGINE_REGISTRY: EngineDef[] = [
   { id: "governance", label: "Governance", description: "Security governance stack master gate", group: "Security", route: "/dashboard/governance", featureKey: "governanceEnabled" },
   { id: "security-enforcer", label: "Security Enforcer", description: "Security enforcement policy and escalation runtime", group: "Security", route: "/dashboard/security-enforcer", featureKey: "governanceEnabled" },
   { id: "blacklist", label: "Blacklist", description: "Blacklist controls", group: "Security", route: "/dashboard/blacklist" },
+  { id: "modder-intel", label: "Modder Intel", description: "Tracked menu-holder intel, restriction surfaces, and staff-safe cleanup", group: "Security", route: "/dashboard/modder-intel" },
   { id: "failsafe", label: "Failsafe", description: "Failsafe emergency controls", group: "Security", route: "/dashboard/failsafe" },
 
   { id: "automation-studio", label: "Automation Studio", description: "Visual automation builder and runtime editor", group: "Automation", route: "/dashboard/automations/studio" },

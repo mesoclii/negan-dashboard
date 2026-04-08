@@ -7,6 +7,7 @@ const ENGINE_ALIAS_MAP: Record<string, string> = {
   botPersonalizer: "botPersonalizer",
   rareDrop: "rareSpawn",
   eventPointsStudio: "eventPoints",
+  modderdb: "modderIntel",
 };
 
 export function normalizeEngineKey(raw: string): string {
@@ -40,6 +41,8 @@ export function normalizeEngineKey(raw: string): string {
     presencefusion: "presenceFusion",
     squadfinder: "squadFinder",
     gameplaytime: "playtime",
+    modderintel: "modderIntel",
+    modderdb: "modderIntel",
     nativecommands: "nativeCommands",
   };
 

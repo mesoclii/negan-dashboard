@@ -8,6 +8,7 @@ import { resolveGuildContext, fetchRuntimeEngine, saveRuntimeEngine, fetchDashbo
 type EnginePayload = {
   config?: Record<string, any>;
   summary?: Array<{ label: string; value: string }>;
+  details?: Record<string, any>;
 };
 
 type EngineKey = "store" | "progression" | "inviteTracker" | "radio" | "giveaways" | "eventPoints";
@@ -74,7 +75,11 @@ export default function EconomyClient() {
         fetchDashboardConfig(targetGuildId),
         ...LINKS.map(async (entry) => {
           const json = await fetchRuntimeEngine(targetGuildId, entry.engine);
-          return [entry.engine, { config: json?.config || {}, summary: Array.isArray(json?.summary) ? json.summary : [] }] as const;
+          return [entry.engine, {
+            config: json?.config || {},
+            summary: Array.isArray(json?.summary) ? json.summary : [],
+            details: json?.details && typeof json.details === "object" ? json.details : {},
+          }] as const;
         }),
       ]);
       setEconomyEnabled(Boolean(dashboard?.features?.economyEnabled));
@@ -162,6 +167,11 @@ export default function EconomyClient() {
     return <div style={{ color: "#ff8080", padding: 24 }}>Missing guildId. Open from `/guilds` first.</div>;
   }
 
+  const eventCurrencySummary = Array.isArray(engines.eventPoints.summary) ? engines.eventPoints.summary : [];
+  const eventCurrencyLabel = eventCurrencySummary.find((row) => row.label === "Currency")?.value || "Event currency not configured";
+  const walletHolderCount = eventCurrencySummary.find((row) => row.label === "Wallet Holders")?.value || "0";
+  const eventBalanceRows = Array.isArray(engines.eventPoints.details?.memberBalances) ? engines.eventPoints.details.memberBalances.slice(0, 6) : [];
+
   return (
     <div style={{ maxWidth: 1280, margin: "0 auto", color: "#f8b4b4" }}>
       <div style={card}>
@@ -195,6 +205,37 @@ export default function EconomyClient() {
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>{entry.description}</div>
               </div>
             ))}
+          </div>
+
+          <div style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", textTransform: "uppercase", letterSpacing: "0.08em" }}>Event Currency Visibility</h3>
+            <div style={{ color: "#ffb3b3", fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>
+              Your special event currency is tied into store pricing already. This section keeps it visible from the main economy hub instead of burying it only on the Event Points page.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+              <div style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12 }}>
+                <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 6 }}>Currency</div>
+                <div style={{ color: "#fff", fontWeight: 900 }}>{eventCurrencyLabel}</div>
+              </div>
+              <div style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12 }}>
+                <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 6 }}>Wallet Holders</div>
+                <div style={{ color: "#fff", fontWeight: 900 }}>{walletHolderCount}</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, color: "#ffb3b3", fontSize: 12 }}>
+              Top balances:
+            </div>
+            <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              {eventBalanceRows.length ? eventBalanceRows.map((row: any) => (
+                <div key={String(row.id || row.title)} style={{ borderTop: "1px solid #330000", paddingTop: 8 }}>
+                  <div style={{ color: "#fff", fontWeight: 800 }}>{row.name || row.title || "Member"}</div>
+                  <div style={{ color: "#ffb3b3", fontSize: 12 }}>{row.value || "-"}</div>
+                </div>
+              )) : <div style={{ color: "#ffb3b3", fontSize: 12 }}>No special event currency balances recorded yet.</div>}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <Link href={`/dashboard/economy/events?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Event Points</Link>
+            </div>
           </div>
 
           <div style={card}>

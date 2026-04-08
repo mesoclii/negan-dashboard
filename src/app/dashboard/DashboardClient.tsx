@@ -274,6 +274,7 @@ function getCardSection(card: Card): DashboardSection {
     href === "/dashboard/security-enforcer" ||
     href === "/dashboard/moderator" ||
     href === "/dashboard/blacklist" ||
+    href === "/dashboard/modder-intel" ||
     href === "/dashboard/failsafe"
   ) {
     return "Security";
@@ -460,6 +461,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/governance", title: "Governance", description: "Governance state and enforcement controls.", toggle: engineController("security.governance", ["active"]) },
   { href: "/dashboard/security", title: "Security", description: "Security stack, moderation, and policies.", toggle: engineController("security.governance", ["active"]) },
   { href: "/dashboard/blacklist", title: "Blacklist", description: "Blacklist add/remove/show control.", toggle: engineController("blacklist") },
+  { href: "/dashboard/modder-intel", title: "Modder Intel", description: "Track menu holders, reseller risk, and restriction surfaces without forcing them into the blacklist.", toggle: engineController("modderIntel", ["enabled"]) },
   { href: "/dashboard/failsafe", title: "Failsafe", description: "Emergency pause and safety switches.", toggle: engineController("failsafe") },
   { href: "/dashboard/system-health", title: "System Health", description: "Runtime monitor, drift and health checks.", goOnly: true, goLabel: "Go" },
   { href: "/dashboard/master", title: "Master Control", description: "Creator-only global view for guild coverage, route counts, and what is set where.", goOnly: true, goLabel: "Open", creatorOnly: true },

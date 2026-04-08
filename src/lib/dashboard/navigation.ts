@@ -89,6 +89,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/security/shadow-layer", label: "Shadow Layer" },
         { href: "/dashboard/security-enforcer", label: "Security Enforcer" },
         { href: "/dashboard/blacklist", label: "Blacklist" },
+        { href: "/dashboard/modder-intel", label: "Modder Intel" },
         { href: "/dashboard/failsafe", label: "Failsafe" },
       ],
     },

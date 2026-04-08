@@ -46,9 +46,9 @@ const action: CSSProperties = {
 
 function pretty(value: unknown) {
   try {
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(value, null, 2).replace(/\b\d{16,20}\b/g, "[id hidden]");
   } catch {
-    return String(value ?? "");
+    return String(value ?? "").replace(/\b\d{16,20}\b/g, "[id hidden]");
   }
 }
 
