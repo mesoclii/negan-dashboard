@@ -11,6 +11,15 @@ type ModderIntelConfig = {
   rulesChannelId: string;
   staffRoleIds: string[];
   autoRemoveOnStaff: boolean;
+  autoTrackLinkedServers: boolean;
+  linkedSourceServers: {
+    guildId: string;
+    label: string;
+    sourceKey: string;
+    sourceCustomLabel: string;
+    notes: string;
+    enabled: boolean;
+  }[];
   notes: string;
 };
 
@@ -27,8 +36,23 @@ const DEFAULT_CFG: ModderIntelConfig = {
   rulesChannelId: "",
   staffRoleIds: [],
   autoRemoveOnStaff: true,
+  autoTrackLinkedServers: true,
+  linkedSourceServers: [],
   notes: "",
 };
+
+const SOURCE_OPTIONS = [
+  { key: "cherax_standard", label: "Cherax Standard" },
+  { key: "cherax_premium", label: "Cherax Premium" },
+  { key: "cherax_prime", label: "Cherax Prime" },
+  { key: "riptide", label: "Riptide" },
+  { key: "midnight", label: "Midnight" },
+  { key: "stand", label: "Stand" },
+  { key: "yim", label: "Yim" },
+  { key: "nenyoo", label: "Nenyoo" },
+  { key: "lexis", label: "Lexis" },
+  { key: "other", label: "Other" },
+];
 
 const SURFACES = [
   { key: "vip", label: "VIP" },
@@ -94,11 +118,14 @@ export default function ModderIntelClient() {
     [channels]
   );
   const trackedEntries = useMemo(() => (Array.isArray((details as any)?.entries) ? ((details as any).entries as RuntimeRow[]) : []), [details]);
+  const linkedServers = useMemo(() => (Array.isArray((details as any)?.linkedServers) ? ((details as any).linkedServers as RuntimeRow[]) : []), [details]);
   const activity = useMemo(() => (Array.isArray((details as any)?.activity) ? ((details as any).activity as RuntimeRow[]) : []), [details]);
 
   const [form, setForm] = useState({
     userId: "",
     menuName: "",
+    sourceKey: "cherax_standard",
+    sourceCustomLabel: "",
     riskLevel: "medium",
     notes: "",
     restrictionSurfaces: [] as string[],
@@ -111,6 +138,8 @@ export default function ModderIntelClient() {
     const result = await runAction("upsertEntry", {
       userId,
       menuName: form.menuName,
+      sourceKey: form.sourceKey,
+      sourceCustomLabel: form.sourceCustomLabel,
       riskLevel: form.riskLevel,
       notes: form.notes,
       restrictionSurfaces: form.restrictionSurfaces,
@@ -119,6 +148,8 @@ export default function ModderIntelClient() {
       setForm({
         userId: "",
         menuName: "",
+        sourceKey: "cherax_standard",
+        sourceCustomLabel: "",
         riskLevel: "medium",
         notes: "",
         restrictionSurfaces: [],
@@ -135,6 +166,33 @@ export default function ModderIntelClient() {
       setRemoveUserId("");
       void reload();
     }
+  }
+
+  function updateLinkedServer(index: number, patch: Partial<ModderIntelConfig["linkedSourceServers"][number]>) {
+    setConfig((prev) => {
+      const nextCfg = { ...(prev || cfg) };
+      const rows = Array.isArray(nextCfg.linkedSourceServers) ? [...nextCfg.linkedSourceServers] : [];
+      rows[index] = { ...(rows[index] || { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", notes: "", enabled: true }), ...patch };
+      nextCfg.linkedSourceServers = rows;
+      return nextCfg;
+    });
+  }
+
+  function addLinkedServer() {
+    setConfig((prev) => ({
+      ...(prev || cfg),
+      linkedSourceServers: [
+        ...((prev || cfg).linkedSourceServers || []),
+        { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", notes: "", enabled: true },
+      ],
+    }));
+  }
+
+  function removeLinkedServer(index: number) {
+    setConfig((prev) => ({
+      ...(prev || cfg),
+      linkedSourceServers: (((prev || cfg).linkedSourceServers) || []).filter((_, rowIndex) => rowIndex !== index),
+    }));
   }
 
   if (!guildId) {
@@ -163,6 +221,9 @@ export default function ModderIntelClient() {
               </label>
               <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
                 <input type="checkbox" checked={cfg.autoRemoveOnStaff} onChange={(e) => setConfig((prev) => ({ ...(prev || cfg), autoRemoveOnStaff: e.target.checked }))} /> Auto-remove intel if member becomes staff
+              </label>
+              <label style={{ color: "#ffdcdc", fontWeight: 700 }}>
+                <input type="checkbox" checked={cfg.autoTrackLinkedServers} onChange={(e) => setConfig((prev) => ({ ...(prev || cfg), autoTrackLinkedServers: e.target.checked }))} /> Auto-track matches from linked Discord servers
               </label>
             </div>
           </section>
@@ -207,6 +268,62 @@ export default function ModderIntelClient() {
 
           <section style={card}>
             <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Linked Menu / Reseller Discord Servers
+            </div>
+            <div style={{ color: "#ffb7b7", marginBottom: 12, lineHeight: 1.6 }}>
+              Add Discord server IDs the bot is also in. If a member joins one of those linked servers and this guild, the modder database can auto-add them using the selected source preset.
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {(cfg.linkedSourceServers || []).map((entry, index) => (
+                <div key={`${entry.guildId || "new"}_${index}`} style={{ border: "1px solid #3b0000", borderRadius: 12, padding: 12, background: "#0a0a0a" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
+                    <div>
+                      <div style={label}>Linked Server ID</div>
+                      <input style={input} value={entry.guildId} onChange={(e) => updateLinkedServer(index, { guildId: e.target.value })} placeholder="Discord guild ID" />
+                    </div>
+                    <div>
+                      <div style={label}>Display Label</div>
+                      <input style={input} value={entry.label} onChange={(e) => updateLinkedServer(index, { label: e.target.value })} placeholder="Cherax Discord, Midnight Server, etc." />
+                    </div>
+                    <div>
+                      <div style={label}>Source Preset</div>
+                      <select style={input} value={entry.sourceKey} onChange={(e) => updateLinkedServer(index, { sourceKey: e.target.value })}>
+                        {SOURCE_OPTIONS.map((option) => (
+                          <option key={option.key} value={option.key}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {entry.sourceKey === "other" ? (
+                      <div>
+                        <div style={label}>Custom Source Label</div>
+                        <input style={input} value={entry.sourceCustomLabel || ""} onChange={(e) => updateLinkedServer(index, { sourceCustomLabel: e.target.value })} placeholder="Custom source name" />
+                      </div>
+                    ) : null}
+                    <div>
+                      <div style={label}>Notes</div>
+                      <input style={input} value={entry.notes || ""} onChange={(e) => updateLinkedServer(index, { notes: e.target.value })} placeholder="Optional intake note" />
+                    </div>
+                    <label style={{ color: "#ffdcdc", fontWeight: 700, alignSelf: "end" }}>
+                      <input type="checkbox" checked={entry.enabled !== false} onChange={(e) => updateLinkedServer(index, { enabled: e.target.checked })} /> Enabled
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                    <button onClick={() => removeLinkedServer(index)} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+                      Remove Linked Server
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+              <button onClick={() => addLinkedServer()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+                Add Linked Server
+              </button>
+            </div>
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
               Track Menu Holder / Reseller Intel
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
@@ -219,6 +336,14 @@ export default function ModderIntelClient() {
                 <input style={input} value={form.menuName} onChange={(e) => setForm((prev) => ({ ...prev, menuName: e.target.value }))} placeholder="Cherax, Stand, 2Take1, etc." />
               </div>
               <div>
+                <div style={label}>Source</div>
+                <select style={input} value={form.sourceKey} onChange={(e) => setForm((prev) => ({ ...prev, sourceKey: e.target.value }))}>
+                  {SOURCE_OPTIONS.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <div style={label}>Risk Level</div>
                 <select style={input} value={form.riskLevel} onChange={(e) => setForm((prev) => ({ ...prev, riskLevel: e.target.value }))}>
                   <option value="low">LOW</option>
@@ -227,6 +352,12 @@ export default function ModderIntelClient() {
                   <option value="extreme">EXTREME</option>
                 </select>
               </div>
+              {form.sourceKey === "other" ? (
+                <div>
+                  <div style={label}>Custom Source Label</div>
+                  <input style={input} value={form.sourceCustomLabel} onChange={(e) => setForm((prev) => ({ ...prev, sourceCustomLabel: e.target.value }))} placeholder="Type the custom menu/community source" />
+                </div>
+              ) : null}
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={label}>Restriction Surfaces</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", border: "1px solid #500000", borderRadius: 10, padding: 10, background: "#0a0a0a" }}>
@@ -274,6 +405,18 @@ export default function ModderIntelClient() {
                 <div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div>
               </div>
             )) : <div style={{ color: "#ffb3b3" }}>No tracked menu holders yet.</div>}
+          </section>
+
+          <section style={card}>
+            <div style={{ color: "#ffb3b3", fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              Linked Server Intake
+            </div>
+            {linkedServers.length ? linkedServers.map((entry) => (
+              <div key={String(entry.id || entry.title)} style={{ padding: "8px 0", borderTop: "1px solid #330000" }}>
+                <div style={{ fontWeight: 800 }}>{entry.title || entry.name}</div>
+                <div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div>
+              </div>
+            )) : <div style={{ color: "#ffb3b3" }}>No linked source servers configured yet.</div>}
           </section>
 
           <section style={card}>
