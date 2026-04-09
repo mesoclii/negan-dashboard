@@ -87,6 +87,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/security/staff-activity", label: "Staff Activity" },
         { href: "/dashboard/security/crew-security", label: "Crew Security" },
         { href: "/dashboard/security/shadow-layer", label: "Shadow Layer" },
+        { href: "/dashboard/security/activity-prune", label: "Activity Prune" },
         { href: "/dashboard/security-enforcer", label: "Security Enforcer" },
         { href: "/dashboard/blacklist", label: "Blacklist" },
         { href: "/dashboard/modder-intel", label: "Modder Intel" },
