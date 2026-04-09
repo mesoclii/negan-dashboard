@@ -17,6 +17,7 @@ type ModderIntelConfig = {
     label: string;
     sourceKey: string;
     sourceCustomLabel: string;
+    menuUser: boolean;
     notes: string;
     enabled: boolean;
   }[];
@@ -46,7 +47,15 @@ const SOURCE_OPTIONS = [
   { key: "cherax_premium", label: "Cherax Premium" },
   { key: "cherax_prime", label: "Cherax Prime" },
   { key: "riptide", label: "Riptide" },
+  { key: "infamous", label: "Infamous" },
+  { key: "xforce", label: "X-Force" },
+  { key: "xforce_ace_be", label: "X-Force Ace BE Enabled" },
+  { key: "scooby", label: "Scooby" },
+  { key: "atlas", label: "Atlas" },
   { key: "midnight", label: "Midnight" },
+  { key: "ethereal_ovix", label: "Ethereal Ovix" },
+  { key: "raiden", label: "Raiden" },
+  { key: "oxcheats", label: "OxCheats" },
   { key: "stand", label: "Stand" },
   { key: "yim", label: "Yim" },
   { key: "nenyoo", label: "Nenyoo" },
@@ -123,7 +132,7 @@ export default function ModderIntelClient() {
 
   const [form, setForm] = useState({
     userId: "",
-    menuName: "",
+    menuUser: true,
     sourceKey: "cherax_standard",
     sourceCustomLabel: "",
     riskLevel: "medium",
@@ -137,7 +146,7 @@ export default function ModderIntelClient() {
     if (!userId) return;
     const result = await runAction("upsertEntry", {
       userId,
-      menuName: form.menuName,
+      menuUser: form.menuUser,
       sourceKey: form.sourceKey,
       sourceCustomLabel: form.sourceCustomLabel,
       riskLevel: form.riskLevel,
@@ -147,7 +156,7 @@ export default function ModderIntelClient() {
     if (result) {
       setForm({
         userId: "",
-        menuName: "",
+        menuUser: true,
         sourceKey: "cherax_standard",
         sourceCustomLabel: "",
         riskLevel: "medium",
@@ -172,7 +181,7 @@ export default function ModderIntelClient() {
     setConfig((prev) => {
       const nextCfg = { ...(prev || cfg) };
       const rows = Array.isArray(nextCfg.linkedSourceServers) ? [...nextCfg.linkedSourceServers] : [];
-      rows[index] = { ...(rows[index] || { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", notes: "", enabled: true }), ...patch };
+      rows[index] = { ...(rows[index] || { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", menuUser: true, notes: "", enabled: true }), ...patch };
       nextCfg.linkedSourceServers = rows;
       return nextCfg;
     });
@@ -183,7 +192,7 @@ export default function ModderIntelClient() {
       ...(prev || cfg),
       linkedSourceServers: [
         ...((prev || cfg).linkedSourceServers || []),
-        { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", notes: "", enabled: true },
+        { guildId: "", label: "", sourceKey: "cherax_standard", sourceCustomLabel: "", menuUser: true, notes: "", enabled: true },
       ],
     }));
   }
@@ -293,6 +302,13 @@ export default function ModderIntelClient() {
                         ))}
                       </select>
                     </div>
+                    <div>
+                      <div style={label}>Menu User</div>
+                      <select style={input} value={entry.menuUser ? "yes" : "no"} onChange={(e) => updateLinkedServer(index, { menuUser: e.target.value === "yes" })}>
+                        <option value="yes">YES</option>
+                        <option value="no">NO</option>
+                      </select>
+                    </div>
                     {entry.sourceKey === "other" ? (
                       <div>
                         <div style={label}>Custom Source Label</div>
@@ -332,11 +348,14 @@ export default function ModderIntelClient() {
                 <input style={input} value={form.userId} onChange={(e) => setForm((prev) => ({ ...prev, userId: e.target.value }))} placeholder="Discord user ID or mention" />
               </div>
               <div>
-                <div style={label}>Menu Name</div>
-                <input style={input} value={form.menuName} onChange={(e) => setForm((prev) => ({ ...prev, menuName: e.target.value }))} placeholder="Cherax, Stand, 2Take1, etc." />
+                <div style={label}>Menu User</div>
+                <select style={input} value={form.menuUser ? "yes" : "no"} onChange={(e) => setForm((prev) => ({ ...prev, menuUser: e.target.value === "yes" }))}>
+                  <option value="yes">YES</option>
+                  <option value="no">NO</option>
+                </select>
               </div>
               <div>
-                <div style={label}>Source</div>
+                <div style={label}>Menu Source</div>
                 <select style={input} value={form.sourceKey} onChange={(e) => setForm((prev) => ({ ...prev, sourceKey: e.target.value }))}>
                   {SOURCE_OPTIONS.map((option) => (
                     <option key={option.key} value={option.key}>{option.label}</option>
