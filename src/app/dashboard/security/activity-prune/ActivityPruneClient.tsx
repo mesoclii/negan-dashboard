@@ -156,6 +156,16 @@ export default function ActivityPruneClient() {
     setConfig((prev) => ({ ...(prev || cfg), ...next }));
   }
 
+  async function runConfiguredAction(action: "previewSweep" | "runSweep" | "clearWarnings") {
+    const saved = await save();
+    if (!saved) return;
+    if (action === "clearWarnings") {
+      await runAction("clearWarnings");
+      return;
+    }
+    await runAction(action, { limit: cfg.previewLimit });
+  }
+
   if (!guildId) {
     return <div style={{ ...shell, color: "#ff8080" }}>Missing guildId. Open from /guilds first.</div>;
   }
@@ -321,12 +331,12 @@ export default function ActivityPruneClient() {
           <section style={card}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button onClick={() => void save()} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>{saving ? "Saving..." : "Save Engine"}</button>
-              <button onClick={() => void runAction("previewSweep", { limit: cfg.previewLimit })} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>{saving ? "Working..." : "Preview Sweep"}</button>
-              <button onClick={() => void runAction("runSweep", { limit: cfg.previewLimit })} disabled={saving || !cfg.enabled || !cfg.autoKickEnabled || cfg.dryRunOnly} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, opacity: (!cfg.enabled || !cfg.autoKickEnabled || cfg.dryRunOnly) ? 0.6 : 1 }}>{saving ? "Working..." : "Run Live Sweep Now"}</button>
-              <button onClick={() => void runAction("clearWarnings")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>{saving ? "Working..." : "Clear Pending Warnings"}</button>
+              <button onClick={() => void runConfiguredAction("previewSweep")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>{saving ? "Working..." : "Preview Sweep"}</button>
+              <button onClick={() => void runConfiguredAction("runSweep")} disabled={saving || !cfg.enabled || !cfg.autoKickEnabled || cfg.dryRunOnly} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900, opacity: (!cfg.enabled || !cfg.autoKickEnabled || cfg.dryRunOnly) ? 0.6 : 1 }}>{saving ? "Working..." : "Run Live Sweep Now"}</button>
+              <button onClick={() => void runConfiguredAction("clearWarnings")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>{saving ? "Working..." : "Clear Pending Warnings"}</button>
             </div>
             <div style={{ color: "#ffb3b3", marginTop: 10, lineHeight: 1.6 }}>
-              Keep <strong>Dry run only</strong> on while tuning this for a server. Once the queue looks right, turn on live kicks and let the warning/grace flow do the heavy lifting.
+              Preview and sweep actions now save the current prune settings first, so your exempt roles and message-window changes are applied before the engine runs.
             </div>
           </section>
 
