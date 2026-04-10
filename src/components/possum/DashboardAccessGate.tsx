@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const ACCESS_CACHE_TTL_MS = 15 * 60 * 1000;
 const SESSION_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -53,6 +54,16 @@ function accessReasonLabel(reason: string) {
       return "Allowed by the configured dashboard access role.";
     case "ok_role_level":
       return "Allowed by the configured minimum role level.";
+    case "ok_member_gaming_portal_user":
+      return "Allowed by the member gaming portal allowlist.";
+    case "ok_member_gaming_portal_role":
+      return "Allowed by the member gaming portal role policy.";
+    case "member_gaming_portal_disabled":
+      return "Member gaming portal is disabled for this guild.";
+    case "route_not_allowed":
+      return "Your policy does not allow this dashboard route.";
+    case "dashboard_policy_inactive":
+      return "Dashboard policy is disabled for this guild.";
     case "member_not_found":
       return "Your account is not currently resolved as a guild member.";
     default:
@@ -60,26 +71,26 @@ function accessReasonLabel(reason: string) {
   }
 }
 
-function accessCacheKey(guildId: string, userId: string) {
-  return `dashboard-access:${guildId}:${userId}`;
+function accessCacheKey(guildId: string, userId: string, routePath: string) {
+  return `dashboard-access:${guildId}:${userId}:${routePath || "/"}`;
 }
 
 function sessionCacheKey() {
   return "dashboard-session-brief";
 }
 
-function readAccessCache(guildId: string, userId: string): AccessCacheEntry | null {
+function readAccessCache(guildId: string, userId: string, routePath: string): AccessCacheEntry | null {
   if (typeof window === "undefined" || !guildId || !userId) {
     return null;
   }
 
   try {
-    const raw = sessionStorage.getItem(accessCacheKey(guildId, userId));
+    const raw = sessionStorage.getItem(accessCacheKey(guildId, userId, routePath));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AccessCacheEntry;
     if (!parsed || typeof parsed !== "object") return null;
     if (Date.now() - Number(parsed.checkedAt || 0) > ACCESS_CACHE_TTL_MS) {
-      sessionStorage.removeItem(accessCacheKey(guildId, userId));
+      sessionStorage.removeItem(accessCacheKey(guildId, userId, routePath));
       return null;
     }
     return {
@@ -92,14 +103,14 @@ function readAccessCache(guildId: string, userId: string): AccessCacheEntry | nu
   }
 }
 
-function writeAccessCache(guildId: string, userId: string, entry: Omit<AccessCacheEntry, "checkedAt">) {
+function writeAccessCache(guildId: string, userId: string, routePath: string, entry: Omit<AccessCacheEntry, "checkedAt">) {
   if (typeof window === "undefined" || !guildId || !userId) {
     return;
   }
 
   try {
     sessionStorage.setItem(
-      accessCacheKey(guildId, userId),
+      accessCacheKey(guildId, userId, routePath),
       JSON.stringify({
         allowed: Boolean(entry.allowed),
         reason: String(entry.reason || ""),
@@ -168,18 +179,20 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
 export default function DashboardAccessGate({ children }: { children: React.ReactNode }) {
   const [allowed, setAllowed] = useState(true);
   const [reason, setReason] = useState("");
+  const pathname = usePathname();
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       const context = getContext();
+      const routePath = String(pathname || (typeof window !== "undefined" ? window.location.pathname : "/dashboard") || "/dashboard").trim();
       let userId = context.userId;
       const cachedSession = readSessionCache();
       if (!userId && cachedSession?.userId) {
         userId = cachedSession.userId;
       }
-      const cachedAccess = readAccessCache(context.guildId, userId);
+      const cachedAccess = readAccessCache(context.guildId, userId, routePath);
 
       if (cachedAccess && mounted) {
         setAllowed(cachedAccess.allowed);
@@ -233,7 +246,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
 
       try {
         const { res: accessRes, json: accessJson } = await fetchJsonWithTimeout(
-          `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}`,
+          `/api/bot/guild-access?guildId=${encodeURIComponent(context.guildId)}&userId=${encodeURIComponent(userId)}&routePath=${encodeURIComponent(routePath)}`,
           7000
         );
 
@@ -247,7 +260,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
         const nextReason = accessReasonLabel(String(accessJson?.reason || ""));
         setAllowed(nextAllowed);
         setReason(nextReason);
-        writeAccessCache(context.guildId, userId, { allowed: nextAllowed, reason: nextReason });
+        writeAccessCache(context.guildId, userId, routePath, { allowed: nextAllowed, reason: nextReason });
       } catch {
         if (!mounted) return;
         setAllowed(true);
@@ -257,7 +270,7 @@ export default function DashboardAccessGate({ children }: { children: React.Reac
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   if (!allowed) {
     return (

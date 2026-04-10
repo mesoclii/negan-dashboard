@@ -120,6 +120,11 @@ function resolveViewerUserId(explicitUserId = "") {
   return resolveGuildContext().userId;
 }
 
+function resolveRoutePath() {
+  if (typeof window === "undefined") return "/dashboard";
+  return String(window.location.pathname || "/dashboard").trim() || "/dashboard";
+}
+
 export function peekGuildData(guildId: string, explicitUserId = "") {
   const userId = resolveViewerUserId(explicitUserId);
   const cacheKey = `${String(guildId || "").trim()}:${userId}`;
@@ -128,7 +133,8 @@ export function peekGuildData(guildId: string, explicitUserId = "") {
 
 export function peekRuntimeEngine(guildId: string, engine: string, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
-  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}`;
+  const routePath = resolveRoutePath();
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}:${routePath}`;
   return runtimeEngineCache.get(cacheKey)?.value || null;
 }
 
@@ -177,7 +183,8 @@ export async function fetchGuildData(guildId: string, explicitUserId = "") {
 
 export async function fetchRuntimeEngine(guildId: string, engine: string, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
-  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}`;
+  const routePath = resolveRoutePath();
+  const cacheKey = `${String(guildId || "").trim()}:${String(engine || "").trim()}:${actorUserId}:${routePath}`;
   const cached = runtimeEngineCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -188,7 +195,7 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
   const request = (async () => {
     try {
       const json = await fetchJsonOrThrow(
-        `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
+        `/api/runtime/engine?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(engine)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}&routePath=${encodeURIComponent(routePath)}`
       );
       runtimeEngineCache.set(cacheKey, { value: json, expiresAt: Date.now() + RUNTIME_ENGINE_TTL_MS });
       runtimeEngineInflight.delete(cacheKey);
@@ -212,10 +219,11 @@ export async function fetchRuntimeEngine(guildId: string, engine: string, userId
 
 export async function saveRuntimeEngine(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
+  const routePath = resolveRoutePath();
   const json = await fetchJsonOrThrow("/api/runtime/engine", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, patch, userId: actorUserId }),
+    body: JSON.stringify({ guildId, engine, patch, userId: actorUserId, routePath }),
   });
   const cachePrefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
   for (const key of runtimeEngineCache.keys()) {
@@ -237,11 +245,19 @@ export async function validateRuntimeEngine(guildId: string, engine: string, pat
 
 export async function runRuntimeEngineAction(guildId: string, engine: string, action: string, payload?: Record<string, unknown>, userId = "") {
   const actorUserId = resolveViewerUserId(userId);
-  return await fetchJsonOrThrow("/api/runtime/engine-action", {
+  const routePath = resolveRoutePath();
+  const json = await fetchJsonOrThrow("/api/runtime/engine-action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guildId, engine, action, payload, userId: actorUserId }),
+    body: JSON.stringify({ guildId, engine, action, payload, userId: actorUserId, routePath }),
   });
+  const cachePrefix = `${String(guildId || "").trim()}:${String(engine || "").trim()}:`;
+  for (const key of runtimeEngineCache.keys()) {
+    if (key.startsWith(cachePrefix)) {
+      runtimeEngineCache.delete(key);
+    }
+  }
+  return json;
 }
 
 export async function fetchDashboardConfig(guildId: string) {

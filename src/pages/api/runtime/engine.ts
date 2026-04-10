@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
-import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { normalizeEngineKey } from "@/lib/engineKeys";
-import { deleteServerCache, readServerCache, writeServerCache } from "@/lib/serverCache";
+import { deleteServerCachePrefix, readServerCache, writeServerCache } from "@/lib/serverCache";
 
 const RUNTIME_ENGINE_PROXY_TTL_MS = Math.max(1_000, Number(process.env.RUNTIME_ENGINE_PROXY_TTL_MS || 10_000));
 
@@ -59,12 +59,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "GET") {
-      const cacheKey = `runtime-engine:${guildId}:${normalizedEngine}`;
+      const actorUserId = String(req.query.userId || readActorUserId(req) || "").trim();
+      const routePath = String(req.query.routePath || req.query.route || "").trim();
+      const cacheKey = `runtime-engine:${guildId}:${normalizedEngine}:${actorUserId || "anon"}:${routePath || "/"}`;
       const cached = readServerCache<CachedRuntimeEngine>(cacheKey);
 
       try {
+        const query = new URLSearchParams();
+        query.set("guildId", guildId);
+        query.set("engine", normalizedEngine);
+        if (actorUserId) query.set("userId", actorUserId);
+        if (routePath) query.set("routePath", routePath);
         const upstream = await fetchBotApi(
-          `${BOT_API}/engine-runtime?guildId=${encodeURIComponent(guildId)}&engine=${encodeURIComponent(normalizedEngine)}`,
+          `${BOT_API}/engine-runtime?${query.toString()}`,
           {
             headers: buildBotApiHeaders(req),
             cache: "no-store",
@@ -93,11 +100,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         body: JSON.stringify({
           guildId,
           engine: normalizedEngine,
+          userId: readActorUserId(req),
+          routePath: String(req.body?.routePath || req.body?.route || "").trim(),
           patch: req.body?.patch || req.body?.config || {},
         }),
       });
       const json = await readJsonSafe(upstream);
-      deleteServerCache(`runtime-engine:${guildId}:${normalizedEngine}`);
+      deleteServerCachePrefix(`runtime-engine:${guildId}:${normalizedEngine}:`);
       void auditDashboardEvent({
         guildId,
         actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,

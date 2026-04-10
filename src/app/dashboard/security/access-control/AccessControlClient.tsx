@@ -12,6 +12,10 @@ type AccessControlConfig = {
   staffRoleIds: string[];
   allowedUserIds: string[];
   deniedUserIds: string[];
+  memberGamingPortalEnabled: boolean;
+  memberGamingPortalRoleIds: string[];
+  memberGamingPortalUserIds: string[];
+  memberGamingPortalRoutes: string[];
   notes: string;
 };
 
@@ -39,6 +43,10 @@ const DEFAULT_CFG: AccessControlConfig = {
   staffRoleIds: [],
   allowedUserIds: [],
   deniedUserIds: [],
+  memberGamingPortalEnabled: false,
+  memberGamingPortalRoleIds: [],
+  memberGamingPortalUserIds: [],
+  memberGamingPortalRoutes: ["/dashboard/games"],
   notes: "",
 };
 
@@ -82,6 +90,16 @@ function accessReasonLabel(reason: string) {
       return "Configured dashboard access role";
     case "ok_role_level":
       return "Minimum role level match";
+    case "ok_member_gaming_portal_user":
+      return "Member gaming portal user allowlist";
+    case "ok_member_gaming_portal_role":
+      return "Member gaming portal role policy";
+    case "member_gaming_portal_disabled":
+      return "Member gaming portal disabled";
+    case "route_not_allowed":
+      return "Route not allowed";
+    case "dashboard_policy_inactive":
+      return "Dashboard policy inactive";
     case "member_not_found":
       return "Member not found in guild";
     default:
@@ -231,6 +249,8 @@ export default function AccessControlClient() {
     { label: "Staff Roles", value: cfg.staffRoleIds.length },
     { label: "Allowed Users", value: cfg.allowedUserIds.length },
     { label: "Denied Users", value: cfg.deniedUserIds.length },
+    { label: "Gaming Roles", value: cfg.memberGamingPortalRoleIds.length },
+    { label: "Gaming Users", value: cfg.memberGamingPortalUserIds.length },
   ];
 
   if (!guildId) return <div style={{ color: "#ff8585", padding: 20 }}>Missing guildId. Open from /guilds first.</div>;
@@ -396,6 +416,54 @@ export default function AccessControlClient() {
 
           <section style={card}>
             <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Member Gaming Portal
+            </h3>
+            <div style={{ color: "#ffbcbc", fontSize: 12, marginBottom: 10 }}>
+              Lets non-staff members open only the Gaming Hub route (`/dashboard/games`) and run self-service gamer actions while all other dashboard routes stay blocked.
+            </div>
+            <label style={{ marginRight: 16 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(cfg.memberGamingPortalEnabled)}
+                onChange={(event) => setCfg((prev) => ({ ...prev, memberGamingPortalEnabled: event.target.checked }))}
+              />{" "}
+              Enable member gaming portal
+            </label>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 10 }}>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Member portal role IDs</div>
+                <textarea
+                  style={{ ...input, minHeight: 80 }}
+                  value={idsToCsv(cfg.memberGamingPortalRoleIds)}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, memberGamingPortalRoleIds: csvToIds(event.target.value) }))}
+                  placeholder="Role IDs that can open /dashboard/games"
+                />
+              </div>
+              <div>
+                <div style={{ marginBottom: 6, color: "#ffb3b3", fontSize: 12 }}>Member portal user IDs</div>
+                <textarea
+                  style={{ ...input, minHeight: 80 }}
+                  value={idsToCsv(cfg.memberGamingPortalUserIds)}
+                  onChange={(event) => setCfg((prev) => ({ ...prev, memberGamingPortalUserIds: csvToIds(event.target.value) }))}
+                  placeholder="User IDs explicitly allowed into gaming portal"
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <label style={{ display: "block", marginBottom: 6 }}>Allowed member routes (csv)</label>
+              <input
+                style={input}
+                value={idsToCsv(cfg.memberGamingPortalRoutes)}
+                onChange={(event) => setCfg((prev) => ({ ...prev, memberGamingPortalRoutes: csvToIds(event.target.value) }))}
+                placeholder="/dashboard/games"
+              />
+            </div>
+          </section>
+
+          <section style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
               Policy Coverage
             </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -413,6 +481,22 @@ export default function AccessControlClient() {
                   {cfg.staffRoleIds.length
                     ? cfg.staffRoleIds.map((roleId) => roleLookup.get(roleId) || roleId).join(", ")
                     : "No staff roles configured."}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffb3b3", marginBottom: 8 }}>Member gaming routes</div>
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+                  {cfg.memberGamingPortalRoutes.length
+                    ? cfg.memberGamingPortalRoutes.join(", ")
+                    : "No member routes configured."}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffb3b3", marginBottom: 8 }}>Member gaming access</div>
+                <div style={{ color: "#ffbcbc", lineHeight: 1.7 }}>
+                  {cfg.memberGamingPortalEnabled
+                    ? `Enabled | ${cfg.memberGamingPortalRoleIds.length} role(s), ${cfg.memberGamingPortalUserIds.length} user(s)`
+                    : "Disabled"}
                 </div>
               </div>
             </div>

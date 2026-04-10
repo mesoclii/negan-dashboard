@@ -58,6 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         guildId,
         engine: normalizedEngine,
         action,
+        userId: String(req.body?.userId || "").trim(),
+        routePath: String(req.body?.routePath || req.body?.route || "").trim(),
         payload,
       }),
     });

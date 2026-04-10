@@ -11,20 +11,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const guildId = String(req.query.guildId || "").trim();
   const userId = String(req.query.userId || readActorUserId(req) || "").trim();
+  const routePath = String(req.query.routePath || req.query.route || "").trim();
 
   if (!guildId || !userId) {
     return res.status(400).json({ success: false, error: "guildId and userId are required" });
   }
 
   try {
-    const cacheKey = `bot-guild-access:${guildId}:${userId}`;
+    const cacheKey = `bot-guild-access:${guildId}:${userId}:${routePath || "/"}`;
     const cached = readServerCache<{ status: number; body: unknown }>(cacheKey);
     if (cached) {
       return res.status(cached.status).json(cached.body);
     }
 
+    const query = new URLSearchParams();
+    query.set("guildId", guildId);
+    query.set("userId", userId);
+    if (routePath) query.set("routePath", routePath);
     const upstream = await fetchBotApi(
-      `${BOT_API}/guild-access?guildId=${encodeURIComponent(guildId)}&userId=${encodeURIComponent(userId)}`,
+      `${BOT_API}/guild-access?${query.toString()}`,
       {
         headers: buildBotApiHeaders(req),
         cache: "no-store",
