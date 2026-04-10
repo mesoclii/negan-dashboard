@@ -21,6 +21,10 @@ type ActivityPruneConfig = {
   countInteractionActivity: boolean;
   countReactionActivity: boolean;
   countVoiceActivity: boolean;
+  scanMessageHistoryOnSweep: boolean;
+  messageWindowDays: number;
+  minimumMessagesInWindow: number;
+  messageHistoryScanPerChannelLimit: number;
   sendWarningDm: boolean;
   warningPublicEnabled: boolean;
   kickAnnouncementEnabled: boolean;
@@ -57,6 +61,10 @@ const DEFAULTS: ActivityPruneConfig = {
   countInteractionActivity: true,
   countReactionActivity: true,
   countVoiceActivity: true,
+  scanMessageHistoryOnSweep: true,
+  messageWindowDays: 30,
+  minimumMessagesInWindow: 0,
+  messageHistoryScanPerChannelLimit: 200,
   sendWarningDm: true,
   warningPublicEnabled: false,
   kickAnnouncementEnabled: false,
@@ -190,6 +198,9 @@ export default function ActivityPruneClient() {
               <div><div style={label}>Sweep Interval Hours</div><input style={input} type="number" value={cfg.sweepIntervalHours} onChange={(e) => patch({ sweepIntervalHours: Number(e.target.value || 0) })} /></div>
               <div><div style={label}>Preview Limit</div><input style={input} type="number" value={cfg.previewLimit} onChange={(e) => patch({ previewLimit: Number(e.target.value || 0) })} /></div>
               <div><div style={label}>Warning Grace Hours</div><input style={input} type="number" value={cfg.warningGraceHours} onChange={(e) => patch({ warningGraceHours: Number(e.target.value || 0) })} /></div>
+              <div><div style={label}>Message Window Days</div><input style={input} type="number" value={cfg.messageWindowDays} onChange={(e) => patch({ messageWindowDays: Number(e.target.value || 0) })} /></div>
+              <div><div style={label}>Minimum Messages In Window</div><input style={input} type="number" value={cfg.minimumMessagesInWindow} onChange={(e) => patch({ minimumMessagesInWindow: Number(e.target.value || 0) })} /></div>
+              <div><div style={label}>History Scan Limit Per Channel</div><input style={input} type="number" value={cfg.messageHistoryScanPerChannelLimit} onChange={(e) => patch({ messageHistoryScanPerChannelLimit: Number(e.target.value || 0) })} /></div>
             </div>
           </section>
 
@@ -200,6 +211,10 @@ export default function ActivityPruneClient() {
               <label style={{ color: "#ffdcdc", fontWeight: 700 }}><input type="checkbox" checked={cfg.countInteractionActivity} onChange={(e) => patch({ countInteractionActivity: e.target.checked })} /> Count button/slash activity</label>
               <label style={{ color: "#ffdcdc", fontWeight: 700 }}><input type="checkbox" checked={cfg.countReactionActivity} onChange={(e) => patch({ countReactionActivity: e.target.checked })} /> Count reaction activity</label>
               <label style={{ color: "#ffdcdc", fontWeight: 700 }}><input type="checkbox" checked={cfg.countVoiceActivity} onChange={(e) => patch({ countVoiceActivity: e.target.checked })} /> Count voice activity</label>
+              <label style={{ color: "#ffdcdc", fontWeight: 700 }}><input type="checkbox" checked={cfg.scanMessageHistoryOnSweep} onChange={(e) => patch({ scanMessageHistoryOnSweep: e.target.checked })} /> Scan recent message history during sweeps</label>
+            </div>
+            <div style={{ color: "#ffb3b3", marginTop: 10, lineHeight: 1.6 }}>
+              This backfills recent speakers the live tracker may have missed and can enforce a minimum message count in the configured message window.
             </div>
           </section>
 
