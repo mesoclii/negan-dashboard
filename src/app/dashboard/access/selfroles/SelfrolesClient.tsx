@@ -43,6 +43,14 @@ type Config = {
   maxRolesPerUser: number;
   antiAbuseCooldownSec: number;
   logChannelId: string;
+  usageLogging: {
+    enabled: boolean;
+    retention: number;
+    logSuccessful: boolean;
+    logBlocked: boolean;
+    logErrors: boolean;
+    mirrorToAuditBus: boolean;
+  };
   panelDefaults: {
     embedColor: string;
     footerText: string;
@@ -64,6 +72,14 @@ const DEFAULTS: Config = {
   maxRolesPerUser: 10,
   antiAbuseCooldownSec: 3,
   logChannelId: "",
+  usageLogging: {
+    enabled: true,
+    retention: 250,
+    logSuccessful: true,
+    logBlocked: true,
+    logErrors: true,
+    mirrorToAuditBus: true,
+  },
   panelDefaults: {
     embedColor: "#2b2d31",
     footerText: "",
@@ -134,6 +150,10 @@ function cloneImportedSelfrolesConfig(source: Partial<Config>, sourceGuildName: 
     maxRolesPerUser: Number(source.maxRolesPerUser || DEFAULTS.maxRolesPerUser),
     antiAbuseCooldownSec: Number(source.antiAbuseCooldownSec || DEFAULTS.antiAbuseCooldownSec),
     logChannelId: "",
+    usageLogging: {
+      ...DEFAULTS.usageLogging,
+      ...((source as any).usageLogging || {}),
+    },
     panelDefaults: importedDefaults,
     panels: Array.isArray(source.panels)
       ? source.panels.map((panel, panelIndex) => ({
@@ -185,6 +205,10 @@ export default function SelfrolesPage() {
     () => availableGuilds.filter((guild) => guild.id && guild.id !== guildId),
     [availableGuilds, guildId]
   );
+  const recentUsage = useMemo(() => {
+    const rows = (details as Record<string, any>)?.recentUsage;
+    return Array.isArray(rows) ? rows : [];
+  }, [details]);
 
   useEffect(() => {
     let alive = true;
@@ -386,6 +410,44 @@ export default function SelfrolesPage() {
             <label>Default webhook avatar URL</label>
             <input style={input} value={cfg.panelDefaults?.webhookAvatarUrl || ""} onChange={(e) => setCfg({ ...cfg, panelDefaults: { ...cfg.panelDefaults, webhookAvatarUrl: e.target.value } })} placeholder="https://..." />
           </div>
+        </div>
+      </div>
+
+      <div style={box}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Usage Logging</h3>
+        <p style={{ marginTop: 0, color: "#ffbdbd", fontSize: 13 }}>
+          Selfroles usage logging captures successful role changes, blocked attempts, and role-permission failures in the dedicated selfroles log channel. You can also mirror the same detail into the unified audit pipeline.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 10, marginBottom: 12 }}>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.enabled)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, enabled: e.target.checked } })} /> Enable detailed usage logging</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logSuccessful)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logSuccessful: e.target.checked } })} /> Log successful role changes</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logBlocked)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logBlocked: e.target.checked } })} /> Log blocked attempts</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logErrors)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logErrors: e.target.checked } })} /> Log permission / hierarchy errors</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.mirrorToAuditBus)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, mirrorToAuditBus: e.target.checked } })} /> Mirror to audit logging</label>
+          <div>
+            <label>Usage log retention</label>
+            <input
+              style={input}
+              type="number"
+              min={25}
+              max={2000}
+              value={cfg.usageLogging?.retention ?? 250}
+              onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, retention: Number(e.target.value || 0) } })}
+            />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <button onClick={() => void runAction("clearUsageLogs")} disabled={saving} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
+            Clear Usage Logs
+          </button>
+        </div>
+        <div style={{ display: "grid", gap: 8 }}>
+          {recentUsage.length ? recentUsage.map((row: any, index: number) => (
+            <div key={`${row?.title || "usage"}_${index}`} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#120000" }}>
+              <div style={{ color: "#ffdada", fontWeight: 800 }}>{String(row?.title || `Usage ${index + 1}`)}</div>
+              <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 4, whiteSpace: "pre-wrap" }}>{String(row?.value || "")}</div>
+            </div>
+          )) : <div style={{ color: "#ffb3b3", fontSize: 13 }}>No selfroles usage has been logged yet.</div>}
         </div>
       </div>
 
