@@ -375,7 +375,7 @@ export default function SelfrolesPage() {
           <div><label>Max roles/user</label><input style={input} type="number" value={cfg.maxRolesPerUser} onChange={(e) => setCfg({ ...cfg, maxRolesPerUser: Number(e.target.value || 0) })} /></div>
           <div><label>Cooldown sec</label><input style={input} type="number" value={cfg.antiAbuseCooldownSec} onChange={(e) => setCfg({ ...cfg, antiAbuseCooldownSec: Number(e.target.value || 0) })} /></div>
           <div>
-            <label>Log channel</label>
+            <label>Discord selfroles log channel</label>
             <select style={input} value={cfg.logChannelId} onChange={(e) => setCfg({ ...cfg, logChannelId: e.target.value })}>
               <option value="">Select channel</option>
               {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
@@ -414,18 +414,18 @@ export default function SelfrolesPage() {
       </div>
 
       <div style={box}>
-        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Usage Logging</h3>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Dashboard Usage Feed</h3>
         <p style={{ marginTop: 0, color: "#ffbdbd", fontSize: 13 }}>
-          Selfroles usage logging captures successful role changes, blocked attempts, and role-permission failures in the dedicated selfroles log channel. You can also mirror the same detail into the unified audit pipeline.
+          The Discord selfroles log channel above is the live in-server audit route. These controls only manage the dashboard usage feed and whether the same events also mirror into the wider audit pipeline.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(220px, 1fr))", gap: 10, marginBottom: 12 }}>
-          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.enabled)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, enabled: e.target.checked } })} /> Enable detailed usage logging</label>
-          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logSuccessful)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logSuccessful: e.target.checked } })} /> Log successful role changes</label>
-          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logBlocked)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logBlocked: e.target.checked } })} /> Log blocked attempts</label>
-          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logErrors)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logErrors: e.target.checked } })} /> Log permission / hierarchy errors</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.enabled)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, enabled: e.target.checked } })} /> Keep dashboard usage feed</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logSuccessful)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logSuccessful: e.target.checked } })} /> Include successful role changes</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logBlocked)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logBlocked: e.target.checked } })} /> Include blocked attempts</label>
+          <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.logErrors)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, logErrors: e.target.checked } })} /> Include permission / hierarchy errors</label>
           <label><input type="checkbox" checked={Boolean(cfg.usageLogging?.mirrorToAuditBus)} onChange={(e) => setCfg({ ...cfg, usageLogging: { ...cfg.usageLogging, mirrorToAuditBus: e.target.checked } })} /> Mirror to audit logging</label>
           <div>
-            <label>Usage log retention</label>
+            <label>Dashboard feed retention</label>
             <input
               style={input}
               type="number"
@@ -438,7 +438,7 @@ export default function SelfrolesPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <button onClick={() => void runAction("clearUsageLogs")} disabled={saving} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #7a0000", background: "#220000", color: "#ffd7d7" }}>
-            Clear Usage Logs
+            Clear Dashboard Usage Feed
           </button>
         </div>
         <div style={{ display: "grid", gap: 8 }}>
