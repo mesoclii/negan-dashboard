@@ -5,10 +5,18 @@ const SERVER_BOT_API_TIMEOUT_MS = Math.max(5_000, Number(process.env.BOT_API_TIM
 
 const DASHBOARD_TOKEN = String(process.env.DASHBOARD_API_TOKEN || "").trim();
 
-export function buildServerBotApiHeaders(userId?: string) {
+export function buildServerBotApiHeaders(
+  userId?: string,
+  options: { allowFallback?: boolean } = {}
+) {
   const headers: Record<string, string> = {};
   if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-  headers["x-dashboard-user-id"] = String(userId || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
+  const normalizedUserId = String(userId || "").trim();
+  if (normalizedUserId) {
+    headers["x-dashboard-user-id"] = normalizedUserId;
+  } else if (options.allowFallback !== false) {
+    headers["x-dashboard-user-id"] = MASTER_OWNER_USER_ID;
+  }
   return headers;
 }
 

@@ -5,10 +5,19 @@ import {
   fetchServerBotApi,
   readServerBotApiJson,
 } from "@/lib/botApiServer";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 
 function readFirst(value: string | string[] | undefined): string {
   return String(Array.isArray(value) ? value[0] : value || "").trim();
+}
+
+function readReferrerParam(req: NextApiRequest, key: string): string {
+  const referrer = readFirst(req.headers.referer as string | string[] | undefined);
+  if (!referrer) return "";
+  try {
+    return String(new URL(referrer).searchParams.get(key) || "").trim();
+  } catch {
+    return "";
+  }
 }
 
 function getRequestOrigin(req: NextApiRequest): string {
@@ -21,9 +30,12 @@ function getRequestOrigin(req: NextApiRequest): string {
 
 function readActorUserId(req: NextApiRequest): string {
   return (
+    readFirst(req.headers["x-dashboard-user-id"] as string | string[] | undefined) ||
+    readFirst(req.headers["x-user-id"] as string | string[] | undefined) ||
     readFirst(req.query.userId as string | string[] | undefined) ||
     readFirst(req.query.uid as string | string[] | undefined) ||
-    MASTER_OWNER_USER_ID
+    readReferrerParam(req, "userId") ||
+    readReferrerParam(req, "uid")
   );
 }
 
@@ -63,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const response = await fetchServerBotApi(`${SERVER_BOT_API}/api/game-provider-auth/callback`, {
       method: "POST",
       headers: {
-        ...buildServerBotApiHeaders(actorUserId),
+        ...buildServerBotApiHeaders(actorUserId, { allowFallback: false }),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

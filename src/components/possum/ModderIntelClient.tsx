@@ -26,9 +26,21 @@ type ModderIntelConfig = {
 
 type RuntimeRow = {
   id?: string;
+  userId?: string;
   title?: string;
   name?: string;
   value?: string;
+  displayName?: string;
+  menuUser?: boolean;
+  sourceKey?: string;
+  sourceLabel?: string;
+  sourceCustomLabel?: string;
+  riskLevel?: string;
+  restrictionSurfaces?: string[];
+  sourceTags?: string[];
+  menuDiscords?: string[];
+  linkedServerIds?: string[];
+  notes?: string;
 };
 
 const DEFAULT_CFG: ModderIntelConfig = {
@@ -131,48 +143,67 @@ export default function ModderIntelClient() {
   const activity = useMemo(() => (Array.isArray((details as any)?.activity) ? ((details as any).activity as RuntimeRow[]) : []), [details]);
 
   const [form, setForm] = useState({
-    userId: "",
+    memberLookup: "",
     menuUser: true,
     sourceKey: "cherax_standard",
     sourceCustomLabel: "",
-    riskLevel: "medium",
+    riskLevel: "",
     notes: "",
+    sourceTags: "",
+    menuDiscords: "",
+    linkedServerIds: "",
     restrictionSurfaces: [] as string[],
+    preserveRestrictions: true,
   });
-  const [removeUserId, setRemoveUserId] = useState("");
+  const [removeLookup, setRemoveLookup] = useState("");
 
   async function addEntry() {
-    const userId = String(form.userId || "").match(/\d{16,20}/)?.[0] || "";
-    if (!userId) return;
-    const result = await runAction("upsertEntry", {
-      userId,
+    const memberLookup = String(form.memberLookup || "").trim();
+    if (!memberLookup) return;
+    const parsedUserId = memberLookup.match(/\d{16,20}/)?.[0] || "";
+    const payload: Record<string, unknown> = {
+      memberLookup,
       menuUser: form.menuUser,
       sourceKey: form.sourceKey,
       sourceCustomLabel: form.sourceCustomLabel,
-      riskLevel: form.riskLevel,
       notes: form.notes,
-      restrictionSurfaces: form.restrictionSurfaces,
-    });
+      preserveRestrictions: form.preserveRestrictions,
+    };
+    if (parsedUserId) payload.userId = parsedUserId;
+    if (form.riskLevel) payload.riskLevel = form.riskLevel;
+    if (form.sourceTags.trim()) payload.sourceTags = form.sourceTags;
+    if (form.menuDiscords.trim()) payload.menuDiscords = form.menuDiscords;
+    if (form.linkedServerIds.trim()) payload.linkedServerIds = form.linkedServerIds;
+    if (!form.preserveRestrictions || form.restrictionSurfaces.length > 0) {
+      payload.restrictionSurfaces = form.restrictionSurfaces;
+    }
+
+    const result = await runAction("upsertEntry", payload);
     if (result) {
       setForm({
-        userId: "",
+        memberLookup: "",
         menuUser: true,
         sourceKey: "cherax_standard",
         sourceCustomLabel: "",
-        riskLevel: "medium",
+        riskLevel: "",
         notes: "",
+        sourceTags: "",
+        menuDiscords: "",
+        linkedServerIds: "",
         restrictionSurfaces: [],
+        preserveRestrictions: true,
       });
       void reload();
     }
   }
 
   async function removeEntry() {
-    const userId = String(removeUserId || "").match(/\d{16,20}/)?.[0] || "";
-    if (!userId) return;
-    const result = await runAction("removeEntry", { userId });
+    const memberLookup = String(removeLookup || "").trim();
+    if (!memberLookup) return;
+    const userId = memberLookup.match(/\d{16,20}/)?.[0] || "";
+    const result = await runAction("removeEntry", userId ? { userId } : { memberLookup });
     if (result) {
-      setRemoveUserId("");
+      setRemoveLookup("");
       void reload();
     }
   }
@@ -344,8 +375,13 @@ export default function ModderIntelClient() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
               <div>
-                <div style={label}>User ID</div>
-                <input style={input} value={form.userId} onChange={(e) => setForm((prev) => ({ ...prev, userId: e.target.value }))} placeholder="Discord user ID or mention" />
+                <div style={label}>Member Lookup</div>
+                <input
+                  style={input}
+                  value={form.memberLookup}
+                  onChange={(e) => setForm((prev) => ({ ...prev, memberLookup: e.target.value }))}
+                  placeholder="User ID, mention, nickname, or username"
+                />
               </div>
               <div>
                 <div style={label}>Menu User</div>
@@ -365,6 +401,7 @@ export default function ModderIntelClient() {
               <div>
                 <div style={label}>Risk Level</div>
                 <select style={input} value={form.riskLevel} onChange={(e) => setForm((prev) => ({ ...prev, riskLevel: e.target.value }))}>
+                  <option value="">Keep current / default</option>
                   <option value="low">LOW</option>
                   <option value="medium">MEDIUM</option>
                   <option value="high">HIGH</option>
@@ -377,6 +414,33 @@ export default function ModderIntelClient() {
                   <input style={input} value={form.sourceCustomLabel} onChange={(e) => setForm((prev) => ({ ...prev, sourceCustomLabel: e.target.value }))} placeholder="Type the custom menu/community source" />
                 </div>
               ) : null}
+              <div>
+                <div style={label}>Source Tags (CSV)</div>
+                <input
+                  style={input}
+                  value={form.sourceTags}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sourceTags: e.target.value }))}
+                  placeholder="cherax, premium, trusted"
+                />
+              </div>
+              <div>
+                <div style={label}>Communities (CSV)</div>
+                <input
+                  style={input}
+                  value={form.menuDiscords}
+                  onChange={(e) => setForm((prev) => ({ ...prev, menuDiscords: e.target.value }))}
+                  placeholder="Cherax Discord, Midnight reseller"
+                />
+              </div>
+              <div>
+                <div style={label}>Linked Server IDs (CSV)</div>
+                <input
+                  style={input}
+                  value={form.linkedServerIds}
+                  onChange={(e) => setForm((prev) => ({ ...prev, linkedServerIds: e.target.value }))}
+                  placeholder="123..., 456..."
+                />
+              </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={label}>Restriction Surfaces</div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", border: "1px solid #500000", borderRadius: 10, padding: 10, background: "#0a0a0a" }}>
@@ -391,6 +455,14 @@ export default function ModderIntelClient() {
                     </label>
                   ))}
                 </div>
+                <label style={{ color: "#ffdcdc", display: "inline-block", marginTop: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={form.preserveRestrictions}
+                    onChange={(e) => setForm((prev) => ({ ...prev, preserveRestrictions: e.target.checked }))}
+                  />{" "}
+                  Keep existing restrictions when none are selected above
+                </label>
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
                 <div style={label}>Notes</div>
@@ -398,7 +470,7 @@ export default function ModderIntelClient() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-              <button onClick={() => void addEntry()} disabled={saving || !/\d{16,20}/.test(form.userId)} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+              <button onClick={() => void addEntry()} disabled={saving || !String(form.memberLookup || "").trim()} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
                 {saving ? "Working..." : "Save Intel Record"}
               </button>
             </div>
@@ -407,8 +479,8 @@ export default function ModderIntelClient() {
           <section style={card}>
             <div style={label}>Remove Intel Record</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
-              <input style={input} value={removeUserId} onChange={(e) => setRemoveUserId(e.target.value)} placeholder="Discord user ID or mention" />
-              <button onClick={() => void removeEntry()} disabled={saving || !/\d{16,20}/.test(removeUserId)} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
+              <input style={input} value={removeLookup} onChange={(e) => setRemoveLookup(e.target.value)} placeholder="User ID, mention, nickname, or username" />
+              <button onClick={() => void removeEntry()} disabled={saving || !String(removeLookup || "").trim()} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
                 {saving ? "Working..." : "Remove"}
               </button>
             </div>
