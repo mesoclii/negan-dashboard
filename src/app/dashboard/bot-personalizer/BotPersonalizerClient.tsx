@@ -19,8 +19,25 @@ type PersonaConfig = {
   botName: string;
   webhookName: string;
   webhookAvatarUrl: string;
+  botAvatarUrl: string;
   avatarLibrary: AvatarPreset[];
   useWebhookPersona: boolean;
+  customBotEnabled: boolean;
+  customBotClientId: string;
+  customBotRedirectUri: string;
+  customBotToken: string;
+  customBotClientSecret: string;
+  customBotHasToken: boolean;
+  customBotHasClientSecret: boolean;
+  customBotClearToken: boolean;
+  customBotClearClientSecret: boolean;
+  customBotIntentsConfirmed: boolean;
+  customBotOauthGrantDisabledConfirmed: boolean;
+  customBotRedirectConfiguredConfirmed: boolean;
+  profileBannerUrl: string;
+  activityType: string;
+  activityText: string;
+  status: string;
 };
 
 const DEFAULT_CFG: PersonaConfig = {
@@ -29,8 +46,25 @@ const DEFAULT_CFG: PersonaConfig = {
   botName: "",
   webhookName: "",
   webhookAvatarUrl: "",
+  botAvatarUrl: "",
   avatarLibrary: [],
   useWebhookPersona: false,
+  customBotEnabled: false,
+  customBotClientId: "",
+  customBotRedirectUri: "",
+  customBotToken: "",
+  customBotClientSecret: "",
+  customBotHasToken: false,
+  customBotHasClientSecret: false,
+  customBotClearToken: false,
+  customBotClearClientSecret: false,
+  customBotIntentsConfirmed: false,
+  customBotOauthGrantDisabledConfirmed: false,
+  customBotRedirectConfiguredConfirmed: false,
+  profileBannerUrl: "",
+  activityType: "LISTENING",
+  activityText: "/help",
+  status: "online",
 };
 
 const MAX_AVATAR_UPLOAD_BYTES = 2_000_000;
@@ -73,8 +107,25 @@ function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): Pers
     botName: String(src.botName || ""),
     webhookName: String(src.webhookName || ""),
     webhookAvatarUrl: String(src.webhookAvatarUrl || ""),
+    botAvatarUrl: String(src.botAvatarUrl || ""),
     avatarLibrary: normalizeAvatarLibrary(src.avatarLibrary),
     useWebhookPersona: Boolean(src.useWebhookPersona),
+    customBotEnabled: Boolean(src.customBotEnabled),
+    customBotClientId: String(src.customBotClientId || ""),
+    customBotRedirectUri: String(src.customBotRedirectUri || ""),
+    customBotToken: String(src.customBotToken || ""),
+    customBotClientSecret: String(src.customBotClientSecret || ""),
+    customBotHasToken: Boolean(src.customBotHasToken),
+    customBotHasClientSecret: Boolean(src.customBotHasClientSecret),
+    customBotClearToken: Boolean(src.customBotClearToken),
+    customBotClearClientSecret: Boolean(src.customBotClearClientSecret),
+    customBotIntentsConfirmed: Boolean(src.customBotIntentsConfirmed),
+    customBotOauthGrantDisabledConfirmed: Boolean(src.customBotOauthGrantDisabledConfirmed),
+    customBotRedirectConfiguredConfirmed: Boolean(src.customBotRedirectConfiguredConfirmed),
+    profileBannerUrl: String(src.profileBannerUrl || ""),
+    activityType: String(src.activityType || "LISTENING"),
+    activityText: String(src.activityText || "/help"),
+    status: String(src.status || "online"),
   };
 }
 
@@ -149,12 +200,14 @@ export default function BotPersonalizerClient() {
     saving,
     message,
     save,
+    runAction,
   } = useGuildEngineEditor<PersonaConfig>("botPersonalizer", DEFAULT_CFG);
 
   const cfg = useMemo(() => sanitizeConfig(rawCfg), [rawCfg]);
   const possumAiHref = buildDashboardHref("/dashboard/ai/learning");
   const previewAvatar = safePreviewUrl(cfg.webhookAvatarUrl);
   const previewBotName = previewName(cfg, botUser);
+  const customBotRuntimeRows = Array.isArray((details as any)?.customBotRuntime) ? ((details as any).customBotRuntime as Array<{ title?: string; value?: string }>) : [];
   const [avatarPreviewFailedFor, setAvatarPreviewFailedFor] = useState("");
   const [avatarLibraryLabel, setAvatarLibraryLabel] = useState("");
   const [avatarLibraryMessage, setAvatarLibraryMessage] = useState("");
@@ -166,8 +219,14 @@ export default function BotPersonalizerClient() {
     setCfg((prev) => sanitizeConfig({ ...(prev || {}), ...patch }));
   }
 
-  function setAvatarSource(url: string, notice: string) {
-    updateCfg({ webhookAvatarUrl: url });
+  function setAvatarSource(url: string, notice: string, target: "webhook" | "bot" | "both" = "webhook") {
+    updateCfg(
+      target === "bot"
+        ? { botAvatarUrl: url }
+        : target === "both"
+          ? { webhookAvatarUrl: url, botAvatarUrl: url }
+          : { webhookAvatarUrl: url }
+    );
     setAvatarPreviewFailedFor("");
     setAvatarLibraryMessage(notice);
   }
@@ -251,8 +310,11 @@ export default function BotPersonalizerClient() {
               <br />- Bot nickname in this guild (Discord allows per-guild nickname)
               <br />- Webhook identity (per-guild “avatar/name” for messages that are sent via webhooks)
               <br /><br />
-              Discord does <b>not</b> support a different bot-account avatar per guild. On-demand slash panels (Store/Range/etc) are interaction replies and
-              will show the normal bot account avatar.
+              Discord does <b>not</b> support a different DM sender identity per guild on one shared bot token. Direct messages always use that bot account
+              name/avatar. Webhook identity only affects guild-channel messages.
+              <br /><br />
+              If you want MEE6-style custom DM branding, that is a <b>custom bot application</b> setup: one dedicated Discord bot/token for that server or brand.
+              This page controls the shared-bot version of personalization only.
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -316,6 +378,258 @@ export default function BotPersonalizerClient() {
                     onChange={(e) => updateCfg({ webhookAvatarUrl: e.target.value })}
                     placeholder="https://... or leave blank for no custom webhook avatar"
                   />
+                </div>
+              </div>
+
+              <div style={{ ...card, marginBottom: 0, marginTop: 12, background: "rgba(20, 2, 2, 0.72)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 900, color: "#ff8b8b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Optional Custom Bot Application
+                    </div>
+                    <div style={hint}>
+                      Keep the shared Possum personalizer exactly as it is now, or add a dedicated Discord bot application for this guild if you want the final
+                      layer: separate DM name/avatar identity like MEE6 custom bot mode.
+                    </div>
+                  </div>
+                  <label style={{ fontWeight: 800 }}>
+                    <input
+                      type="checkbox"
+                      checked={cfg.customBotEnabled}
+                      onChange={(e) => updateCfg({ customBotEnabled: e.target.checked })}
+                    />{" "}
+                    Enable custom bot app
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 12,
+                    border: "1px solid rgba(255,0,0,.28)",
+                    borderRadius: 12,
+                    padding: 12,
+                    background: "rgba(0,0,0,.28)",
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: "#ffd0d0", marginBottom: 10 }}>
+                    Set up your Possum Custom Bot
+                  </div>
+                  <div style={hint}>
+                    This is optional. If you leave it off, the current shared-bot personalizer keeps working exactly like it does now.
+                    If you turn it on, this guild can attach its own dedicated Discord bot application for full DM/server identity separation.
+                  </div>
+
+                  <div style={{ ...card, marginTop: 12, marginBottom: 0, background: "rgba(18, 0, 0, 0.78)" }}>
+                    <div style={{ fontWeight: 900, color: "#ff8b8b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Custom Bot Health
+                    </div>
+                    <div style={hint}>
+                      This panel shows whether the dedicated bot can actually log in, whether it is in the guild, and which fast fixes matter right now.
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                      <button
+                        type="button"
+                        style={subAction}
+                        disabled={saving}
+                        onClick={() => void runAction("startCustomBot")}
+                      >
+                        Start Check
+                      </button>
+                      <button
+                        type="button"
+                        style={subAction}
+                        disabled={saving}
+                        onClick={() => void runAction("refreshCustomBot")}
+                      >
+                        Refresh Runtime
+                      </button>
+                      <button
+                        type="button"
+                        style={subAction}
+                        disabled={saving}
+                        onClick={() => void runAction("stopCustomBot")}
+                      >
+                        Stop Runtime
+                      </button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 12 }}>
+                      {customBotRuntimeRows.length ? customBotRuntimeRows.map((row, index) => (
+                        <div
+                          key={`${row.title || "runtime"}_${index}`}
+                          style={{
+                            border: "1px solid rgba(255,0,0,.24)",
+                            borderRadius: 10,
+                            padding: 12,
+                            background: "rgba(0,0,0,.24)",
+                          }}
+                        >
+                          <div style={{ color: "#ff9b9b", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            {row.title || `State ${index + 1}`}
+                          </div>
+                          <div style={{ color: "#ffd7d7", fontSize: 13, lineHeight: 1.6, marginTop: 8 }}>
+                            {row.value || "No runtime data yet."}
+                          </div>
+                        </div>
+                      )) : (
+                        <div style={{ ...hint, gridColumn: "1 / -1" }}>
+                          No dedicated runtime data yet. Save the config, then run a start or refresh check.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
+                    <label><input type="checkbox" checked={cfg.customBotIntentsConfirmed} onChange={(e) => updateCfg({ customBotIntentsConfirmed: e.target.checked })} /> Required intents are enabled: Presence, Server Members, Message Content</label>
+                    <label><input type="checkbox" checked={cfg.customBotOauthGrantDisabledConfirmed} onChange={(e) => updateCfg({ customBotOauthGrantDisabledConfirmed: e.target.checked })} /> "Requires OAuth2 Code Grant" is disabled in the Discord Developer Portal</label>
+                    <label><input type="checkbox" checked={cfg.customBotRedirectConfiguredConfirmed} onChange={(e) => updateCfg({ customBotRedirectConfiguredConfirmed: e.target.checked })} /> The correct redirect URI is added in OAuth2 settings</label>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 12 }}>
+                    <div>
+                      <label>Custom bot client ID</label>
+                      <input
+                        style={input}
+                        value={cfg.customBotClientId || ""}
+                        onChange={(e) => updateCfg({ customBotClientId: e.target.value })}
+                        placeholder="Discord application client ID"
+                      />
+                    </div>
+                    <div>
+                      <label>Custom bot redirect URI</label>
+                      <input
+                        style={input}
+                        value={cfg.customBotRedirectUri || ""}
+                        onChange={(e) => updateCfg({ customBotRedirectUri: e.target.value })}
+                        placeholder="https://your-domain/api/auth/custom-bot/callback"
+                      />
+                    </div>
+                    <div>
+                      <label>Custom bot client secret</label>
+                      <input
+                        style={input}
+                        type="password"
+                        value={cfg.customBotClientSecret || ""}
+                        onChange={(e) => updateCfg({ customBotClientSecret: e.target.value, customBotClearClientSecret: false })}
+                        placeholder={cfg.customBotHasClientSecret ? "Stored securely. Enter a new secret to rotate it." : "Enter OAuth2 client secret"}
+                      />
+                      <div style={{ ...hint, marginTop: 6 }}>
+                        {cfg.customBotHasClientSecret ? "A client secret is already stored securely for this guild." : "No client secret stored yet."}
+                      </div>
+                    </div>
+                    <div>
+                      <label>Custom bot token</label>
+                      <input
+                        style={input}
+                        type="password"
+                        value={cfg.customBotToken || ""}
+                        onChange={(e) => updateCfg({ customBotToken: e.target.value, customBotClearToken: false })}
+                        placeholder={cfg.customBotHasToken ? "Stored securely. Enter a new token to rotate it." : "Enter dedicated bot token"}
+                      />
+                      <div style={{ ...hint, marginTop: 6 }}>
+                        {cfg.customBotHasToken ? "A bot token is already stored securely for this guild." : "No bot token stored yet."}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                    <button
+                      type="button"
+                      style={subAction}
+                      onClick={() => updateCfg({ customBotClearClientSecret: !cfg.customBotClearClientSecret, customBotClientSecret: "" })}
+                    >
+                      {cfg.customBotClearClientSecret ? "Client Secret Will Be Cleared" : "Clear Stored Client Secret"}
+                    </button>
+                    <button
+                      type="button"
+                      style={subAction}
+                      onClick={() => updateCfg({ customBotClearToken: !cfg.customBotClearToken, customBotToken: "" })}
+                    >
+                      {cfg.customBotClearToken ? "Bot Token Will Be Cleared" : "Clear Stored Bot Token"}
+                    </button>
+                  </div>
+
+                  <div style={{ ...hint, marginTop: 12 }}>
+                    Stored credentials are kept out of the normal guild config payload and are not sent back to the dashboard after save. Blank fields do not
+                    erase existing stored secrets unless you use the clear buttons above.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...card, marginBottom: 0, marginTop: 12, background: "rgba(22, 3, 3, 0.7)" }}>
+                <div style={{ fontWeight: 900, color: "#ff8b8b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Shared Bot Account
+                </div>
+                <div style={hint}>
+                  These are the shared bot-account surfaces. They stay available because you asked not to lose any existing options.
+                  They affect the shared bot identity across guilds unless you use a dedicated custom bot application.
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 12 }}>
+                  <div>
+                    <label>Live bot avatar override</label>
+                    <input
+                      style={input}
+                      value={cfg.botAvatarUrl || ""}
+                      onChange={(e) => updateCfg({ botAvatarUrl: e.target.value })}
+                      placeholder="https://... or data:image/... for the shared bot account avatar"
+                    />
+                    <div style={{ ...hint, marginTop: 6 }}>Shared bot account avatar override. Global across the shared bot.</div>
+                  </div>
+                  <div>
+                    <label>Profile banner URL</label>
+                    <input
+                      style={input}
+                      value={cfg.profileBannerUrl || ""}
+                      onChange={(e) => updateCfg({ profileBannerUrl: e.target.value })}
+                      placeholder="https://... optional shared bot banner"
+                    />
+                  </div>
+                  <div>
+                    <label>Status</label>
+                    <select
+                      style={input}
+                      value={cfg.status || "online"}
+                      onChange={(e) => updateCfg({ status: e.target.value })}
+                    >
+                      <option value="online">online</option>
+                      <option value="idle">idle</option>
+                      <option value="dnd">dnd</option>
+                      <option value="invisible">invisible</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Activity type</label>
+                    <select
+                      style={input}
+                      value={cfg.activityType || "LISTENING"}
+                      onChange={(e) => updateCfg({ activityType: e.target.value })}
+                    >
+                      <option value="PLAYING">PLAYING</option>
+                      <option value="LISTENING">LISTENING</option>
+                      <option value="WATCHING">WATCHING</option>
+                      <option value="COMPETING">COMPETING</option>
+                      <option value="STREAMING">STREAMING</option>
+                    </select>
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label>Activity text</label>
+                    <input
+                      style={input}
+                      value={cfg.activityText || ""}
+                      onChange={(e) => updateCfg({ activityText: e.target.value })}
+                      placeholder="/help"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <button
+                    type="button"
+                    style={subAction}
+                    onClick={() => updateCfg({ botAvatarUrl: "" })}
+                  >
+                    Clear Bot Avatar Override
+                  </button>
                 </div>
               </div>
 
@@ -416,9 +730,23 @@ export default function BotPersonalizerClient() {
                                 <button
                                   type="button"
                                   style={subAction}
-                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for webhook replies.")}
+                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for webhook replies.", "webhook")}
                                 >
                                   {selected ? "Webhook Selected" : "Use For Webhook"}
+                                </button>
+                                <button
+                                  type="button"
+                                  style={subAction}
+                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for the shared bot avatar override.", "bot")}
+                                >
+                                  Use For Bot
+                                </button>
+                                <button
+                                  type="button"
+                                  style={subAction}
+                                  onClick={() => setAvatarSource(entry.url, "Saved avatar selected for both webhook replies and the shared bot avatar override.", "both")}
+                                >
+                                  Use For Both
                                 </button>
                                 <button
                                   type="button"
@@ -500,6 +828,9 @@ export default function BotPersonalizerClient() {
                           ? "Webhook identity will use this guild's selected custom avatar for Possum AI replies where supported."
                           : "Webhook identity is enabled, but no guild-specific webhook avatar is set yet."
                         : "Default bot identity remains active until webhook mode is enabled."}
+                    </div>
+                    <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
+                      DMs still use the shared bot account identity unless you run a dedicated custom bot application for this server.
                     </div>
                     {avatarPreviewFailed ? (
                       <div style={{ color: "#ffb0b0", fontSize: 11, marginTop: 8 }}>
