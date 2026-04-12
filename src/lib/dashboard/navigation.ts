@@ -115,6 +115,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
       label: "Gaming",
       items: [
         { href: "/dashboard/games", label: "Gaming Hub" },
+        { href: "/dashboard/wow", label: "WoW Groups" },
       ],
     },
     {
