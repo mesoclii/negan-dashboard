@@ -20,6 +20,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Possum Bot Notes
+
+### Bot Personalizer + Custom Token Bot
+
+- The dashboard now supports a guild-scoped companion bot inside `Dashboard -> Bot Personalizer`.
+- Shared Possum personalization still works without any token bot setup.
+- If a guild wants full branded DMs, they can enable the optional custom bot application and store:
+  - custom bot token
+  - custom bot client secret
+  - custom bot client ID
+  - custom bot redirect URI
+- Runtime authority is also guild-scoped:
+  - `DM authority`: `Custom Token Bot` or `Main Possum`
+  - `Guild message authority`: `Custom Token Bot`, `Shared Possum Webhook`, or `Main Possum`
+- Guardrail: do not split protected systems across both bots at the same time. Pick one owner for onboarding, verification, moderation DMs, economy DMs, progression/achievement DMs, giveaways, and security messaging.
+- The companion bot setup persists per guild even if the custom bot leaves and is re-invited later.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

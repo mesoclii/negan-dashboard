@@ -23,6 +23,10 @@ type PersonaConfig = {
   avatarLibrary: AvatarPreset[];
   useWebhookPersona: boolean;
   customBotEnabled: boolean;
+  dmAuthority: string;
+  guildMessageAuthority: string;
+  showSetupSupportText: boolean;
+  setupSupportText: string;
   customBotClientId: string;
   customBotRedirectUri: string;
   customBotToken: string;
@@ -50,6 +54,10 @@ const DEFAULT_CFG: PersonaConfig = {
   avatarLibrary: [],
   useWebhookPersona: false,
   customBotEnabled: false,
+  dmAuthority: "custom",
+  guildMessageAuthority: "custom",
+  showSetupSupportText: true,
+  setupSupportText: "Need help with setup? Message the developer for direct setup assistance.",
   customBotClientId: "",
   customBotRedirectUri: "",
   customBotToken: "",
@@ -111,6 +119,10 @@ function sanitizeConfig(rawCfg: Partial<PersonaConfig> | null | undefined): Pers
     avatarLibrary: normalizeAvatarLibrary(src.avatarLibrary),
     useWebhookPersona: Boolean(src.useWebhookPersona),
     customBotEnabled: Boolean(src.customBotEnabled),
+    dmAuthority: String(src.dmAuthority || "custom"),
+    guildMessageAuthority: String(src.guildMessageAuthority || "custom"),
+    showSetupSupportText: src.showSetupSupportText !== false,
+    setupSupportText: String(src.setupSupportText || "Need help with setup? Message the developer for direct setup assistance."),
     customBotClientId: String(src.customBotClientId || ""),
     customBotRedirectUri: String(src.customBotRedirectUri || ""),
     customBotToken: String(src.customBotToken || ""),
@@ -152,7 +164,10 @@ const input: CSSProperties = {
   border: "1px solid rgba(255,0,0,.45)",
   color: "#ffd5d5",
   borderRadius: 8,
-  padding: "10px 12px",
+  padding: "12px 14px",
+  fontSize: 15,
+  lineHeight: 1.45,
+  minHeight: 44,
 };
 const action: CSSProperties = {
   border: "1px solid #7a0000",
@@ -172,7 +187,7 @@ const subAction: CSSProperties = {
 };
 const hint: CSSProperties = {
   color: "#ffb5b5",
-  fontSize: 12,
+  fontSize: 13,
   lineHeight: 1.7,
 };
 
@@ -417,6 +432,67 @@ export default function BotPersonalizerClient() {
                   <div style={hint}>
                     This is optional. If you leave it off, the current shared-bot personalizer keeps working exactly like it does now.
                     If you turn it on, this guild can attach its own dedicated Discord bot application for full DM/server identity separation.
+                    The saved setup stays with this guild, so if the companion bot leaves and you re-invite it later, you do not need to rebuild the page from scratch.
+                  </div>
+
+                  <div style={{ ...card, marginTop: 12, marginBottom: 0, background: "rgba(18, 0, 0, 0.78)" }}>
+                    <div style={{ fontWeight: 900, color: "#ff8b8b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Runtime Authority
+                    </div>
+                    <div style={hint}>
+                      Pick which runtime owns DMs and which runtime owns supported guild-channel sends. If you want branded DMs, set up the Custom Token Bot first,
+                      then choose it as DM authority. If setup gets sticky, message the developer and setup help can be done with you directly.
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 12 }}>
+                      <div>
+                        <label>DM authority</label>
+                        <select
+                          style={input}
+                          value={cfg.dmAuthority || "custom"}
+                          onChange={(e) => updateCfg({ dmAuthority: e.target.value })}
+                        >
+                          <option value="custom">Custom Token Bot</option>
+                          <option value="main">Main Possum</option>
+                        </select>
+                        <div style={{ ...hint, marginTop: 6 }}>
+                          DMs include onboarding, verification, giveaways, moderation notices, economy DMs, achievements DMs, progression DMs, and other private guild-routed sends.
+                        </div>
+                      </div>
+                      <div>
+                        <label>Guild message authority</label>
+                        <select
+                          style={input}
+                          value={cfg.guildMessageAuthority || "custom"}
+                          onChange={(e) => updateCfg({ guildMessageAuthority: e.target.value })}
+                        >
+                          <option value="custom">Custom Token Bot</option>
+                          <option value="webhook">Shared Possum Webhook</option>
+                          <option value="main">Main Possum</option>
+                        </select>
+                        <div style={{ ...hint, marginTop: 6 }}>
+                          Use Shared Possum Webhook if you want the shared bot styling in channels but the custom token bot handling DMs.
+                        </div>
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <label style={{ fontWeight: 800 }}>
+                          <input
+                            type="checkbox"
+                            checked={cfg.showSetupSupportText}
+                            onChange={(e) => updateCfg({ showSetupSupportText: e.target.checked })}
+                          />{" "}
+                          Show setup help note
+                        </label>
+                        <textarea
+                          style={{ ...input, minHeight: 92, marginTop: 8, resize: "vertical" as const }}
+                          value={cfg.setupSupportText || ""}
+                          onChange={(e) => updateCfg({ setupSupportText: e.target.value })}
+                          placeholder="Need help with setup? Message the developer for direct setup assistance."
+                        />
+                        <div style={{ ...hint, marginTop: 6 }}>
+                          Guardrail: do not overlap onboarding, verification, security, economy, progression, moderation, or logging ownership across both bots. Pick one authority per protected system.
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div style={{ ...card, marginTop: 12, marginBottom: 0, background: "rgba(18, 0, 0, 0.78)" }}>
