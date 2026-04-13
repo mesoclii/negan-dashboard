@@ -11,24 +11,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const guildId = String(req.query.guildId || "").trim();
+    const bypassCache = Boolean(String(req.query.bust || "").trim());
     if (!guildId) {
       return res.status(400).json({ success: false, error: "guildId is required" });
     }
 
-    const cacheKey = `native-commands:${guildId}`;
-    const cached = await readOrCreateServerCache<{ status: number; body: unknown }>(
-      cacheKey,
-      NATIVE_COMMANDS_PROXY_TTL_MS,
-      async () => {
-        const upstream = await fetchBotApi(
-          `${BOT_API}/api/native-commands/${encodeURIComponent(guildId)}`,
-          { headers: buildBotApiHeaders(req), cache: "no-store" }
-        );
+    const fetchUpstream = async () => {
+      const upstream = await fetchBotApi(
+        `${BOT_API}/api/native-commands/${encodeURIComponent(guildId)}`,
+        { headers: buildBotApiHeaders(req), cache: "no-store" }
+      );
 
-        const data = await readJsonSafe(upstream);
-        return { status: upstream.status, body: data };
-      }
-    );
+      const data = await readJsonSafe(upstream);
+      return { status: upstream.status, body: data };
+    };
+
+    const cached = bypassCache
+      ? await fetchUpstream()
+      : await readOrCreateServerCache<{ status: number; body: unknown }>(
+          `native-commands:${guildId}`,
+          NATIVE_COMMANDS_PROXY_TTL_MS,
+          fetchUpstream
+        );
 
     return res.status(cached.status).json(cached.body);
   } catch (err: any) {

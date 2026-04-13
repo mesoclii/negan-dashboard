@@ -41,6 +41,20 @@ type NativeConfig = {
   logChannelId: string;
   notes: string;
   rules: Record<string, NativeRule>;
+  renames: Record<string, string>;
+};
+
+type RenameDiagnostic = {
+  key: string;
+  attemptedName: string;
+  code: string;
+  message: string;
+};
+
+type DeployedTopLevelCommand = {
+  key: string;
+  name: string;
+  renamed: boolean;
 };
 
 type DeploymentEntryState = {
@@ -52,6 +66,8 @@ type DeploymentEntryState = {
   enabled: boolean;
   overlapTarget: string;
   overlapSize: number;
+  deployedName?: string;
+  renamed?: boolean;
 };
 
 type OverlapGroup = {
@@ -71,14 +87,18 @@ type NativeDeployment = {
   active: boolean;
   slashEnabled: boolean;
   deployedTopLevelCommandNames: string[];
+  deployedTopLevelCommands: DeployedTopLevelCommand[];
   deployedKeys: string[];
   overlapGroups: OverlapGroup[];
   entryStates: Record<string, DeploymentEntryState>;
+  renames: Record<string, string>;
+  renameDiagnostics: RenameDiagnostic[];
   summary: {
     configuredRuleCount: number;
     deployedTopLevelCount: number;
     deployedEntryCount: number;
     overlapGroupCount: number;
+    activeRenameCount: number;
   };
 };
 
@@ -111,6 +131,8 @@ const AUDIENCE_PRESETS = [
   { id: "CUSTOM", label: "Custom", level: "", help: "Use the raw level + role controls below for advanced tuning." },
 ] as const;
 
+const SLASH_COMMAND_NAME_RE = /^[a-z0-9_-]{1,32}$/;
+
 const shell: CSSProperties = {
   color: "#ffd0d0",
   maxWidth: 1520,
@@ -142,6 +164,91 @@ const button: CSSProperties = {
   fontWeight: 700,
 };
 
+function sanitizeSlashCommandInput(value: string) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 32);
+}
+
+function normalizeRenameMap(raw: any, entries: CommandEntry[]) {
+  const next: Record<string, string> = {};
+  const source = raw && typeof raw === "object" ? raw : {};
+  const commandKeys = new Set(entries.filter((entry) => entry.kind === "command").map((entry) => entry.key));
+  for (const [key, value] of Object.entries(source)) {
+    if (!commandKeys.has(key)) continue;
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) continue;
+    next[key] = normalized;
+  }
+  return next;
+}
+
+function buildRenamePreview(entries: CommandEntry[], config: NativeConfig) {
+  const commands = entries.filter((entry) =>
+    entry.kind === "command" &&
+    config.active !== false &&
+    config.slashEnabled !== false &&
+    config.rules?.[entry.key]?.enabled !== false
+  );
+  const accepted: Record<string, string> = {};
+  const diagnostics: RenameDiagnostic[] = [];
+  const pending: Array<{ key: string; requestedName: string }> = [];
+  const reservedCanonicalNames = new Set<string>();
+
+  for (const entry of commands) {
+    const canonicalName = String(entry.key || "").trim().toLowerCase();
+    const requestedName = String(config.renames?.[canonicalName] || "").trim().toLowerCase();
+
+    if (!requestedName || requestedName === canonicalName) {
+      reservedCanonicalNames.add(canonicalName);
+      continue;
+    }
+
+    if (!SLASH_COMMAND_NAME_RE.test(requestedName)) {
+      diagnostics.push({
+        key: canonicalName,
+        attemptedName: requestedName,
+        code: "invalid_name",
+        message: `/${requestedName} is invalid for ${canonicalName}. Use 1-32 lowercase letters, numbers, hyphens, or underscores.`,
+      });
+      reservedCanonicalNames.add(canonicalName);
+      continue;
+    }
+
+    pending.push({ key: canonicalName, requestedName });
+  }
+
+  const claimedRenameNames = new Set<string>();
+  for (const item of pending) {
+    if (reservedCanonicalNames.has(item.requestedName)) {
+      diagnostics.push({
+        key: item.key,
+        attemptedName: item.requestedName,
+        code: "reserved_conflict",
+        message: `/${item.requestedName} is already used by another live command in this guild.`,
+      });
+      continue;
+    }
+
+    if (claimedRenameNames.has(item.requestedName)) {
+      diagnostics.push({
+        key: item.key,
+        attemptedName: item.requestedName,
+        code: "duplicate_rename",
+        message: `/${item.requestedName} is already claimed by another custom slash rename in this guild.`,
+      });
+      continue;
+    }
+
+    claimedRenameNames.add(item.requestedName);
+    accepted[item.key] = item.requestedName;
+  }
+
+  return { accepted, diagnostics };
+}
+
 function emptyRule(entry?: CommandEntry | null): NativeRule {
   return {
     enabled: true,
@@ -164,6 +271,7 @@ function normalizeConfig(raw: any, entries: CommandEntry[]): NativeConfig {
     logChannelId: String(raw?.logChannelId || ""),
     notes: String(raw?.notes || ""),
     rules: {},
+    renames: normalizeRenameMap(raw?.renames, entries),
   };
 
   const source = raw?.rules && typeof raw.rules === "object" ? raw.rules : {};
@@ -225,14 +333,18 @@ function emptyDeployment(entries: CommandEntry[]): NativeDeployment {
     active: true,
     slashEnabled: true,
     deployedTopLevelCommandNames: [],
+    deployedTopLevelCommands: [],
     deployedKeys: [],
     overlapGroups: [],
     entryStates,
+    renames: {},
+    renameDiagnostics: [],
     summary: {
       configuredRuleCount: 0,
       deployedTopLevelCount: 0,
       deployedEntryCount: 0,
       overlapGroupCount: 0,
+      activeRenameCount: 0,
     },
   };
 }
@@ -240,6 +352,11 @@ function emptyDeployment(entries: CommandEntry[]): NativeDeployment {
 function normalizeDeployment(raw: any, entries: CommandEntry[]): NativeDeployment {
   const fallback = emptyDeployment(entries);
   const incomingStates = raw?.entryStates && typeof raw.entryStates === "object" ? raw.entryStates : {};
+  const deployedTopLevelCommands = Array.isArray(raw?.deployedTopLevelCommands) && raw.deployedTopLevelCommands.length
+    ? raw.deployedTopLevelCommands
+    : Array.isArray(raw?.deployedTopLevelCommandNames)
+      ? raw.deployedTopLevelCommandNames.map((name: string) => ({ key: name, name, renamed: false }))
+      : [];
   const entryStates = { ...fallback.entryStates };
 
   for (const entry of entries) {
@@ -255,14 +372,18 @@ function normalizeDeployment(raw: any, entries: CommandEntry[]): NativeDeploymen
     active: raw?.active !== false,
     slashEnabled: raw?.slashEnabled !== false,
     deployedTopLevelCommandNames: Array.isArray(raw?.deployedTopLevelCommandNames) ? raw.deployedTopLevelCommandNames : [],
+    deployedTopLevelCommands,
     deployedKeys: Array.isArray(raw?.deployedKeys) ? raw.deployedKeys : [],
     overlapGroups: Array.isArray(raw?.overlapGroups) ? raw.overlapGroups : [],
     entryStates,
+    renames: normalizeRenameMap(raw?.renames, entries),
+    renameDiagnostics: Array.isArray(raw?.renameDiagnostics) ? raw.renameDiagnostics : [],
     summary: {
       configuredRuleCount: Number(raw?.summary?.configuredRuleCount || 0) || 0,
       deployedTopLevelCount: Number(raw?.summary?.deployedTopLevelCount || 0) || 0,
       deployedEntryCount: Number(raw?.summary?.deployedEntryCount || 0) || 0,
       overlapGroupCount: Number(raw?.summary?.overlapGroupCount || 0) || 0,
+      activeRenameCount: Number(raw?.summary?.activeRenameCount || 0) || 0,
     },
   };
 }
@@ -279,7 +400,7 @@ export default function SlashCommandsClient() {
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [entries, setEntries] = useState<CommandEntry[]>([]);
-  const [config, setConfig] = useState<NativeConfig>({ active: true, slashEnabled: true, logChannelId: "", notes: "", rules: {} });
+  const [config, setConfig] = useState<NativeConfig>({ active: true, slashEnabled: true, logChannelId: "", notes: "", rules: {}, renames: {} });
   const [deployment, setDeployment] = useState<NativeDeployment>(emptyDeployment([]));
   const [selectedKey, setSelectedKey] = useState("");
   const [search, setSearch] = useState("");
@@ -308,7 +429,7 @@ export default function SlashCommandsClient() {
       }
 
       const [registryRes, guildRes] = await Promise.all([
-        fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }),
+        fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}&bust=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`, { cache: "no-store" }),
       ]);
 
@@ -365,6 +486,11 @@ export default function SlashCommandsClient() {
     [entries]
   );
 
+  const renamePreview = useMemo(
+    () => buildRenamePreview(entries, config),
+    [entries, config]
+  );
+
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.key === selectedKey) || null,
     [entries, selectedKey]
@@ -379,6 +505,21 @@ export default function SlashCommandsClient() {
     if (!selectedEntry) return null;
     return deployment.entryStates?.[selectedEntry.key] || null;
   }, [deployment.entryStates, selectedEntry]);
+
+  const selectedRenameValue = useMemo(() => {
+    if (!selectedEntry || selectedEntry.kind !== "command") return "";
+    return config.renames[selectedEntry.key] || "";
+  }, [config.renames, selectedEntry]);
+
+  const selectedLiveCommandName = useMemo(() => {
+    if (!selectedEntry) return "";
+    return selectedState?.deployedName || selectedEntry.commandName;
+  }, [selectedEntry, selectedState]);
+
+  const selectedRenameDiagnostic = useMemo(() => {
+    if (!selectedEntry || selectedEntry.kind !== "command") return null;
+    return renamePreview.diagnostics.find((item) => item.key === selectedEntry.key) || null;
+  }, [renamePreview.diagnostics, selectedEntry]);
 
   const selectedAudiencePreset = useMemo(
     () => getAudiencePreset(selectedRule.requiredLevel),
@@ -408,6 +549,35 @@ export default function SlashCommandsClient() {
       const nextRules = { ...prev.rules };
       delete nextRules[selectedEntry.key];
       return { ...prev, rules: nextRules };
+    });
+  }
+
+  function patchSelectedRename(value: string) {
+    if (!selectedEntry || selectedEntry.kind !== "command") return;
+    const nextValue = sanitizeSlashCommandInput(value);
+    setConfig((prev) => {
+      const nextRenames = { ...prev.renames };
+      if (!nextValue || nextValue === selectedEntry.key) {
+        delete nextRenames[selectedEntry.key];
+      } else {
+        nextRenames[selectedEntry.key] = nextValue;
+      }
+      return {
+        ...prev,
+        renames: nextRenames,
+      };
+    });
+  }
+
+  function resetSelectedRename() {
+    if (!selectedEntry || selectedEntry.kind !== "command") return;
+    setConfig((prev) => {
+      const nextRenames = { ...prev.renames };
+      delete nextRenames[selectedEntry.key];
+      return {
+        ...prev,
+        renames: nextRenames,
+      };
     });
   }
 
@@ -444,6 +614,10 @@ export default function SlashCommandsClient() {
     setSaving(true);
     setMessage("");
     try {
+      if (renamePreview.diagnostics.length) {
+        throw new Error(renamePreview.diagnostics[0]?.message || "Fix your custom slash command names before saving.");
+      }
+
       const res = await fetch("/api/bot/engine-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -501,7 +675,7 @@ export default function SlashCommandsClient() {
 
       <div style={{ marginTop: 12, color: "#ffb3b3", lineHeight: 1.7, maxWidth: 1100 }}>
         This tab controls the bot&apos;s built-in slash commands only. It does not touch your `!custom` command studio. You can disable,
-        relock, channel-gate, cooldown, and role-gate native slash commands per guild.
+        relock, channel-gate, cooldown, role-gate, and guild-rename native slash commands per server.
       </div>
 
       {message ? (
@@ -527,6 +701,7 @@ export default function SlashCommandsClient() {
               </label>
               <div style={{ color: "#ffbcbc" }}>Registry entries: {entries.length}</div>
               <div style={{ color: "#ffbcbc" }}>Custom `!` commands: separate system</div>
+              <div style={{ color: "#ffbcbc" }}>Active custom slash names: {renamePreview.diagnostics.length ? `${deployment.summary.activeRenameCount} live / ${renamePreview.diagnostics.length} blocked` : deployment.summary.activeRenameCount}</div>
             </div>
             <div style={{ marginTop: 12 }}>
               <label>Slash command audit log channel</label>
@@ -558,6 +733,7 @@ export default function SlashCommandsClient() {
               <div style={{ color: "#ffbcbc" }}><b>Deployed top-level commands:</b> {deployment.summary.deployedTopLevelCount}</div>
               <div style={{ color: "#ffbcbc" }}><b>Deployed registry entries:</b> {deployment.summary.deployedEntryCount}</div>
               <div style={{ color: "#ffbcbc" }}><b>Overlap groups:</b> {deployment.summary.overlapGroupCount}</div>
+              <div style={{ color: "#ffbcbc" }}><b>Custom slash names live:</b> {deployment.summary.activeRenameCount}</div>
             </div>
 
             <div style={{ marginTop: 12, color: "#ffbcbc" }}>
@@ -565,22 +741,31 @@ export default function SlashCommandsClient() {
             </div>
 
             <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {deployment.deployedTopLevelCommandNames.length ? deployment.deployedTopLevelCommandNames.map((name) => (
+              {deployment.deployedTopLevelCommands.length ? deployment.deployedTopLevelCommands.map((command) => (
                 <button
-                  key={name}
-                  onClick={() => setSelectedKey(name)}
+                  key={command.key}
+                  onClick={() => setSelectedKey(command.key)}
                   style={{
                     ...button,
                     padding: "6px 10px",
-                    background: selectedKey === name ? "#2a0000" : "#140000",
+                    background: selectedKey === command.key ? "#2a0000" : "#140000",
                   }}
                 >
-                  /{name}
+                  /{command.name}
                 </button>
               )) : (
                 <div style={{ color: "#ff9d9d" }}>No slash commands are currently deployed for this guild.</div>
               )}
             </div>
+            {deployment.renameDiagnostics.length ? (
+              <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+                {deployment.renameDiagnostics.map((item) => (
+                  <div key={`${item.key}:${item.attemptedName}`} style={{ color: "#ffd27a", fontSize: 13 }}>
+                    Rename blocked for `/{item.key}`: {item.message}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
 
           <section style={{ display: "grid", gridTemplateColumns: "360px 1fr", gap: 14, marginTop: 14 }}>
@@ -625,6 +810,11 @@ export default function SlashCommandsClient() {
                       <div style={{ marginTop: 6, fontSize: 12, color: "#ffbcbc" }}>
                         {kindLabel(entry.kind)} - {entry.key}
                       </div>
+                      {entry.kind === "command" ? (
+                        <div style={{ marginTop: 6, fontSize: 12, color: "#ffd27a" }}>
+                          Live slash: /{deployment.entryStates?.[entry.key]?.deployedName || entry.key}
+                        </div>
+                      ) : null}
                       {state?.overlapSize ? (
                         <div style={{ marginTop: 6, fontSize: 12, color: "#ffd27a" }}>
                           Overlap set: {state.overlapTarget} ({state.overlapSize})
@@ -654,10 +844,46 @@ export default function SlashCommandsClient() {
                     <div style={{ color: "#ffbcbc" }}><b>Default Level:</b> {selectedEntry.defaultRequiredLevelName}</div>
                     <div style={{ color: "#ffbcbc" }}><b>Executable:</b> {selectedEntry.executable ? "Yes" : "Parent Rule"}</div>
                     <div style={{ color: "#ffbcbc" }}><b>Currently Deployed:</b> {selectedState?.deployed ? "Yes" : "No"}</div>
+                    <div style={{ color: "#ffbcbc" }}><b>Live Slash Name:</b> /{selectedLiveCommandName || selectedEntry.commandName}</div>
                     <div style={{ color: "#ffbcbc" }}><b>Explicit Rule:</b> {selectedState?.hasExplicitRule ? selectedState.explicitRuleKey : "No"}</div>
                     <div style={{ color: "#ffbcbc" }}><b>Inherited Off By:</b> {selectedState?.inheritedDisabledBy || "None"}</div>
                     <div style={{ color: "#ffbcbc" }}><b>Overlap Group:</b> {selectedState?.overlapTarget ? `${selectedState.overlapTarget} (${selectedState.overlapSize})` : "None"}</div>
                   </div>
+
+                  {selectedEntry.kind === "command" ? (
+                    <div style={{ ...card, marginTop: 14, padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ color: "#ff5f5f", fontWeight: 700 }}>Custom Slash Name</div>
+                          <div style={{ color: "#ffbcbc", marginTop: 6 }}>
+                            Rename this slash command for this guild without changing the underlying handler, permissions, or cooldowns.
+                          </div>
+                        </div>
+                        <button style={button} onClick={resetSelectedRename}>Reset Slash Name</button>
+                      </div>
+                      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "minmax(240px,420px) 1fr", gap: 12, alignItems: "end" }}>
+                        <div>
+                          <label>Custom slash name for `/{selectedEntry.key}`</label>
+                          <input
+                            style={input}
+                            placeholder={selectedEntry.key}
+                            value={selectedRenameValue}
+                            onChange={(e) => patchSelectedRename(e.target.value)}
+                          />
+                        </div>
+                        <div style={{ color: "#ff9d9d", fontSize: 13 }}>
+                          Use lowercase letters, numbers, hyphens, or underscores. Example: `guild-stats`
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 10, color: selectedRenameDiagnostic ? "#ffd27a" : "#8cffaa" }}>
+                        {selectedRenameDiagnostic
+                          ? selectedRenameDiagnostic.message
+                          : selectedRenameValue
+                            ? `This guild will see /${selectedRenameValue}. Internally it still routes to /${selectedEntry.key}.`
+                            : `No custom slash name saved. This guild will keep /${selectedEntry.key}.`}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {selectedEntry.kind === "command" ? (
                     <div style={{ marginTop: 12, color: "#ffd27a" }}>
