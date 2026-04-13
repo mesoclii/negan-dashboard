@@ -103,6 +103,14 @@ const LEVEL_OPTIONS = [
   "OWNER",
 ];
 
+const AUDIENCE_PRESETS = [
+  { id: "EVERYONE", label: "Everyone", level: "PUBLIC", help: "Visible to everyone who can use the bot." },
+  { id: "MEMBERS", label: "Members Only", level: "VERIFIED", help: "Member-facing command. Good default for normal community tools." },
+  { id: "STAFF", label: "Staff Only", level: "SUPPORT_STAFF", help: "Staff-facing command without opening it to regular members." },
+  { id: "ADMINS", label: "Admins Only", level: "ADMIN", help: "Admin-only command for higher risk actions." },
+  { id: "CUSTOM", label: "Custom", level: "", help: "Use the raw level + role controls below for advanced tuning." },
+] as const;
+
 const shell: CSSProperties = {
   color: "#ffd0d0",
   maxWidth: 1520,
@@ -179,6 +187,20 @@ function normalizeConfig(raw: any, entries: CommandEntry[]): NativeConfig {
 
 function toggleId(list: string[], id: string) {
   return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
+}
+
+function getAudiencePreset(requiredLevel: string) {
+  const normalized = String(requiredLevel || "").trim().toUpperCase();
+  if (normalized === "PUBLIC") return "EVERYONE";
+  if (normalized === "VERIFIED") return "MEMBERS";
+  if (normalized === "SUPPORT_STAFF") return "STAFF";
+  if (normalized === "ADMIN") return "ADMINS";
+  return "CUSTOM";
+}
+
+function getAudiencePresetMeta(requiredLevel: string) {
+  const preset = getAudiencePreset(requiredLevel);
+  return AUDIENCE_PRESETS.find((item) => item.id === preset) || AUDIENCE_PRESETS[AUDIENCE_PRESETS.length - 1];
 }
 
 function emptyDeployment(entries: CommandEntry[]): NativeDeployment {
@@ -357,6 +379,11 @@ export default function SlashCommandsClient() {
     if (!selectedEntry) return null;
     return deployment.entryStates?.[selectedEntry.key] || null;
   }, [deployment.entryStates, selectedEntry]);
+
+  const selectedAudiencePreset = useMemo(
+    () => getAudiencePreset(selectedRule.requiredLevel),
+    [selectedRule.requiredLevel]
+  );
 
   const selectedOverlapGroup = useMemo(() => {
     if (!selectedState?.overlapTarget) return null;
@@ -647,6 +674,26 @@ export default function SlashCommandsClient() {
                       <input type="checkbox" checked={selectedRule.hideFromHelp} onChange={(e) => patchRule({ hideFromHelp: e.target.checked })} />
                       Hide from help
                     </label>
+                    <div>
+                      <label>Audience Preset</label>
+                      <select
+                        style={input}
+                        value={selectedAudiencePreset}
+                        onChange={(e) => {
+                          const preset = AUDIENCE_PRESETS.find((item) => item.id === e.target.value);
+                          if (preset?.level) {
+                            patchRule({ requiredLevel: preset.level });
+                          }
+                        }}
+                      >
+                        {AUDIENCE_PRESETS.map((preset) => (
+                          <option key={preset.id} value={preset.id}>{preset.label}</option>
+                        ))}
+                      </select>
+                      <div style={{ color: "#ff9d9d", fontSize: 12, marginTop: 6 }}>
+                        {getAudiencePresetMeta(selectedRule.requiredLevel).help}
+                      </div>
+                    </div>
                     <div>
                       <label>Minimum Access Level</label>
                       <select style={input} value={selectedRule.requiredLevel} onChange={(e) => patchRule({ requiredLevel: e.target.value })}>
