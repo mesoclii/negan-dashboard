@@ -26,6 +26,11 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 - The dashboard now supports a guild-scoped companion bot inside `Dashboard -> Bot Personalizer`.
 - Shared Possum personalization still works without any token bot setup.
+- Identity is split into three separate lanes:
+  - Main Possum
+  - Webhook lane
+  - Custom Token Bot
+- Shared avatar overrides are retired so these lanes do not overwrite each other.
 - If a guild wants full branded DMs, they can enable the optional custom bot application and store:
   - custom bot token
   - custom bot client secret
@@ -34,6 +39,9 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - Runtime authority is also guild-scoped:
   - `DM authority`: `Custom Token Bot` or `Main Possum`
   - `Guild message authority`: `Custom Token Bot`, `Shared Possum Webhook`, or `Main Possum`
+- Side-by-side use is supported. Example:
+  - DMs = `Custom Token Bot`
+  - Guild messages = `Shared Possum Webhook`
 - Guardrail: do not split protected systems across both bots at the same time. Pick one owner for onboarding, verification, moderation DMs, economy DMs, progression/achievement DMs, giveaways, and security messaging.
 - The companion bot setup persists per guild even if the custom bot leaves and is re-invited later.
 
