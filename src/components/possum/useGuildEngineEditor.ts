@@ -244,11 +244,12 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
       const warnings = Array.isArray(json?.result?.warnings) ? json.result.warnings.filter(Boolean) : [];
+      const avatarLabel = json?.result?.avatar?.scope === "guild" ? "guild avatar" : "bot avatar";
       const appliedLabels = [
         json?.result?.username?.applied ? "bot username" : "",
         json?.result?.nickname?.applied ? "guild nickname" : "",
         json?.result?.presence?.applied ? "live presence" : "",
-        json?.result?.avatar?.applied ? "bot avatar" : "",
+        json?.result?.avatar?.applied ? avatarLabel : "",
         json?.result?.banner?.applied ? "bot banner" : "",
         json?.result?.webhookIdentity?.applied ? "webhook identity" : "",
       ].filter(Boolean);
