@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { fetchGuildData, peekGuildData } from "@/lib/liveRuntime";
 
 const GUILD_NAME_CACHE_TTL_MS = 15 * 60 * 1000;
 
@@ -51,6 +52,14 @@ export default function GuildNameBootstrap() {
     const guildId = resolveGuildId();
     if (!guildId) return;
 
+    const liveRuntimeCached = peekGuildData(guildId);
+    const liveRuntimeName = String(liveRuntimeCached?.guild?.name || "").trim();
+    if (liveRuntimeName) {
+      localStorage.setItem("activeGuildName", liveRuntimeName);
+      writeCachedGuildName(guildId, liveRuntimeName);
+      return;
+    }
+
     const cachedName = readCachedGuildName(guildId);
     if (cachedName) {
       localStorage.setItem("activeGuildName", cachedName);
@@ -59,8 +68,7 @@ export default function GuildNameBootstrap() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
+        const json = await fetchGuildData(guildId);
         const name = String(json?.guild?.name || "").trim();
         if (name) {
           localStorage.setItem("activeGuildName", name);

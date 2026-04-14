@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
@@ -24,6 +24,7 @@ export default function PossumSidebar() {
   const topLinks = useMemo(() => getDashboardNavTopLinks(isMasterOwner), [isMasterOwner]);
   const sections = useMemo(() => getDashboardNavSections(isMasterOwner), [isMasterOwner]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const prefetchedHrefsRef = useRef<Set<string>>(new Set());
 
   function isSectionOpen(label: string, defaultOpen: boolean) {
     return typeof openSections[label] === "boolean" ? openSections[label] : defaultOpen;
@@ -37,18 +38,28 @@ export default function PossumSidebar() {
     router.push(buildDashboardHref(href));
   }
 
+  const prefetchHref = useCallback((href: string) => {
+    const resolved = buildDashboardHref(href);
+    if (!resolved || prefetchedHrefsRef.current.has(resolved)) {
+      return;
+    }
+    prefetchedHrefsRef.current.add(resolved);
+    router.prefetch(resolved);
+  }, [router]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const activeSection = sections.find((section) =>
+      section.items.some((item) => isItemActive(pathname, item.href))
+    );
     const hrefs = [
       "/dashboard",
       ...topLinks.map((item) => item.href),
-      ...sections.flatMap((section) => section.items.map((item) => item.href)),
+      ...(activeSection ? activeSection.items.slice(0, 10).map((item) => item.href) : []),
     ];
-    const uniqueHrefs = [...new Set(hrefs.map((href) => buildDashboardHref(href)))];
+    const uniqueHrefs = [...new Set(hrefs)];
     const prefetchAll = () => {
-      uniqueHrefs.forEach((href) => {
-        router.prefetch(href);
-      });
+      uniqueHrefs.forEach(prefetchHref);
     };
     const withIdle = window as Window & {
       requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
@@ -60,7 +71,7 @@ export default function PossumSidebar() {
     }
     const timeout = window.setTimeout(prefetchAll, 150);
     return () => window.clearTimeout(timeout);
-  }, [router, sections, topLinks]);
+  }, [pathname, prefetchHref, sections, topLinks]);
 
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">
@@ -81,6 +92,8 @@ export default function PossumSidebar() {
                 key={item.href}
                 type="button"
                 onClick={() => navigateTo(item.href)}
+                onMouseEnter={() => prefetchHref(item.href)}
+                onFocus={() => prefetchHref(item.href)}
                 className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
               >
                 {item.label}
@@ -113,6 +126,8 @@ export default function PossumSidebar() {
                         key={item.href}
                         type="button"
                         onClick={() => navigateTo(item.href)}
+                        onMouseEnter={() => prefetchHref(item.href)}
+                        onFocus={() => prefetchHref(item.href)}
                         className={`${itemClass(Boolean(active))} relative z-10 cursor-pointer`}
                       >
                         {item.label}

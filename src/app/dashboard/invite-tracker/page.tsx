@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import InviteTrackerClient from "../access/invite-tracker/InviteTrackerClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default function Page() {
   return (

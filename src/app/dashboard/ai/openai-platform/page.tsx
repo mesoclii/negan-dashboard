@@ -3,8 +3,6 @@ import PremiumGate from "@/components/possum/PremiumGate";
 import CreatorOnlyGate from "@/components/possum/CreatorOnlyGate";
 import OpenAiPlatformClient from "./OpenAiPlatformClient";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 function Loading() {
   return <div style={{ color: "#ff4444", padding: 16 }}>Loading...</div>;

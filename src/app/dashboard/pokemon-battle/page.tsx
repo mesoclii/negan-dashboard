@@ -11,7 +11,6 @@ import {
   isTextLikeChannel,
 } from "@/lib/dashboard/pokemonConfig";
 
-export const dynamic = "force-dynamic";
 
 const shell: React.CSSProperties = { color: "#ffd0d0", padding: 18, maxWidth: 1240 };
 const card: React.CSSProperties = { border: "1px solid #5f0000", borderRadius: 12, padding: 14, background: "rgba(120,0,0,0.10)", marginBottom: 12 };
