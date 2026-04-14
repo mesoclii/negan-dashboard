@@ -217,6 +217,53 @@ function extractRuntimeValue(rows: Array<{ title?: string; value?: string }>, ti
   return rows.find((row) => String(row.title || "").trim().toLowerCase() === title.toLowerCase())?.value || "";
 }
 
+function buildMainBotPatch(cfg: PersonaConfig): Partial<PersonaConfig> {
+  return {
+    enabled: cfg.enabled,
+    guildNickname: cfg.guildNickname,
+    botName: cfg.botName,
+    guildAvatarUrl: cfg.guildAvatarUrl,
+    profileBannerUrl: cfg.profileBannerUrl,
+    activityType: cfg.activityType,
+    activityText: cfg.activityText,
+    status: cfg.status,
+  };
+}
+
+function buildWebhookPatch(cfg: PersonaConfig): Partial<PersonaConfig> {
+  return {
+    enabled: cfg.enabled,
+    useWebhookPersona: cfg.useWebhookPersona,
+    webhookName: cfg.webhookName,
+    webhookAvatarUrl: cfg.webhookAvatarUrl,
+    avatarLibrary: cfg.avatarLibrary,
+  };
+}
+
+function buildCustomBotPatch(cfg: PersonaConfig): Partial<PersonaConfig> {
+  return {
+    enabled: cfg.enabled,
+    customBotEnabled: cfg.customBotEnabled,
+    dmAuthority: cfg.dmAuthority,
+    guildMessageAuthority: cfg.guildMessageAuthority,
+    showSetupSupportText: cfg.showSetupSupportText,
+    setupSupportText: cfg.setupSupportText,
+    customBotNickname: cfg.customBotNickname,
+    customBotStatus: cfg.customBotStatus,
+    customBotActivityType: cfg.customBotActivityType,
+    customBotActivityText: cfg.customBotActivityText,
+    customBotClientId: cfg.customBotClientId,
+    customBotRedirectUri: cfg.customBotRedirectUri,
+    customBotToken: cfg.customBotToken,
+    customBotClientSecret: cfg.customBotClientSecret,
+    customBotClearToken: cfg.customBotClearToken,
+    customBotClearClientSecret: cfg.customBotClearClientSecret,
+    customBotIntentsConfirmed: cfg.customBotIntentsConfirmed,
+    customBotOauthGrantDisabledConfirmed: cfg.customBotOauthGrantDisabledConfirmed,
+    customBotRedirectConfiguredConfirmed: cfg.customBotRedirectConfiguredConfirmed,
+  };
+}
+
 export default function BotPersonalizerClient() {
   const {
     guildId,
@@ -330,10 +377,29 @@ export default function BotPersonalizerClient() {
   }
 
   async function saveAndApplyMainBotIdentity() {
-    const result = await runAction("applyProfile", { patch: cfg });
+    const result = await runAction("applyProfile", {
+      scope: "main",
+      patch: buildMainBotPatch(cfg),
+    });
     if (!result) return;
     setMainAvatarPreviewFailedFor("");
     setAvatarPreviewFailedFor("");
+  }
+
+  async function saveAndDeployWebhookIdentity() {
+    const result = await runAction("applyProfile", {
+      scope: "webhook",
+      patch: buildWebhookPatch(cfg),
+    });
+    if (!result) return;
+    setAvatarPreviewFailedFor("");
+  }
+
+  async function saveAndDeployCustomBot() {
+    const actionName = cfg.customBotEnabled ? "refreshCustomBot" : "stopCustomBot";
+    await runAction(actionName, {
+      patch: buildCustomBotPatch(cfg),
+    });
   }
 
   if (!guildId) {
@@ -364,6 +430,12 @@ export default function BotPersonalizerClient() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={() => void saveAndApplyMainBotIdentity()} disabled={saving} style={action}>
               {saving ? "Applying..." : "Save + Apply Main Bot"}
+            </button>
+            <button type="button" onClick={() => void saveAndDeployWebhookIdentity()} disabled={saving} style={action}>
+              {saving ? "Deploying..." : "Save + Deploy Webhook"}
+            </button>
+            <button type="button" onClick={() => void saveAndDeployCustomBot()} disabled={saving} style={action}>
+              {saving ? "Deploying..." : "Save + Deploy Custom Bot"}
             </button>
             <button type="button" onClick={() => void saveGuildPersonalizer()} disabled={saving} style={action}>
               {saving ? "Saving..." : "Save Personalizer"}
