@@ -58,8 +58,25 @@ type ModeratorConfig = {
     blockedWords: string[];
     restrictedChannelIds: string[];
     exemptChannelIds: string[];
+    exemptCategoryIds: string[];
     exemptRoleIds: string[];
     allowGifLinks: boolean;
+    badWordsNoticeMode: string;
+    badWordsNoticeMessage: string;
+    repeatedTextNoticeMode: string;
+    repeatedTextNoticeMessage: string;
+    spamNoticeMode: string;
+    spamNoticeMessage: string;
+    capsNoticeMode: string;
+    capsNoticeMessage: string;
+    linksNoticeMode: string;
+    linksNoticeMessage: string;
+    inviteNoticeMode: string;
+    inviteNoticeMessage: string;
+    mentionNoticeMode: string;
+    mentionNoticeMessage: string;
+    zalgoNoticeMode: string;
+    zalgoNoticeMessage: string;
     autoModerateIgnoresBots: boolean;
     sendWarningMessage: boolean;
     replyToDeletion: boolean;
@@ -101,6 +118,19 @@ const ACTIONS = [
   "Kick",
   "Ban",
 ];
+
+const NOTICE_MODES = ["Disabled", "DM", "Reply In Channel", "Both"];
+
+const AUTOMOD_NOTICE_RULES = [
+  ["badWords", "Blocked words"],
+  ["repeatedText", "Repeated text"],
+  ["spam", "Spam burst"],
+  ["caps", "Caps spam"],
+  ["links", "External links"],
+  ["invite", "Discord invites"],
+  ["mention", "Mention burst"],
+  ["zalgo", "Zalgo"],
+] as const;
 
 const LEVELS = [
   "PUBLIC",
@@ -165,8 +195,25 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     blockedWords: [],
     restrictedChannelIds: [],
     exemptChannelIds: [],
+    exemptCategoryIds: [],
     exemptRoleIds: [],
     allowGifLinks: false,
+    badWordsNoticeMode: "",
+    badWordsNoticeMessage: "",
+    repeatedTextNoticeMode: "",
+    repeatedTextNoticeMessage: "",
+    spamNoticeMode: "",
+    spamNoticeMessage: "",
+    capsNoticeMode: "",
+    capsNoticeMessage: "",
+    linksNoticeMode: "",
+    linksNoticeMessage: "",
+    inviteNoticeMode: "",
+    inviteNoticeMessage: "",
+    mentionNoticeMode: "",
+    mentionNoticeMessage: "",
+    zalgoNoticeMode: "",
+    zalgoNoticeMessage: "",
     autoModerateIgnoresBots: true,
     sendWarningMessage: true,
     replyToDeletion: false,
@@ -341,6 +388,10 @@ export default function ModeratorClient() {
   ]), []);
   const textChannels = useMemo(
     () => channels.filter((channel) => [0, 5].includes(Number(channel.type || 0))),
+    [channels]
+  );
+  const categories = useMemo(
+    () => channels.filter((channel) => Number(channel.type || 0) === 4),
     [channels]
   );
 
@@ -588,29 +639,53 @@ export default function ModeratorClient() {
           </div>
 
           <div style={{ marginTop: 14 }}>
+            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Per-Rule Responses</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              Each automod rule can now have its own DM, channel reply, both, or no notice at all. Leave a rule message blank to fall back to the global warning message above.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+              {AUTOMOD_NOTICE_RULES.map(([ruleKey, label]) => {
+                const modeKey = `${ruleKey}NoticeMode` as keyof ModeratorConfig["automod"];
+                const messageKey = `${ruleKey}NoticeMessage` as keyof ModeratorConfig["automod"];
+                const modeValue = String(cfg.automod[modeKey] || "");
+                const normalizedMode = modeValue === "dm" ? "DM" : modeValue === "reply" ? "Reply In Channel" : modeValue === "both" ? "Both" : "Disabled";
+                return (
+                  <div key={`notice_${ruleKey}`} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12, background: "#120000" }}>
+                    <div style={{ color: "#ffdcdc", fontWeight: 800, marginBottom: 8 }}>{label}</div>
+                    <div>
+                      <label>Response mode</label>
+                      <select
+                        style={input}
+                        value={normalizedMode}
+                        onChange={(e) => setCfg((prev) => {
+                          const nextMode = e.target.value === "DM" ? "dm" : e.target.value === "Reply In Channel" ? "reply" : e.target.value === "Both" ? "both" : "disabled";
+                          return { ...prev, automod: { ...prev.automod, [modeKey]: nextMode } };
+                        })}
+                      >
+                        {NOTICE_MODES.map((mode) => <option key={`${ruleKey}_${mode}`} value={mode}>{mode}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <label>Response message</label>
+                      <textarea
+                        style={{ ...input, minHeight: 92 }}
+                        value={String(cfg.automod[messageKey] || "")}
+                        onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, [messageKey]: e.target.value } }))}
+                        placeholder="Leave blank to use the global warning message."
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
             <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Automod Scope</h3>
             <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
-              Restricted channels means "only run automod here." Exempt channels always skip automod, even if they are also in the restricted list.
+              Automod now assumes all channels are protected by default. Use channel and category exemptions to carve out safe spaces.
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <div>
-                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Restricted Channels</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(180px,1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
-                  {textChannels.map((channel) => (
-                    <label key={`restricted_${channel.id}`}>
-                      <input
-                        type="checkbox"
-                        checked={cfg.automod.restrictedChannelIds.includes(channel.id)}
-                        onChange={() => setCfg((prev) => ({
-                          ...prev,
-                          automod: { ...prev.automod, restrictedChannelIds: toggleId(prev.automod.restrictedChannelIds, channel.id) },
-                        }))}
-                      />{" "}
-                      #{channel.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
               <div>
                 <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt Channels</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(180px,1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
@@ -627,6 +702,24 @@ export default function ModeratorClient() {
                       #{channel.name}
                     </label>
                   ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt Categories</div>
+                <div style={{ display: "grid", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                  {categories.length ? categories.map((channel) => (
+                    <label key={`exempt_category_${channel.id}`}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.automod.exemptCategoryIds.includes(channel.id)}
+                        onChange={() => setCfg((prev) => ({
+                          ...prev,
+                          automod: { ...prev.automod, exemptCategoryIds: toggleId(prev.automod.exemptCategoryIds, channel.id) },
+                        }))}
+                      />{" "}
+                      {channel.name}
+                    </label>
+                  )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
                 </div>
               </div>
             </div>

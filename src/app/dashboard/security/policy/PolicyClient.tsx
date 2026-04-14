@@ -19,6 +19,19 @@ const automodActions = [
   "Delete Message + Timeout Member",
 ];
 
+const noticeModes = ["Disabled", "DM", "Reply In Channel", "Both"];
+
+const automodNoticeRules = [
+  ["badWords", "Blocked words"],
+  ["repeatedText", "Repeated text"],
+  ["spam", "Spam burst"],
+  ["caps", "Caps spam"],
+  ["links", "External links"],
+  ["invite", "Discord invites"],
+  ["mention", "Mention burst"],
+  ["zalgo", "Zalgo"],
+] as const;
+
 function toggleId(list: string[], id: string) {
   return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
 }
@@ -111,6 +124,7 @@ export default function PolicyClient() {
   }
 
   const textChannels = useMemo(() => channels.filter((channel) => Number(channel.type) === 0 || Number(channel.type) === 5), [channels]);
+  const categories = useMemo(() => channels.filter((channel) => Number(channel.type) === 4), [channels]);
   const logging = cfg.logging || {};
   const automod = cfg.automod || {};
 
@@ -149,6 +163,9 @@ export default function PolicyClient() {
               <label><input type="checkbox" checked={Boolean(automod.autoModerateIgnoresBots)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), autoModerateIgnoresBots: event.target.checked } }))} /> Ignore bots in automod</label>
               <label><input type="checkbox" checked={Boolean(automod.replyToDeletion)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), replyToDeletion: event.target.checked } }))} /> Reply on deletion</label>
               <label><input type="checkbox" checked={Boolean(automod.allowGifLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowGifLinks: event.target.checked } }))} /> Allow GIF links only</label>
+            </div>
+            <div style={{ color: "#ffbcbc", marginTop: 10 }}>
+              Automod now assumes all channels are protected by default. Use channel/category exemptions below to carve out safe spaces.
             </div>
           </div>
 
@@ -237,28 +254,45 @@ export default function PolicyClient() {
                 <textarea style={{ ...input, minHeight: 120 }} value={String(automod.warningMessage || "")} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), warningMessage: event.target.value } }))} />
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-              <div>
-                <label>Restricted channels</label>
-                <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
-                  {textChannels.map((channel) => (
-                    <label key={`policy_restricted_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
-                      <input
-                        type="checkbox"
-                        checked={Array.isArray(automod.restrictedChannelIds) && automod.restrictedChannelIds.includes(channel.id)}
-                        onChange={() => setCfg((prev: Record<string, any>) => ({
-                          ...prev,
-                          automod: {
-                            ...(prev.automod || {}),
-                            restrictedChannelIds: toggleId(Array.isArray(prev.automod?.restrictedChannelIds) ? prev.automod.restrictedChannelIds : [], channel.id),
-                          },
-                        }))}
-                      />{" "}
-                      #{channel.name}
-                    </label>
-                  ))}
-                </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: "#ffbcbc", fontWeight: 800, marginBottom: 8 }}>Per-rule responses</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+                {automodNoticeRules.map(([ruleKey, label]) => {
+                  const modeKey = `${ruleKey}NoticeMode`;
+                  const messageKey = `${ruleKey}NoticeMessage`;
+                  const modeValue = String(automod[modeKey] || "");
+                  const normalizedMode = modeValue === "dm" ? "DM" : modeValue === "reply" ? "Reply In Channel" : modeValue === "both" ? "Both" : "Disabled";
+                  return (
+                    <div key={`policy_notice_${ruleKey}`} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12, background: "#110000" }}>
+                      <div style={{ color: "#ffdcdc", fontWeight: 800, marginBottom: 8 }}>{label}</div>
+                      <div>
+                        <label>Response mode</label>
+                        <select
+                          style={input}
+                          value={normalizedMode}
+                          onChange={(event) => setCfg((prev: Record<string, any>) => {
+                            const nextMode = event.target.value === "DM" ? "dm" : event.target.value === "Reply In Channel" ? "reply" : event.target.value === "Both" ? "both" : "disabled";
+                            return { ...prev, automod: { ...(prev.automod || {}), [modeKey]: nextMode } };
+                          })}
+                        >
+                          {noticeModes.map((mode) => <option key={`${ruleKey}_${mode}`} value={mode}>{mode}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ marginTop: 8 }}>
+                        <label>Response message</label>
+                        <textarea
+                          style={{ ...input, minHeight: 92 }}
+                          value={String(automod[messageKey] || "")}
+                          onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), [messageKey]: event.target.value } }))}
+                          placeholder="Leave blank to use the global warning message."
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
               <div>
                 <label>Exempt channels</label>
                 <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
@@ -278,6 +312,27 @@ export default function PolicyClient() {
                       #{channel.name}
                     </label>
                   ))}
+                </div>
+              </div>
+              <div>
+                <label>Exempt categories</label>
+                <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
+                  {categories.length ? categories.map((channel) => (
+                    <label key={`policy_exempt_category_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={Array.isArray(automod.exemptCategoryIds) && automod.exemptCategoryIds.includes(channel.id)}
+                        onChange={() => setCfg((prev: Record<string, any>) => ({
+                          ...prev,
+                          automod: {
+                            ...(prev.automod || {}),
+                            exemptCategoryIds: toggleId(Array.isArray(prev.automod?.exemptCategoryIds) ? prev.automod.exemptCategoryIds : [], channel.id),
+                          },
+                        }))}
+                      />{" "}
+                      {channel.name}
+                    </label>
+                  )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
                 </div>
               </div>
             </div>
