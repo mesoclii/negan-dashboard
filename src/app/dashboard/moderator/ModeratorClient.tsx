@@ -57,6 +57,9 @@ type ModeratorConfig = {
     mentionThreshold: number;
     blockedWords: string[];
     restrictedChannelIds: string[];
+    exemptChannelIds: string[];
+    exemptRoleIds: string[];
+    allowGifLinks: boolean;
     autoModerateIgnoresBots: boolean;
     sendWarningMessage: boolean;
     replyToDeletion: boolean;
@@ -161,6 +164,9 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     mentionThreshold: 5,
     blockedWords: [],
     restrictedChannelIds: [],
+    exemptChannelIds: [],
+    exemptRoleIds: [],
+    allowGifLinks: false,
     autoModerateIgnoresBots: true,
     sendWarningMessage: true,
     replyToDeletion: false,
@@ -333,6 +339,10 @@ export default function ModeratorClient() {
     ["voiceLeft", "Voice left"],
     ["serverUpdated", "Server updated"],
   ]), []);
+  const textChannels = useMemo(
+    () => channels.filter((channel) => [0, 5].includes(Number(channel.type || 0))),
+    [channels]
+  );
 
   function patchModeratorCommand(entry: NativeEntry, patch: Partial<any>) {
     setNativeConfig((prev) => ({
@@ -473,6 +483,11 @@ export default function ModeratorClient() {
             <label><input type="checkbox" checked={cfg.automod.autoModerateIgnoresBots} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, autoModerateIgnoresBots: e.target.checked } }))} /> Ignore bots</label>
             <label><input type="checkbox" checked={cfg.automod.sendWarningMessage} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, sendWarningMessage: e.target.checked } }))} /> DM warning</label>
             <label><input type="checkbox" checked={cfg.automod.replyToDeletion} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, replyToDeletion: e.target.checked } }))} /> Reply in channel</label>
+            <label><input type="checkbox" checked={cfg.automod.allowGifLinks} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowGifLinks: e.target.checked } }))} /> Allow GIF links only</label>
+          </div>
+
+          <div style={{ color: "#ffbcbc", marginTop: 10 }}>
+            GIF mode keeps your link blocker strong, but lets Tenor, Giphy, and direct `.gif` style links slide through when that toggle is on.
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -483,7 +498,7 @@ export default function ModeratorClient() {
               onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, logChannelId: e.target.value } }))}
             >
               <option value="">Use moderator audit log channel</option>
-              {channels.filter((channel) => [0, 5].includes(Number(channel.type || 0))).map((channel) => (
+              {textChannels.map((channel) => (
                 <option key={channel.id} value={channel.id}>#{channel.name}</option>
               ))}
             </select>
@@ -573,19 +588,67 @@ export default function ModeratorClient() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Restricted Channels</h3>
+            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Automod Scope</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              Restricted channels means "only run automod here." Exempt channels always skip automod, even if they are also in the restricted list.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div>
+                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Restricted Channels</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(180px,1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                  {textChannels.map((channel) => (
+                    <label key={`restricted_${channel.id}`}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.automod.restrictedChannelIds.includes(channel.id)}
+                        onChange={() => setCfg((prev) => ({
+                          ...prev,
+                          automod: { ...prev.automod, restrictedChannelIds: toggleId(prev.automod.restrictedChannelIds, channel.id) },
+                        }))}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt Channels</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(180px,1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                  {textChannels.map((channel) => (
+                    <label key={`exempt_${channel.id}`}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.automod.exemptChannelIds.includes(channel.id)}
+                        onChange={() => setCfg((prev) => ({
+                          ...prev,
+                          automod: { ...prev.automod, exemptChannelIds: toggleId(prev.automod.exemptChannelIds, channel.id) },
+                        }))}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Automod Exempt Roles</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              These roles bypass automod only. They are separate from full moderator immunity roles.
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 6, maxHeight: 260, overflowY: "auto" }}>
-              {channels.map((channel) => (
-                <label key={channel.id}>
+              {roles.map((role) => (
+                <label key={`automod_role_${role.id}`}>
                   <input
                     type="checkbox"
-                    checked={cfg.automod.restrictedChannelIds.includes(channel.id)}
+                    checked={cfg.automod.exemptRoleIds.includes(role.id)}
                     onChange={() => setCfg((prev) => ({
                       ...prev,
-                      automod: { ...prev.automod, restrictedChannelIds: toggleId(prev.automod.restrictedChannelIds, channel.id) },
+                      automod: { ...prev.automod, exemptRoleIds: toggleId(prev.automod.exemptRoleIds, role.id) },
                     }))}
                   />{" "}
-                  #{channel.name}
+                  @{role.name}
                 </label>
               ))}
             </div>

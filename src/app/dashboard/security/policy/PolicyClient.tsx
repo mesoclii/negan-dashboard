@@ -148,6 +148,7 @@ export default function PolicyClient() {
               <label><input type="checkbox" checked={Boolean(logging.dontDisplayThumbnails)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, logging: { ...(prev.logging || {}), dontDisplayThumbnails: event.target.checked } }))} /> Hide thumbnails</label>
               <label><input type="checkbox" checked={Boolean(automod.autoModerateIgnoresBots)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), autoModerateIgnoresBots: event.target.checked } }))} /> Ignore bots in automod</label>
               <label><input type="checkbox" checked={Boolean(automod.replyToDeletion)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), replyToDeletion: event.target.checked } }))} /> Reply on deletion</label>
+              <label><input type="checkbox" checked={Boolean(automod.allowGifLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowGifLinks: event.target.checked } }))} /> Allow GIF links only</label>
             </div>
           </div>
 
@@ -235,6 +236,64 @@ export default function PolicyClient() {
                 <label>Warning message</label>
                 <textarea style={{ ...input, minHeight: 120 }} value={String(automod.warningMessage || "")} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), warningMessage: event.target.value } }))} />
               </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+              <div>
+                <label>Restricted channels</label>
+                <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
+                  {textChannels.map((channel) => (
+                    <label key={`policy_restricted_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={Array.isArray(automod.restrictedChannelIds) && automod.restrictedChannelIds.includes(channel.id)}
+                        onChange={() => setCfg((prev: Record<string, any>) => ({
+                          ...prev,
+                          automod: {
+                            ...(prev.automod || {}),
+                            restrictedChannelIds: toggleId(Array.isArray(prev.automod?.restrictedChannelIds) ? prev.automod.restrictedChannelIds : [], channel.id),
+                          },
+                        }))}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label>Exempt channels</label>
+                <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
+                  {textChannels.map((channel) => (
+                    <label key={`policy_exempt_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={Array.isArray(automod.exemptChannelIds) && automod.exemptChannelIds.includes(channel.id)}
+                        onChange={() => setCfg((prev: Record<string, any>) => ({
+                          ...prev,
+                          automod: {
+                            ...(prev.automod || {}),
+                            exemptChannelIds: toggleId(Array.isArray(prev.automod?.exemptChannelIds) ? prev.automod.exemptChannelIds : [], channel.id),
+                          },
+                        }))}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <RoleChips
+                label="Automod exempt roles"
+                roles={roles}
+                selected={Array.isArray(automod.exemptRoleIds) ? automod.exemptRoleIds : []}
+                onToggle={(roleId) => setCfg((prev: Record<string, any>) => ({
+                  ...prev,
+                  automod: {
+                    ...(prev.automod || {}),
+                    exemptRoleIds: toggleId(Array.isArray(prev.automod?.exemptRoleIds) ? prev.automod.exemptRoleIds : [], roleId),
+                  },
+                }))}
+              />
             </div>
           </div>
 
