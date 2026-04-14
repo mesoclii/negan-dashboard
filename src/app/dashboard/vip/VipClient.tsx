@@ -13,6 +13,18 @@ type VipConfig = {
   supporterRoleId: string;
   nitroRoleId: string;
   grantLogChannelId: string;
+  grantNoticeMode: string;
+  grantNoticeChannelId: string;
+  grantNoticeTemplate: string;
+  grantDmTemplate: string;
+  revokeNoticeMode: string;
+  revokeNoticeChannelId: string;
+  revokeNoticeTemplate: string;
+  revokeDmTemplate: string;
+  expiryNoticeMode: string;
+  expiryNoticeChannelId: string;
+  expiryNoticeTemplate: string;
+  expiryDmTemplate: string;
   autoExpire: boolean;
   expiryDays: number;
   syncWithLoyalty: boolean;
@@ -25,11 +37,25 @@ const EMPTY: VipConfig = {
   supporterRoleId: "",
   nitroRoleId: "",
   grantLogChannelId: "",
+  grantNoticeMode: "dm",
+  grantNoticeChannelId: "",
+  grantNoticeTemplate: "{{user}} now has {{tierLabel}} access in {{guildName}} until {{expiresAt}}.",
+  grantDmTemplate: "Your {{tierLabel}} access in {{guildName}} is active until {{expiresAt}}.",
+  revokeNoticeMode: "disabled",
+  revokeNoticeChannelId: "",
+  revokeNoticeTemplate: "{{user}} no longer has {{tierLabel}} access in {{guildName}}.",
+  revokeDmTemplate: "Your {{tierLabel}} access in {{guildName}} has been removed.",
+  expiryNoticeMode: "disabled",
+  expiryNoticeChannelId: "",
+  expiryNoticeTemplate: "{{user}}'s {{tierLabel}} access expired in {{guildName}}.",
+  expiryDmTemplate: "Your {{tierLabel}} access in {{guildName}} expired on {{expiresAt}}.",
   autoExpire: true,
   expiryDays: 30,
   syncWithLoyalty: true,
   notes: "",
 };
+
+const NOTICE_MODES = ["disabled", "channel", "dm", "both"];
 
 function withGuild(href: string, guildId: string) {
   if (!guildId) return href;
@@ -179,6 +205,90 @@ export default function VipClient() {
                 />{" "}
                 Sync VIP with Loyalty Engine
               </label>
+            </div>
+
+            <div style={{ marginTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14 }}>
+              <div style={{ fontWeight: 900, marginBottom: 8, color: "#ff6b6b", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Custom Notices
+              </div>
+              <div style={{ color: "#ffb0b0", fontSize: 12, marginBottom: 10 }}>
+                Tokens: <code>{'{{user}}'}</code>, <code>{'{{userId}}'}</code>, <code>{'{{tier}}'}</code>, <code>{'{{tierLabel}}'}</code>, <code>{'{{guildName}}'}</code>, <code>{'{{expiresAt}}'}</code>, <code>{'{{actor}}'}</code>, <code>{'{{method}}'}</code>, <code>{'{{reference}}'}</code>, <code>{'{{reason}}'}</code>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(220px,1fr))", gap: 10 }}>
+                <div>
+                  <div>Grant Notice Mode</div>
+                  <select style={input} value={cfg.grantNoticeMode} onChange={(e) => setCfg((prev) => ({ ...prev, grantNoticeMode: e.target.value }))}>
+                    {NOTICE_MODES.map((mode) => <option key={`grant_${mode}`} value={mode}>{mode}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div>Grant Notice Channel</div>
+                  <select style={input} value={cfg.grantNoticeChannelId} onChange={(e) => setCfg((prev) => ({ ...prev, grantNoticeChannelId: e.target.value }))}>
+                    <option value="">Use grant log channel</option>
+                    {textChannels.map((channel) => (
+                      <option key={`grant_${channel.id}`} value={channel.id}>#{channel.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div>Revoke Notice Mode</div>
+                  <select style={input} value={cfg.revokeNoticeMode} onChange={(e) => setCfg((prev) => ({ ...prev, revokeNoticeMode: e.target.value }))}>
+                    {NOTICE_MODES.map((mode) => <option key={`revoke_${mode}`} value={mode}>{mode}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div>Revoke Notice Channel</div>
+                  <select style={input} value={cfg.revokeNoticeChannelId} onChange={(e) => setCfg((prev) => ({ ...prev, revokeNoticeChannelId: e.target.value }))}>
+                    <option value="">Use grant log channel</option>
+                    {textChannels.map((channel) => (
+                      <option key={`revoke_${channel.id}`} value={channel.id}>#{channel.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div>Expiry Notice Mode</div>
+                  <select style={input} value={cfg.expiryNoticeMode} onChange={(e) => setCfg((prev) => ({ ...prev, expiryNoticeMode: e.target.value }))}>
+                    {NOTICE_MODES.map((mode) => <option key={`expiry_${mode}`} value={mode}>{mode}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div>Expiry Notice Channel</div>
+                  <select style={input} value={cfg.expiryNoticeChannelId} onChange={(e) => setCfg((prev) => ({ ...prev, expiryNoticeChannelId: e.target.value }))}>
+                    <option value="">Use grant log channel</option>
+                    {textChannels.map((channel) => (
+                      <option key={`expiry_${channel.id}`} value={channel.id}>#{channel.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                <div>
+                  <div>Grant Channel Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.grantNoticeTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, grantNoticeTemplate: e.target.value }))} />
+                </div>
+                <div>
+                  <div>Grant DM Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.grantDmTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, grantDmTemplate: e.target.value }))} />
+                </div>
+                <div>
+                  <div>Revoke Channel Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.revokeNoticeTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, revokeNoticeTemplate: e.target.value }))} />
+                </div>
+                <div>
+                  <div>Revoke DM Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.revokeDmTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, revokeDmTemplate: e.target.value }))} />
+                </div>
+                <div>
+                  <div>Expiry Channel Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.expiryNoticeTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, expiryNoticeTemplate: e.target.value }))} />
+                </div>
+                <div>
+                  <div>Expiry DM Message</div>
+                  <textarea style={{ ...input, minHeight: 90 }} value={cfg.expiryDmTemplate} onChange={(e) => setCfg((prev) => ({ ...prev, expiryDmTemplate: e.target.value }))} />
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: 10 }}>

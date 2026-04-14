@@ -46,7 +46,9 @@ type AchievementRow = {
 type AchievementsConfig = {
   active: boolean;
   announceChannelId: string;
+  noticeMode: string;
   announcementTemplate: string;
+  dmTemplate: string;
   commands: {
     achievements: boolean;
     achievementsadmin: boolean;
@@ -66,7 +68,9 @@ type TabKey = "achievements" | "configuration" | "commands";
 const EMPTY_CFG: AchievementsConfig = {
   active: true,
   announceChannelId: "",
+  noticeMode: "channel",
   announcementTemplate: "{{user}} unlocked {{achievement}}",
+  dmTemplate: "You unlocked {{achievement}} in {{guildName}}.",
   commands: {
     achievements: true,
     achievementsadmin: true,
@@ -92,6 +96,8 @@ const EMPTY_SETTINGS: AchSettings = {
   setColor: "",
   sendThread: false,
 };
+
+const NOTICE_MODES = ["disabled", "channel", "dm", "both"];
 
 function normalizeAchievementRow(input?: Partial<AchievementRow> | null): AchievementRow {
   return {
@@ -662,9 +668,23 @@ export default function AchievementsClient() {
               </select>
             </div>
             <div>
+              <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Notice Mode</div>
+              <select style={input} value={cfg.noticeMode || "channel"} onChange={(e) => setCfg((p) => ({ ...p, noticeMode: e.target.value }))}>
+                {NOTICE_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+              </select>
+            </div>
+            <div>
               <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>Default Unlock Message</div>
               <textarea style={{ ...input, minHeight: 80 }} value={cfg.announcementTemplate || ""} onChange={(e) => setCfg((p) => ({ ...p, announcementTemplate: e.target.value }))} />
             </div>
+            <div>
+              <div style={{ marginBottom: 6, color: "#ffb0b0", fontSize: 12 }}>DM Unlock Message</div>
+              <textarea style={{ ...input, minHeight: 80 }} value={cfg.dmTemplate || ""} onChange={(e) => setCfg((p) => ({ ...p, dmTemplate: e.target.value }))} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, color: "#fca5a5", fontSize: 12 }}>
+            Tokens: <code>{'{{user}}'}</code>, <code>{'{{userId}}'}</code>, <code>{'{{achievement}}'}</code>, <code>{'{{achievementId}}'}</code>, <code>{'{{achievementCount}}'}</code>, <code>{'{{guildName}}'}</code>, <code>{'{{source}}'}</code>, <code>{'{{description}}'}</code>, <code>{'{{rewardSummary}}'}</code>, <code>{'{{season}}'}</code>
           </div>
 
           <div style={{ marginTop: 16, border: "1px solid rgba(255,0,0,.5)", borderRadius: 10, padding: 12 }}>

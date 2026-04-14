@@ -121,6 +121,11 @@ type ModeratorConfig = {
     replyToDeletion: boolean;
     warningMessage: string;
     timeoutDurationMinutes: number;
+    muteDurationMinutes: number;
+    kickDeleteRecentMessages: boolean;
+    kickDeleteRecentMessageDays: number;
+    banDeleteRecentMessages: boolean;
+    banDeleteRecentMessageDays: number;
   } & AutomodRuleScopedExemptions;
   notes: string;
 };
@@ -151,11 +156,16 @@ type TabKey = "automod" | "admin" | "audit" | "commands";
 const ACTIONS = [
   "Disabled",
   "Delete Message",
-  "Delete Message + Warn Member",
   "Warn Member",
-  "Timeout",
-  "Kick",
-  "Ban",
+  "Delete Message + Warn Member",
+  "Timeout Member",
+  "Delete Message + Timeout Member",
+  "Mute Member",
+  "Delete Message + Mute Member",
+  "Kick Member",
+  "Delete Message + Kick Member",
+  "Ban Member",
+  "Delete Message + Ban Member",
 ];
 
 const NOTICE_MODES = ["Disabled", "DM", "Reply In Channel", "Both"];
@@ -259,6 +269,11 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     replyToDeletion: false,
     warningMessage: "Your message was removed by server moderation.",
     timeoutDurationMinutes: 10,
+    muteDurationMinutes: 10,
+    kickDeleteRecentMessages: false,
+    kickDeleteRecentMessageDays: 7,
+    banDeleteRecentMessages: false,
+    banDeleteRecentMessageDays: 7,
   },
   notes: "",
 };
@@ -315,12 +330,35 @@ function parseDomainList(value: string): string[] {
   ));
 }
 
+function normalizeAutomodActionValue(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (raw === "Timeout") return "Timeout Member";
+  if (raw === "Kick") return "Kick Member";
+  if (raw === "Ban") return "Ban Member";
+  return raw;
+}
+
 function normalizeModerator(raw: any): ModeratorConfig {
+  const automod = { ...DEFAULT_CONFIG.automod, ...(raw?.automod || {}) } as ModeratorConfig["automod"];
+  for (const key of [
+    "badWordsAction",
+    "repeatedTextAction",
+    "spamAction",
+    "capsAction",
+    "linksAction",
+    "inviteAction",
+    "gifAction",
+    "imageAction",
+    "mentionAction",
+    "zalgoAction",
+  ] as const) {
+    automod[key] = normalizeAutomodActionValue(automod[key]);
+  }
   return {
     ...DEFAULT_CONFIG,
     ...raw,
     logging: { ...DEFAULT_CONFIG.logging, ...(raw?.logging || {}) },
-    automod: { ...DEFAULT_CONFIG.automod, ...(raw?.automod || {}) },
+    automod,
   };
 }
 
@@ -652,7 +690,7 @@ export default function ModeratorClient() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(160px,1fr))", gap: 12, marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginTop: 14 }}>
             <div>
               <label>Caps threshold %</label>
               <input style={input} type="number" value={cfg.automod.capsThreshold} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, capsThreshold: Number(e.target.value || 0) } }))} />
@@ -664,6 +702,20 @@ export default function ModeratorClient() {
             <div>
               <label>Timeout minutes</label>
               <input style={input} type="number" value={cfg.automod.timeoutDurationMinutes} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, timeoutDurationMinutes: Number(e.target.value || 0) } }))} />
+            </div>
+            <div>
+              <label>Mute minutes</label>
+              <input style={input} type="number" value={cfg.automod.muteDurationMinutes} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, muteDurationMinutes: Number(e.target.value || 0) } }))} />
+            </div>
+            <label><input type="checkbox" checked={cfg.automod.kickDeleteRecentMessages} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, kickDeleteRecentMessages: e.target.checked } }))} /> Kick also purge recent messages</label>
+            <div>
+              <label>Kick purge days</label>
+              <input style={input} type="number" min={0} max={7} value={cfg.automod.kickDeleteRecentMessageDays} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, kickDeleteRecentMessageDays: Number(e.target.value || 0) } }))} />
+            </div>
+            <label><input type="checkbox" checked={cfg.automod.banDeleteRecentMessages} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, banDeleteRecentMessages: e.target.checked } }))} /> Ban also purge recent messages</label>
+            <div>
+              <label>Ban purge days</label>
+              <input style={input} type="number" min={0} max={7} value={cfg.automod.banDeleteRecentMessageDays} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, banDeleteRecentMessageDays: Number(e.target.value || 0) } }))} />
             </div>
           </div>
 

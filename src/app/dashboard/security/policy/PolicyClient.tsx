@@ -15,8 +15,16 @@ const action: CSSProperties = { ...input, width: "auto", cursor: "pointer", font
 const automodActions = [
   "Disabled",
   "Delete Message",
+  "Warn Member",
   "Delete Message + Warn Member",
+  "Timeout Member",
   "Delete Message + Timeout Member",
+  "Mute Member",
+  "Delete Message + Mute Member",
+  "Kick Member",
+  "Delete Message + Kick Member",
+  "Ban Member",
+  "Delete Message + Ban Member",
 ];
 
 const noticeModes = ["Disabled", "DM", "Reply In Channel", "Both"];
@@ -46,6 +54,35 @@ function parseDomainList(value: string) {
       .map((entry) => entry.replace(/^https?:\/\//, "").split(/[/?#]/)[0].replace(/:\d+$/, "").replace(/^\.+|\.+$/g, ""))
       .filter(Boolean)
   ));
+}
+
+function normalizeAutomodActionValue(value: unknown) {
+  const raw = String(value || "").trim();
+  if (raw === "Timeout") return "Timeout Member";
+  if (raw === "Kick") return "Kick Member";
+  if (raw === "Ban") return "Ban Member";
+  return raw;
+}
+
+function normalizePolicyConfig(raw: Record<string, any>) {
+  const next = { ...(raw || {}) };
+  const automod = { ...(next.automod || {}) };
+  for (const key of [
+    "badWordsAction",
+    "repeatedTextAction",
+    "spamAction",
+    "capsAction",
+    "linksAction",
+    "inviteAction",
+    "gifAction",
+    "imageAction",
+    "mentionAction",
+    "zalgoAction",
+  ]) {
+    automod[key] = normalizeAutomodActionValue(automod[key]);
+  }
+  next.automod = automod;
+  return next;
 }
 
 function RoleChips({ label, roles, selected, onToggle }: { label: string; roles: Role[]; selected: string[]; onToggle: (roleId: string) => void }) {
@@ -108,7 +145,7 @@ export default function PolicyClient() {
           fetchRuntimeEngine(targetGuildId, "moderator"),
           fetchGuildData(targetGuildId),
         ]);
-        setCfg(runtimeJson?.config || {});
+        setCfg(normalizePolicyConfig(runtimeJson?.config || {}));
         setRoles(Array.isArray(guildJson.roles) ? guildJson.roles : []);
         setChannels(Array.isArray(guildJson.channels) ? guildJson.channels : []);
       } catch (err: any) {
@@ -126,7 +163,7 @@ export default function PolicyClient() {
       setSaving(true);
       setMessage("");
       const json = await saveRuntimeEngine(guildId, "moderator", cfg);
-      setCfg(json?.config || {});
+      setCfg(normalizePolicyConfig(json?.config || {}));
       setMessage("Saved live moderation policy.");
     } catch (err: any) {
       setMessage(err?.message || "Save failed.");
@@ -258,6 +295,20 @@ export default function PolicyClient() {
               <div>
                 <label>Timeout minutes</label>
                 <input style={input} type="number" value={Number(automod.timeoutDurationMinutes || 10)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), timeoutDurationMinutes: Number(event.target.value || 0) } }))} />
+              </div>
+              <div>
+                <label>Mute minutes</label>
+                <input style={input} type="number" value={Number(automod.muteDurationMinutes || 10)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), muteDurationMinutes: Number(event.target.value || 0) } }))} />
+              </div>
+              <label><input type="checkbox" checked={Boolean(automod.kickDeleteRecentMessages)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), kickDeleteRecentMessages: event.target.checked } }))} /> Kick also purge recent messages</label>
+              <div>
+                <label>Kick purge days</label>
+                <input style={input} type="number" min={0} max={7} value={Number(automod.kickDeleteRecentMessageDays || 7)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), kickDeleteRecentMessageDays: Number(event.target.value || 0) } }))} />
+              </div>
+              <label><input type="checkbox" checked={Boolean(automod.banDeleteRecentMessages)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), banDeleteRecentMessages: event.target.checked } }))} /> Ban also purge recent messages</label>
+              <div>
+                <label>Ban purge days</label>
+                <input style={input} type="number" min={0} max={7} value={Number(automod.banDeleteRecentMessageDays || 7)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), banDeleteRecentMessageDays: Number(event.target.value || 0) } }))} />
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>

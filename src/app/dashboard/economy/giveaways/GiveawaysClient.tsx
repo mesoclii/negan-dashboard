@@ -27,6 +27,10 @@ type GiveawaysUiConfig = {
   announceTemplate: string;
   rerollTemplate: string;
   endTemplate: string;
+  winnerNoticeMode: string;
+  winnerNoticeChannelId: string;
+  winnerChannelTemplate: string;
+  winnerDmTemplate: string;
   requireStaffApproval: boolean;
   allowedRoleIds: string[];
   blockedRoleIds: string[];
@@ -58,6 +62,10 @@ const DEFAULT_CONFIG: GiveawaysUiConfig = {
   announceTemplate: "Giveaway started: {{prize}}",
   rerollTemplate: "Rerolled giveaway winner for {{prize}}",
   endTemplate: "Giveaway ended: {{prize}}",
+  winnerNoticeMode: "both",
+  winnerNoticeChannelId: "",
+  winnerChannelTemplate: "",
+  winnerDmTemplate: "",
   requireStaffApproval: false,
   allowedRoleIds: [],
   blockedRoleIds: [],
@@ -109,6 +117,8 @@ function uniqIds(ids: string[]): string[] {
   return [...new Set((ids || []).filter(Boolean))];
 }
 
+const NOTICE_MODES = ["disabled", "channel", "dm", "both"];
+
 function normalize(cfg: Partial<GiveawaysUiConfig> | null | undefined): GiveawaysUiConfig {
   const merged = {
     ...cloneDefaults(),
@@ -147,6 +157,12 @@ function normalize(cfg: Partial<GiveawaysUiConfig> | null | undefined): Giveaway
     announceTemplate: cleanText(merged.announceTemplate, DEFAULT_CONFIG.announceTemplate, 4000),
     rerollTemplate: cleanText(merged.rerollTemplate, DEFAULT_CONFIG.rerollTemplate, 4000),
     endTemplate: cleanText(merged.endTemplate, DEFAULT_CONFIG.endTemplate, 4000),
+    winnerNoticeMode: NOTICE_MODES.includes(cleanText(merged.winnerNoticeMode, DEFAULT_CONFIG.winnerNoticeMode, 24).toLowerCase())
+      ? cleanText(merged.winnerNoticeMode, DEFAULT_CONFIG.winnerNoticeMode, 24).toLowerCase()
+      : DEFAULT_CONFIG.winnerNoticeMode,
+    winnerNoticeChannelId: cleanId(merged.winnerNoticeChannelId),
+    winnerChannelTemplate: cleanText(merged.winnerChannelTemplate, "", 4000),
+    winnerDmTemplate: cleanText(merged.winnerDmTemplate, "", 4000),
     requireStaffApproval: !!merged.requireStaffApproval,
     allowedRoleIds: uniqIds(merged.allowedRoleIds || []),
     blockedRoleIds: uniqIds(merged.blockedRoleIds || []),
@@ -529,6 +545,38 @@ export default function GiveawaysPage() {
             <div>
               <div>End Template</div>
               <textarea style={{ ...input, minHeight: 80 }} value={cfg.endTemplate} onChange={(e) => setCfg(normalize({ ...cfg, endTemplate: e.target.value }))} />
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div>Winner Notice Mode</div>
+                  <select style={input} value={cfg.winnerNoticeMode} onChange={(e) => setCfg(normalize({ ...cfg, winnerNoticeMode: e.target.value }))}>
+                    {NOTICE_MODES.map((mode) => <option key={`winner_${mode}`} value={mode}>{mode}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div>Winner Notice Channel</div>
+                  <select style={input} value={cfg.winnerNoticeChannelId} onChange={(e) => setCfg(normalize({ ...cfg, winnerNoticeChannelId: e.target.value }))}>
+                    <option value="">Use giveaway post channel</option>
+                    {textChannels.map((channel) => (
+                      <option key={`winner_channel_${channel.id}`} value={channel.id}>#{channel.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>
+                Tokens: <code>{'{{prize}}'}</code>, <code>{'{{giveawayId}}'}</code>, <code>{'{{guildName}}'}</code>, <code>{'{{channelMention}}'}</code>, <code>{'{{winners}}'}</code>, <code>{'{{winnerCount}}'}</code>, <code>{'{{winnerTitle}}'}</code>, <code>{'{{claimLine}}'}</code>, <code>{'{{user}}'}</code>, <code>{'{{userId}}'}</code>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                <div>
+                  <div>Winner Channel Message</div>
+                  <textarea style={{ ...input, minHeight: 80 }} value={cfg.winnerChannelTemplate} onChange={(e) => setCfg(normalize({ ...cfg, winnerChannelTemplate: e.target.value }))} placeholder="Leave blank to keep the built-in winner embed." />
+                </div>
+                <div>
+                  <div>Winner DM Message</div>
+                  <textarea style={{ ...input, minHeight: 80 }} value={cfg.winnerDmTemplate} onChange={(e) => setCfg(normalize({ ...cfg, winnerDmTemplate: e.target.value }))} placeholder="Leave blank to keep the built-in winner DM embed." />
+                </div>
+              </div>
             </div>
           </div>
 
