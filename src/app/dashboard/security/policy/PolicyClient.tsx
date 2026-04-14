@@ -28,12 +28,24 @@ const automodNoticeRules = [
   ["caps", "Caps spam"],
   ["links", "External links"],
   ["invite", "Discord invites"],
+  ["gif", "GIF media"],
+  ["image", "Image media"],
   ["mention", "Mention burst"],
   ["zalgo", "Zalgo"],
 ] as const;
 
 function toggleId(list: string[], id: string) {
   return list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
+}
+
+function parseDomainList(value: string) {
+  return Array.from(new Set(
+    String(value || "")
+      .split(/[,\r\n;]+/)
+      .map((entry) => entry.trim().toLowerCase())
+      .map((entry) => entry.replace(/^https?:\/\//, "").split(/[/?#]/)[0].replace(/:\d+$/, "").replace(/^\.+|\.+$/g, ""))
+      .filter(Boolean)
+  ));
 }
 
 function RoleChips({ label, roles, selected, onToggle }: { label: string; roles: Role[]; selected: string[]; onToggle: (roleId: string) => void }) {
@@ -162,10 +174,12 @@ export default function PolicyClient() {
               <label><input type="checkbox" checked={Boolean(logging.dontDisplayThumbnails)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, logging: { ...(prev.logging || {}), dontDisplayThumbnails: event.target.checked } }))} /> Hide thumbnails</label>
               <label><input type="checkbox" checked={Boolean(automod.autoModerateIgnoresBots)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), autoModerateIgnoresBots: event.target.checked } }))} /> Ignore bots in automod</label>
               <label><input type="checkbox" checked={Boolean(automod.replyToDeletion)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), replyToDeletion: event.target.checked } }))} /> Reply on deletion</label>
-              <label><input type="checkbox" checked={Boolean(automod.allowGifLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowGifLinks: event.target.checked } }))} /> Allow GIF links only</label>
+              <label><input type="checkbox" checked={Boolean(automod.allowInviteLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowInviteLinks: event.target.checked } }))} /> Allow invite links everywhere</label>
+              <label><input type="checkbox" checked={Boolean(automod.allowGifLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowGifLinks: event.target.checked } }))} /> Allow GIF links everywhere</label>
+              <label><input type="checkbox" checked={Boolean(automod.allowImageLinks)} onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowImageLinks: event.target.checked } }))} /> Allow image links everywhere</label>
             </div>
             <div style={{ color: "#ffbcbc", marginTop: 10 }}>
-              Automod now assumes all channels are protected by default. Use channel/category exemptions below to carve out safe spaces.
+              Automod now assumes all channels are protected by default. Invite, GIF, and image links can be carved out separately here, while uploaded GIF/image media can still use dedicated actions below and every rule can carry its own exemptions.
             </div>
           </div>
 
@@ -209,7 +223,7 @@ export default function PolicyClient() {
 
           <div style={box}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Automod Policy Matrix</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 10 }}>
               {[
                 ["badWordsAction", "Bad words"],
                 ["repeatedTextAction", "Repeated text"],
@@ -217,6 +231,8 @@ export default function PolicyClient() {
                 ["capsAction", "Caps"],
                 ["linksAction", "Links"],
                 ["inviteAction", "Invites"],
+                ["gifAction", "GIF media"],
+                ["imageAction", "Image media"],
                 ["mentionAction", "Mentions"],
                 ["zalgoAction", "Zalgo"],
               ].map(([key, label]) => (
@@ -292,6 +308,65 @@ export default function PolicyClient() {
                 })}
               </div>
             </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: "#ffbcbc", fontWeight: 800, marginBottom: 8 }}>Scoped link allowances</div>
+              <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+                Allow trusted domains like `twitch.tv` only in chosen channels or categories without opening the rest of the server.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12 }}>
+                <div>
+                  <label>Allowed external link domains</label>
+                  <textarea
+                    style={{ ...input, minHeight: 120 }}
+                    value={Array.isArray(automod.allowedLinkDomains) ? automod.allowedLinkDomains.join("\n") : ""}
+                    onChange={(event) => setCfg((prev: Record<string, any>) => ({ ...prev, automod: { ...(prev.automod || {}), allowedLinkDomains: parseDomainList(event.target.value) } }))}
+                    placeholder={"twitch.tv\nyoutube.com\nyoutu.be"}
+                  />
+                </div>
+                <div>
+                  <label>Channels where trusted domains are allowed</label>
+                  <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
+                    {textChannels.map((channel) => (
+                      <label key={`allowed_domain_channel_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(automod.allowedLinkChannelIds) && automod.allowedLinkChannelIds.includes(channel.id)}
+                          onChange={() => setCfg((prev: Record<string, any>) => ({
+                            ...prev,
+                            automod: {
+                              ...(prev.automod || {}),
+                              allowedLinkChannelIds: toggleId(Array.isArray(prev.automod?.allowedLinkChannelIds) ? prev.automod.allowedLinkChannelIds : [], channel.id),
+                            },
+                          }))}
+                        />{" "}
+                        #{channel.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label>Categories where trusted domains are allowed</label>
+                  <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#110000" }}>
+                    {categories.length ? categories.map((channel) => (
+                      <label key={`allowed_domain_category_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(automod.allowedLinkCategoryIds) && automod.allowedLinkCategoryIds.includes(channel.id)}
+                          onChange={() => setCfg((prev: Record<string, any>) => ({
+                            ...prev,
+                            automod: {
+                              ...(prev.automod || {}),
+                              allowedLinkCategoryIds: toggleId(Array.isArray(prev.automod?.allowedLinkCategoryIds) ? prev.automod.allowedLinkCategoryIds : [], channel.id),
+                            },
+                          }))}
+                        />{" "}
+                        {channel.name}
+                      </label>
+                    )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
               <div>
                 <label>Exempt channels</label>
@@ -349,6 +424,92 @@ export default function PolicyClient() {
                   },
                 }))}
               />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <div style={{ color: "#ffbcbc", fontWeight: 800, marginBottom: 8 }}>Per-rule exemptions</div>
+              <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+                Give each automod rule its own exempt roles, channels, and categories so self-promo, media, and VIP spaces can be tuned without weakening the whole policy.
+              </div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {automodNoticeRules.map(([ruleKey, label]) => {
+                  const channelKey = `${ruleKey}ExemptChannelIds`;
+                  const categoryKey = `${ruleKey}ExemptCategoryIds`;
+                  const roleKey = `${ruleKey}ExemptRoleIds`;
+                  const selectedChannels = Array.isArray(automod[channelKey]) ? automod[channelKey] : [];
+                  const selectedCategories = Array.isArray(automod[categoryKey]) ? automod[categoryKey] : [];
+                  const selectedRoles = Array.isArray(automod[roleKey]) ? automod[roleKey] : [];
+                  return (
+                    <details key={`policy_scope_${ruleKey}`} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12, background: "#110000" }}>
+                      <summary style={{ cursor: "pointer", color: "#ffdcdc", fontWeight: 800 }}>{label}</summary>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 12 }}>
+                        <div>
+                          <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt channels</div>
+                          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#170000" }}>
+                            {textChannels.map((channel) => (
+                              <label key={`${ruleKey}_channel_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedChannels.includes(channel.id)}
+                                  onChange={() => setCfg((prev: Record<string, any>) => ({
+                                    ...prev,
+                                    automod: {
+                                      ...(prev.automod || {}),
+                                      [channelKey]: toggleId(Array.isArray(prev.automod?.[channelKey]) ? prev.automod[channelKey] : [], channel.id),
+                                    },
+                                  }))}
+                                />{" "}
+                                #{channel.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt categories</div>
+                          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#170000" }}>
+                            {categories.length ? categories.map((channel) => (
+                              <label key={`${ruleKey}_category_${channel.id}`} style={{ display: "block", marginBottom: 6 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedCategories.includes(channel.id)}
+                                  onChange={() => setCfg((prev: Record<string, any>) => ({
+                                    ...prev,
+                                    automod: {
+                                      ...(prev.automod || {}),
+                                      [categoryKey]: toggleId(Array.isArray(prev.automod?.[categoryKey]) ? prev.automod[categoryKey] : [], channel.id),
+                                    },
+                                  }))}
+                                />{" "}
+                                {channel.name}
+                              </label>
+                            )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt roles</div>
+                          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #4f0000", borderRadius: 10, padding: 10, background: "#170000" }}>
+                            {roles.map((role) => (
+                              <label key={`${ruleKey}_role_${role.id}`} style={{ display: "block", marginBottom: 6 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRoles.includes(role.id)}
+                                  onChange={() => setCfg((prev: Record<string, any>) => ({
+                                    ...prev,
+                                    automod: {
+                                      ...(prev.automod || {}),
+                                      [roleKey]: toggleId(Array.isArray(prev.automod?.[roleKey]) ? prev.automod[roleKey] : [], role.id),
+                                    },
+                                  }))}
+                                />{" "}
+                                @{role.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

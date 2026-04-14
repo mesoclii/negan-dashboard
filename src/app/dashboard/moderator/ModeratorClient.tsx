@@ -7,6 +7,34 @@ import { buildDashboardHref, readDashboardGuildId } from "@/lib/dashboardContext
 type Role = { id: string; name: string; position?: number };
 type Channel = { id: string; name: string; type?: number | string };
 
+const AUTOMOD_NOTICE_RULES = [
+  ["badWords", "Blocked words"],
+  ["repeatedText", "Repeated text"],
+  ["spam", "Spam burst"],
+  ["caps", "Caps spam"],
+  ["links", "External links"],
+  ["invite", "Discord invites"],
+  ["gif", "GIF media"],
+  ["image", "Image media"],
+  ["mention", "Mention burst"],
+  ["zalgo", "Zalgo"],
+] as const;
+
+type AutomodRuleKey = typeof AUTOMOD_NOTICE_RULES[number][0];
+type AutomodRuleScopedExemptions =
+  Record<`${AutomodRuleKey}ExemptChannelIds`, string[]> &
+  Record<`${AutomodRuleKey}ExemptCategoryIds`, string[]> &
+  Record<`${AutomodRuleKey}ExemptRoleIds`, string[]>;
+
+const AUTOMOD_RULE_KEYS = AUTOMOD_NOTICE_RULES.map(([key]) => key) as AutomodRuleKey[];
+const EMPTY_AUTOMOD_RULE_EXEMPTIONS = Object.fromEntries(
+  AUTOMOD_RULE_KEYS.flatMap((ruleKey) => [
+    [`${ruleKey}ExemptChannelIds`, []],
+    [`${ruleKey}ExemptCategoryIds`, []],
+    [`${ruleKey}ExemptRoleIds`, []],
+  ])
+) as unknown as AutomodRuleScopedExemptions;
+
 type ModeratorConfig = {
   active: boolean;
   adminRoleIds: string[];
@@ -47,6 +75,8 @@ type ModeratorConfig = {
     capsAction: string;
     linksAction: string;
     inviteAction: string;
+    gifAction: string;
+    imageAction: string;
     mentionAction: string;
     zalgoAction: string;
     spamThreshold: number;
@@ -60,7 +90,12 @@ type ModeratorConfig = {
     exemptChannelIds: string[];
     exemptCategoryIds: string[];
     exemptRoleIds: string[];
+    allowInviteLinks: boolean;
     allowGifLinks: boolean;
+    allowImageLinks: boolean;
+    allowedLinkDomains: string[];
+    allowedLinkChannelIds: string[];
+    allowedLinkCategoryIds: string[];
     badWordsNoticeMode: string;
     badWordsNoticeMessage: string;
     repeatedTextNoticeMode: string;
@@ -73,6 +108,10 @@ type ModeratorConfig = {
     linksNoticeMessage: string;
     inviteNoticeMode: string;
     inviteNoticeMessage: string;
+    gifNoticeMode: string;
+    gifNoticeMessage: string;
+    imageNoticeMode: string;
+    imageNoticeMessage: string;
     mentionNoticeMode: string;
     mentionNoticeMessage: string;
     zalgoNoticeMode: string;
@@ -82,7 +121,7 @@ type ModeratorConfig = {
     replyToDeletion: boolean;
     warningMessage: string;
     timeoutDurationMinutes: number;
-  };
+  } & AutomodRuleScopedExemptions;
   notes: string;
 };
 
@@ -120,17 +159,6 @@ const ACTIONS = [
 ];
 
 const NOTICE_MODES = ["Disabled", "DM", "Reply In Channel", "Both"];
-
-const AUTOMOD_NOTICE_RULES = [
-  ["badWords", "Blocked words"],
-  ["repeatedText", "Repeated text"],
-  ["spam", "Spam burst"],
-  ["caps", "Caps spam"],
-  ["links", "External links"],
-  ["invite", "Discord invites"],
-  ["mention", "Mention burst"],
-  ["zalgo", "Zalgo"],
-] as const;
 
 const LEVELS = [
   "PUBLIC",
@@ -184,6 +212,8 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     capsAction: "Delete Message",
     linksAction: "Disabled",
     inviteAction: "Delete Message",
+    gifAction: "Disabled",
+    imageAction: "Disabled",
     mentionAction: "Delete Message",
     zalgoAction: "Disabled",
     spamThreshold: 5,
@@ -197,7 +227,13 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     exemptChannelIds: [],
     exemptCategoryIds: [],
     exemptRoleIds: [],
+    allowInviteLinks: false,
     allowGifLinks: false,
+    allowImageLinks: false,
+    allowedLinkDomains: [],
+    allowedLinkChannelIds: [],
+    allowedLinkCategoryIds: [],
+    ...EMPTY_AUTOMOD_RULE_EXEMPTIONS,
     badWordsNoticeMode: "",
     badWordsNoticeMessage: "",
     repeatedTextNoticeMode: "",
@@ -210,6 +246,10 @@ const DEFAULT_CONFIG: ModeratorConfig = {
     linksNoticeMessage: "",
     inviteNoticeMode: "",
     inviteNoticeMessage: "",
+    gifNoticeMode: "",
+    gifNoticeMessage: "",
+    imageNoticeMode: "",
+    imageNoticeMessage: "",
     mentionNoticeMode: "",
     mentionNoticeMessage: "",
     zalgoNoticeMode: "",
@@ -263,6 +303,16 @@ function parseWordList(value: string): string[] {
     .split(/[,\r\n]+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
+}
+
+function parseDomainList(value: string): string[] {
+  return Array.from(new Set(
+    String(value || "")
+      .split(/[,\r\n;]+/)
+      .map((entry) => entry.trim().toLowerCase())
+      .map((entry) => entry.replace(/^https?:\/\//, "").split(/[/?#]/)[0].replace(/:\d+$/, "").replace(/^\.+|\.+$/g, ""))
+      .filter(Boolean)
+  ));
 }
 
 function normalizeModerator(raw: any): ModeratorConfig {
@@ -534,11 +584,13 @@ export default function ModeratorClient() {
             <label><input type="checkbox" checked={cfg.automod.autoModerateIgnoresBots} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, autoModerateIgnoresBots: e.target.checked } }))} /> Ignore bots</label>
             <label><input type="checkbox" checked={cfg.automod.sendWarningMessage} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, sendWarningMessage: e.target.checked } }))} /> DM warning</label>
             <label><input type="checkbox" checked={cfg.automod.replyToDeletion} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, replyToDeletion: e.target.checked } }))} /> Reply in channel</label>
-            <label><input type="checkbox" checked={cfg.automod.allowGifLinks} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowGifLinks: e.target.checked } }))} /> Allow GIF links only</label>
+            <label><input type="checkbox" checked={cfg.automod.allowInviteLinks} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowInviteLinks: e.target.checked } }))} /> Allow invite links everywhere</label>
+            <label><input type="checkbox" checked={cfg.automod.allowGifLinks} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowGifLinks: e.target.checked } }))} /> Allow GIF links everywhere</label>
+            <label><input type="checkbox" checked={cfg.automod.allowImageLinks} onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowImageLinks: e.target.checked } }))} /> Allow image links everywhere</label>
           </div>
 
           <div style={{ color: "#ffbcbc", marginTop: 10 }}>
-            GIF mode keeps your link blocker strong, but lets Tenor, Giphy, and direct `.gif` style links slide through when that toggle is on.
+            Link controls can allow invite, GIF, or image links to pass without weakening the rest of your link blocker. Uploaded GIF/image media can still use their own automod actions below, and every rule can now have its own exemptions.
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -555,7 +607,7 @@ export default function ModeratorClient() {
             </select>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 12, marginTop: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12, marginTop: 14 }}>
             {([
               ["badWordsAction", "Blocked words"],
               ["repeatedTextAction", "Repeated text"],
@@ -563,6 +615,8 @@ export default function ModeratorClient() {
               ["capsAction", "Caps"],
               ["linksAction", "External links"],
               ["inviteAction", "Discord invites"],
+              ["gifAction", "GIF media"],
+              ["imageAction", "Image media"],
               ["mentionAction", "Mention burst"],
               ["zalgoAction", "Zalgo"],
             ] as Array<[keyof ModeratorConfig["automod"], string]>).map(([key, label]) => (
@@ -681,6 +735,60 @@ export default function ModeratorClient() {
           </div>
 
           <div style={{ marginTop: 14 }}>
+            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Scoped Link Allowances</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              Use this when you want Twitch, YouTube, or other trusted domains to pass only in selected promo channels while the rest of the server stays locked down.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+              <div>
+                <label>Allowed external link domains</label>
+                <textarea
+                  style={{ ...input, minHeight: 120 }}
+                  value={cfg.automod.allowedLinkDomains.join("\n")}
+                  onChange={(e) => setCfg((prev) => ({ ...prev, automod: { ...prev.automod, allowedLinkDomains: parseDomainList(e.target.value) } }))}
+                  placeholder={"twitch.tv\nyoutube.com\nyoutu.be"}
+                />
+              </div>
+              <div>
+                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Channels where trusted domains are allowed</div>
+                <div style={{ display: "grid", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                  {textChannels.map((channel) => (
+                    <label key={`allowed_domain_channel_${channel.id}`}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.automod.allowedLinkChannelIds.includes(channel.id)}
+                        onChange={() => setCfg((prev) => ({
+                          ...prev,
+                          automod: { ...prev.automod, allowedLinkChannelIds: toggleId(prev.automod.allowedLinkChannelIds, channel.id) },
+                        }))}
+                      />{" "}
+                      #{channel.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Categories where trusted domains are allowed</div>
+                <div style={{ display: "grid", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                  {categories.length ? categories.map((channel) => (
+                    <label key={`allowed_domain_category_${channel.id}`}>
+                      <input
+                        type="checkbox"
+                        checked={cfg.automod.allowedLinkCategoryIds.includes(channel.id)}
+                        onChange={() => setCfg((prev) => ({
+                          ...prev,
+                          automod: { ...prev.automod, allowedLinkCategoryIds: toggleId(prev.automod.allowedLinkCategoryIds, channel.id) },
+                        }))}
+                      />{" "}
+                      {channel.name}
+                    </label>
+                  )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
             <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Automod Scope</h3>
             <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
               Automod now assumes all channels are protected by default. Use channel and category exemptions to carve out safe spaces.
@@ -719,9 +827,87 @@ export default function ModeratorClient() {
                       />{" "}
                       {channel.name}
                     </label>
-                  )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
+              )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <h3 style={{ color: "#ff5f5f", marginTop: 0 }}>Per-Rule Exemptions</h3>
+            <div style={{ color: "#ffbcbc", marginBottom: 10 }}>
+              Every automod rule can now have its own exempt roles, channels, and categories. Use this for self-promo rooms, media rooms, or trusted member groups without weakening the rest of the policy.
+            </div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {AUTOMOD_NOTICE_RULES.map(([ruleKey, label]) => {
+                const channelKey = `${ruleKey}ExemptChannelIds` as keyof ModeratorConfig["automod"];
+                const categoryKey = `${ruleKey}ExemptCategoryIds` as keyof ModeratorConfig["automod"];
+                const roleKey = `${ruleKey}ExemptRoleIds` as keyof ModeratorConfig["automod"];
+                const selectedChannels = Array.isArray(cfg.automod[channelKey]) ? cfg.automod[channelKey] as string[] : [];
+                const selectedCategories = Array.isArray(cfg.automod[categoryKey]) ? cfg.automod[categoryKey] as string[] : [];
+                const selectedRoles = Array.isArray(cfg.automod[roleKey]) ? cfg.automod[roleKey] as string[] : [];
+                return (
+                  <details key={`rule_scope_${ruleKey}`} style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12, background: "#120000" }}>
+                    <summary style={{ cursor: "pointer", color: "#ffdcdc", fontWeight: 800 }}>{label}</summary>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12, marginTop: 12 }}>
+                      <div>
+                        <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt channels</div>
+                        <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                          {textChannels.map((channel) => (
+                            <label key={`${ruleKey}_channel_${channel.id}`}>
+                              <input
+                                type="checkbox"
+                                checked={selectedChannels.includes(channel.id)}
+                                onChange={() => setCfg((prev) => ({
+                                  ...prev,
+                                  automod: { ...prev.automod, [channelKey]: toggleId((prev.automod[channelKey] as string[]) || [], channel.id) },
+                                }))}
+                              />{" "}
+                              #{channel.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt categories</div>
+                        <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                          {categories.length ? categories.map((channel) => (
+                            <label key={`${ruleKey}_category_${channel.id}`}>
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.includes(channel.id)}
+                                onChange={() => setCfg((prev) => ({
+                                  ...prev,
+                                  automod: { ...prev.automod, [categoryKey]: toggleId((prev.automod[categoryKey] as string[]) || [], channel.id) },
+                                }))}
+                              />{" "}
+                              {channel.name}
+                            </label>
+                          )) : <div style={{ color: "#ffbcbc" }}>No categories found.</div>}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ color: "#ffbcbc", fontWeight: 700, marginBottom: 8 }}>Exempt roles</div>
+                        <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                          {roles.map((role) => (
+                            <label key={`${ruleKey}_role_${role.id}`}>
+                              <input
+                                type="checkbox"
+                                checked={selectedRoles.includes(role.id)}
+                                onChange={() => setCfg((prev) => ({
+                                  ...prev,
+                                  automod: { ...prev.automod, [roleKey]: toggleId((prev.automod[roleKey] as string[]) || [], role.id) },
+                                }))}
+                              />{" "}
+                              @{role.name}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           </div>
 
