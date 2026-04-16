@@ -4,6 +4,14 @@ import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react"
 
 type GuildRole = { id: string; name: string; position?: number };
 type GuildChannel = { id: string; name: string; type?: number | string };
+type NativeCommandEntry = {
+  key: string;
+  title: string;
+  description: string;
+  optionSummary?: string[];
+  executable?: boolean;
+  commandName?: string;
+};
 
 type CustomCommand = {
   id: string;
@@ -29,6 +37,7 @@ type ActionType =
   | "REACT"
   | "DELAY"
   | "CREATE_THREAD"
+  | "RUN_NATIVE_COMMAND"
   | "RAW";
 
 type ActionDraft = {
@@ -48,6 +57,10 @@ type ActionDraft = {
   threadName: string;
   threadArchiveMin: string;
   ephemeral: boolean;
+  nativeCommandKey: string;
+  nativeCommandOptionsJson: string;
+  nativeCommandChannelId: string;
+  nativeCommandSilent: boolean;
   rawAction?: any;
 };
 
@@ -73,7 +86,8 @@ const ACTION_LIBRARY: Array<{ type: ActionType; title: string; desc: string }> =
   { type: "REMOVE_ROLE", title: "Remove Role", desc: "Take role from user" },
   { type: "REACT", title: "React with Emoji", desc: "Add emoji reaction" },
   { type: "DELAY", title: "Delay Step", desc: "Wait before next step" },
-  { type: "CREATE_THREAD", title: "Create Thread", desc: "Create thread from message context" }
+  { type: "CREATE_THREAD", title: "Create Thread", desc: "Create thread from message context" },
+  { type: "RUN_NATIVE_COMMAND", title: "Run Bot Slash Command", desc: "Trigger one of your built-in / commands" }
 ];
 
 function makeId() {
@@ -203,7 +217,11 @@ function emptyAction(type: ActionType): ActionDraft {
     delayMs: "1000",
     threadName: "Thread",
     threadArchiveMin: "60",
-    ephemeral: false
+    ephemeral: false,
+    nativeCommandKey: "",
+    nativeCommandOptionsJson: "{\n}",
+    nativeCommandChannelId: "",
+    nativeCommandSilent: true
   };
 }
 
@@ -251,6 +269,14 @@ function apiActionToDraft(a: any): ActionDraft {
       threadName: String(c.name || "Thread"),
       threadArchiveMin: String(c.autoArchiveDuration ?? 60)
     };
+  if (type === "RUN_NATIVE_COMMAND")
+    return {
+      ...emptyAction("RUN_NATIVE_COMMAND"),
+      nativeCommandKey: String(c.commandKey || ""),
+      nativeCommandOptionsJson: String(c.optionsJson || "{\n}"),
+      nativeCommandChannelId: String(c.channelId || ""),
+      nativeCommandSilent: c.silent !== false,
+    };
 
   return { ...emptyAction("RAW"), rawAction: a };
 }
@@ -281,6 +307,17 @@ function draftToApiAction(a: ActionDraft): any {
   if (a.type === "DELAY") return { type: "DELAY", config: { ms: Number(a.delayMs || 0) } };
   if (a.type === "CREATE_THREAD")
     return { type: "CREATE_THREAD", config: { name: a.threadName || "Thread", autoArchiveDuration: Number(a.threadArchiveMin || 60) } };
+  if (a.type === "RUN_NATIVE_COMMAND") {
+    return {
+      type: "RUN_NATIVE_COMMAND",
+      config: {
+        commandKey: a.nativeCommandKey,
+        optionsJson: a.nativeCommandOptionsJson || "{\n}",
+        channelId: a.nativeCommandChannelId,
+        silent: a.nativeCommandSilent,
+      }
+    };
+  }
   return { type: "REPLY", config: { content: "No action configured." } };
 }
 
@@ -288,6 +325,7 @@ export default function CustomCommandsPage() {
   const [guildId, setGuildId] = useState("");
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
+  const [nativeCommandEntries, setNativeCommandEntries] = useState<NativeCommandEntry[]>([]);
   const [logChannelId, setLogChannelId] = useState("");
   const [commands, setCommands] = useState<CustomCommand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -338,11 +376,29 @@ export default function CustomCommandsPage() {
     setLogChannelId(String(j?.config?.logChannelId || ""));
   }
 
+  async function loadNativeCommands(targetGuildId: string) {
+    const r = await fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}&bust=${Date.now()}`, { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load bot slash commands");
+
+    const entries = Array.isArray(j?.registry?.entries) ? j.registry.entries : [];
+    const aggregateRoots = new Set(["control", "ops", "games", "community", "progress"]);
+    const filtered = entries
+      .filter((entry: NativeCommandEntry) => entry?.executable && !aggregateRoots.has(String(entry?.commandName || "").toLowerCase()))
+      .sort((left: NativeCommandEntry, right: NativeCommandEntry) => String(left.title || left.key).localeCompare(String(right.title || right.key)));
+    setNativeCommandEntries(filtered);
+  }
+
   const loadAll = useCallback(async (targetGuildId: string) => {
     setLoading(true);
     setMsg("");
     try {
-      await Promise.all([loadGuildData(targetGuildId), loadCommands(targetGuildId), loadStudioConfig(targetGuildId)]);
+      await Promise.all([
+        loadGuildData(targetGuildId),
+        loadCommands(targetGuildId),
+        loadStudioConfig(targetGuildId),
+        loadNativeCommands(targetGuildId),
+      ]);
     } catch (e: any) {
       setMsg(e?.message || "Load failed");
     } finally {
@@ -568,7 +624,6 @@ export default function CustomCommandsPage() {
         cooldownSec: Number(draft.cooldownSec || 0),
         costCoins: Number(draft.costCoins || 0),
         actions: actionsWithPolicy,
-        createdBy: "dashboard"
       };
 
       if (!draft.id) {
@@ -1042,6 +1097,51 @@ export default function CustomCommandsPage() {
                     </div>
                   )}
 
+                  {(a.type === "RUN_NATIVE_COMMAND") && (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <input
+                        list="native-command-keys"
+                        value={a.nativeCommandKey}
+                        onChange={(e) => updateAction(a.id, { nativeCommandKey: e.target.value })}
+                        placeholder="Command key (example: heist.start)"
+                        style={inputStyle}
+                      />
+                      <select
+                        value={a.nativeCommandChannelId}
+                        onChange={(e) => updateAction(a.id, { nativeCommandChannelId: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Use current channel</option>
+                        {textChannels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
+                      </select>
+                      <textarea
+                        rows={6}
+                        value={a.nativeCommandOptionsJson}
+                        onChange={(e) => updateAction(a.id, { nativeCommandOptionsJson: e.target.value })}
+                        placeholder={'{\n  "edition": "LE"\n}'}
+                        style={{ ...inputStyle, fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace" }}
+                      />
+                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={a.nativeCommandSilent}
+                          onChange={(e) => updateAction(a.id, { nativeCommandSilent: e.target.checked })}
+                        />
+                        keep command replies silent
+                      </label>
+                      {(() => {
+                        const selected = nativeCommandEntries.find((entry) => entry.key === a.nativeCommandKey);
+                        if (!selected) return <div style={hintStyle}>Use the bot's canonical command key and a JSON object for its options.</div>;
+                        return (
+                          <div style={hintStyle}>
+                            {selected.title}
+                            {selected.optionSummary?.length ? ` | Options: ${selected.optionSummary.join(", ")}` : " | No options"}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   {(a.type === "RAW") && (
                     <div style={{ fontSize: 12, color: "#ffb0b0" }}>
                       Unsupported legacy action kept safely. It will be preserved on save.
@@ -1060,6 +1160,11 @@ export default function CustomCommandsPage() {
           </div>
         </div>
       ) : null}
+      <datalist id="native-command-keys">
+        {nativeCommandEntries.map((entry) => (
+          <option key={entry.key} value={entry.key}>{entry.title}</option>
+        ))}
+      </datalist>
     </div>
   );
 }

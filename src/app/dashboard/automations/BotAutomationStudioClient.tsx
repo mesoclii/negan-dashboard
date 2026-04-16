@@ -7,6 +7,14 @@ import type { CSSProperties } from "react";
 type GuildRole = { id: string; name: string };
 type GuildChannel = { id: string; name: string; type?: string };
 type GuildEmoji = { id: string; name: string; animated?: boolean; available?: boolean; token: string };
+type NativeCommandEntry = {
+  key: string;
+  title: string;
+  description: string;
+  optionSummary?: string[];
+  executable?: boolean;
+  commandName?: string;
+};
 
 type TriggerType =
   | "MESSAGE_CREATE"
@@ -19,7 +27,8 @@ type TriggerType =
   | "VOICE_JOIN"
   | "VOICE_LEAVE"
   | "THREAD_CREATE"
-  | "MEMBER_JOIN";
+  | "MEMBER_JOIN"
+  | "SCHEDULED";
 
 type ConditionType =
   | "CHANNEL_IS"
@@ -46,7 +55,8 @@ type ActionType =
   | "DM"
   | "DELETE_TRIGGER_MESSAGE"
   | "DELAY"
-  | "CREATE_THREAD";
+  | "CREATE_THREAD"
+  | "RUN_NATIVE_COMMAND";
 
 type AutomationItem = {
   id: string;
@@ -110,6 +120,7 @@ const TRIGGERS: TriggerDef[] = [
   { value: "VOICE_LEAVE", label: "Leaves a voice channel", description: "Runs when member leaves voice." },
   { value: "THREAD_CREATE", label: "Creates a thread", description: "Runs when a new thread is created." },
   { value: "MEMBER_JOIN", label: "Joins the server", description: "Runs when a member joins guild." },
+  { value: "SCHEDULED", label: "Hits a timer", description: "Runs on the interval you set." },
 ];
 
 const CONDITION_OPTIONS: Array<{ value: ConditionType; label: string }> = [
@@ -139,6 +150,7 @@ const ACTION_OPTIONS: Array<{ value: ActionType; label: string }> = [
   { value: "DELETE_TRIGGER_MESSAGE", label: "Delete trigger message" },
   { value: "DELAY", label: "Delay" },
   { value: "CREATE_THREAD", label: "Create thread" },
+  { value: "RUN_NATIVE_COMMAND", label: "Run bot slash command" },
 ];
 
 function getGuildId(): string {
@@ -224,6 +236,8 @@ function defaultTriggerConfig(triggerType: TriggerType): Record<string, unknown>
   switch (triggerType) {
     case "REACTION_ADD":
       return { emojis: [] };
+    case "SCHEDULED":
+      return { intervalValue: 1, intervalUnit: "hours", channelId: "" };
     case "MESSAGE_CREATE":
     case "MESSAGE_UPDATE":
       return { channels: [], keywords: [] };
@@ -272,6 +286,7 @@ function defaultAction(type: ActionType): ActionDraft {
   if (type === "DM") return { id: uid("act"), type, config: { content: "", reactions: "" } };
   if (type === "DELETE_TRIGGER_MESSAGE") return { id: uid("act"), type, config: {} };
   if (type === "DELAY") return { id: uid("act"), type, config: { ms: 1000 } };
+  if (type === "RUN_NATIVE_COMMAND") return { id: uid("act"), type, config: { commandKey: "", optionsJson: "{\n}", channelId: "", silent: true } };
   return { id: uid("act"), type, config: { name: "Thread", autoArchiveDuration: 60 } };
 }
 
@@ -327,6 +342,7 @@ export default function BotAutomationStudioClient() {
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [emojis, setEmojis] = useState<GuildEmoji[]>([]);
+  const [nativeCommandEntries, setNativeCommandEntries] = useState<NativeCommandEntry[]>([]);
   const [automations, setAutomations] = useState<AutomationItem[]>([]);
   const [selectedId, setSelectedId] = useState<string>("new");
 
@@ -412,6 +428,21 @@ export default function BotAutomationStudioClient() {
     );
   }
 
+  async function loadNativeCommands(targetGuildId: string) {
+    const res = await fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}&bust=${Date.now()}`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error((json as { error?: string })?.error || "Failed to load bot slash commands");
+    }
+
+    const entries = Array.isArray(json?.registry?.entries) ? json.registry.entries : [];
+    const aggregateRoots = new Set(["control", "ops", "games", "community", "progress"]);
+    const filtered = entries
+      .filter((entry: NativeCommandEntry) => entry?.executable && !aggregateRoots.has(String(entry?.commandName || "").toLowerCase()))
+      .sort((left: NativeCommandEntry, right: NativeCommandEntry) => String(left.title || left.key).localeCompare(String(right.title || right.key)));
+    setNativeCommandEntries(filtered);
+  }
+
   async function loadAutomationDetail(id: string) {
     const res = await fetch(`/api/bot/automation/${encodeURIComponent(id)}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
@@ -426,7 +457,7 @@ export default function BotAutomationStudioClient() {
     setTriggerType(trigger);
     setTriggerConfig(
       detail.triggerConfig && typeof detail.triggerConfig === "object"
-        ? (detail.triggerConfig as Record<string, unknown>)
+        ? ({ ...defaultTriggerConfig(trigger), ...(detail.triggerConfig as Record<string, unknown>) })
         : defaultTriggerConfig(trigger)
     );
     setRunLimitPerMin(asPositiveInt(Number(detail.runLimitPerMin || 30), 30));
@@ -456,7 +487,7 @@ export default function BotAutomationStudioClient() {
       setLoading(true);
       setMsg("");
       try {
-        await Promise.all([loadGuildMeta(gid), loadStudioConfig(gid)]);
+        await Promise.all([loadGuildMeta(gid), loadStudioConfig(gid), loadNativeCommands(gid)]);
         const items = await loadAutomations(gid);
         const requestedId = getAutomationIdFromQuery();
         if (cancelled) return;
@@ -757,7 +788,6 @@ export default function BotAutomationStudioClient() {
       if (selectedId === "new") {
         const createPayload = {
           guildId,
-          createdBy: "dashboard",
           version: 1,
           ...metaPayload,
         };
@@ -1116,7 +1146,7 @@ export default function BotAutomationStudioClient() {
           </div>
 
           <div style={sectionStyle}>
-            <div style={sectionTitleStyle}>When Someone</div>
+            <div style={sectionTitleStyle}>When</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
               {TRIGGERS.map((t) => {
                 const active = triggerType === t.value;
@@ -1153,6 +1183,42 @@ export default function BotAutomationStudioClient() {
                 <div style={{ marginTop: 8 }}>
                   {renderEmojiPicker("trigger_emojis", (emojiToken) => appendEmojiToTriggerConfig("emojis", emojiToken))}
                 </div>
+              </div>
+            ) : null}
+            {triggerType === "SCHEDULED" ? (
+              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "180px 220px", gap: 8 }}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={asNumber(triggerConfig, "intervalValue", 1)}
+                    onChange={(e) => setTriggerConfig((prev) => ({ ...prev, intervalValue: Number(e.target.value || 1) }))}
+                    style={inputStyle}
+                    placeholder="Every"
+                  />
+                  <select
+                    value={asString(triggerConfig, "intervalUnit", "hours")}
+                    onChange={(e) => setTriggerConfig((prev) => ({ ...prev, intervalUnit: e.target.value }))}
+                    style={inputStyle}
+                  >
+                    <option value="seconds">Seconds</option>
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                  </select>
+                </div>
+                <select
+                  value={asString(triggerConfig, "channelId", "")}
+                  onChange={(e) => setTriggerConfig((prev) => ({ ...prev, channelId: e.target.value }))}
+                  style={inputStyle}
+                >
+                  <option value="">No default channel</option>
+                  {textChannels.map((c) => (
+                    <option key={c.id} value={c.id}>#{c.name}</option>
+                  ))}
+                </select>
+                <div style={hintInline}>Runs on the automation interval. Native command actions use the automation owner and this channel unless the action overrides it.</div>
               </div>
             ) : null}
           </div>
@@ -1677,12 +1743,63 @@ export default function BotAutomationStudioClient() {
                       </select>
                     </div>
                   ) : null}
+
+                  {action.type === "RUN_NATIVE_COMMAND" ? (
+                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                      <input
+                        list="automation-native-command-keys"
+                        value={asString(action.config, "commandKey", "")}
+                        onChange={(e) => updateActionConfig(action.id, { commandKey: e.target.value })}
+                        style={inputStyle}
+                        placeholder="Command key (example: heist.start)"
+                      />
+                      <select
+                        value={asString(action.config, "channelId", "")}
+                        onChange={(e) => updateActionConfig(action.id, { channelId: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">Use automation/default channel</option>
+                        {textChannels.map((c) => (
+                          <option key={c.id} value={c.id}>#{c.name}</option>
+                        ))}
+                      </select>
+                      <textarea
+                        value={asString(action.config, "optionsJson", "{\n}")}
+                        onChange={(e) => updateActionConfig(action.id, { optionsJson: e.target.value })}
+                        style={{ ...inputStyle, minHeight: 120, resize: "vertical", fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace" }}
+                        placeholder={'{\n  "edition": "LE"\n}'}
+                      />
+                      <label style={toggleLabel}>
+                        <input
+                          type="checkbox"
+                          checked={asBoolean(action.config, "silent", true)}
+                          onChange={(e) => updateActionConfig(action.id, { silent: e.target.checked })}
+                        />
+                        Keep command replies silent
+                      </label>
+                      {(() => {
+                        const selected = nativeCommandEntries.find((entry) => entry.key === asString(action.config, "commandKey", ""));
+                        if (!selected) return <div style={hintInline}>Use the bot's command key and a JSON object for its options.</div>;
+                        return (
+                          <div style={hintInline}>
+                            {selected.title}
+                            {selected.optionSummary?.length ? ` | Options: ${selected.optionSummary.join(", ")}` : " | No options"}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
           </div>
         </section>
       </div>
+      <datalist id="automation-native-command-keys">
+        {nativeCommandEntries.map((entry) => (
+          <option key={entry.key} value={entry.key}>{entry.title}</option>
+        ))}
+      </datalist>
     </div>
   );
 }
