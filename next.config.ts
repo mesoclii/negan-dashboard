@@ -2,7 +2,7 @@ import path from "path";
 import type { NextConfig } from "next";
 
 const rootDir = path.resolve(__dirname);
-const isLowMemoryBuild = process.env.NEGAN_LOW_MEMORY_BUILD === "1";
+const isLowMemoryBuild = process.env.POSSUM_LOW_MEMORY_BUILD === "1";
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,

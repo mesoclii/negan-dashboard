@@ -101,8 +101,8 @@ for (const memoryMb of memoryAttempts) {
     ...process.env,
     CI: process.env.CI || "1",
     NEXT_TELEMETRY_DISABLED: "1",
-    NEGAN_LOW_MEMORY_BUILD: vmMode ? "1" : "0",
-    NEGAN_HOST_MEMORY_MB: hostMemoryMb ? String(hostMemoryMb) : "",
+    POSSUM_LOW_MEMORY_BUILD: vmMode ? "1" : "0",
+    POSSUM_HOST_MEMORY_MB: hostMemoryMb ? String(hostMemoryMb) : "",
     NODE_OPTIONS: nodeOptions,
   };
 

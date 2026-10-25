@@ -1,4 +1,4 @@
-# Negan Bot Dashboard
+# Possum Bot Dashboard
 
 Next.js dashboard for the bot. The bot API is a separate service/repository; the dashboard proxies requests to it and must use the same API token.
 
@@ -17,6 +17,7 @@ Use Ubuntu LTS and Node.js 20.9 or newer. Run the dashboard as a non-root servic
    - `DISCORD_REDIRECT_URI` as `https://<dashboard-domain>/api/auth/discord/callback`, matching the OAuth application's registered redirect URL.
    - A unique `SESSION_SECRET` (generate with `openssl rand -hex 32`).
    - `BOT_API_URL` and `DASHBOARD_API_TOKEN`, with the token matching the bot API's configuration.
+   - `POSSUM_BOT_ROOT` as the absolute path to the bot repository, so dashboard file-backed controls use the bot's data directory.
    - `DASHBOARD_PUBLIC_URL` and `NEXT_PUBLIC_DASHBOARD_URL` to the dashboard's HTTPS origin.
 
 3. Run checks and build:

@@ -9,7 +9,6 @@ export const PRIMARY_BASELINE_GUILD_ID = String(
 
 export const GAMES_BASELINE_GUILD_ID = String(
   process.env.PUBLIC_GAMES_GUILD_ID ||
-    process.env.ALEXANDRIA_GUILD_ID ||
     "1336178965202599936"
 ).trim();
 

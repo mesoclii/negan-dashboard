@@ -174,17 +174,17 @@ These bot Prisma models already exist and can support richer dashboard pages.
 - `LoyaltyProfile`
 - `LoyaltyCosmetic`
 
-### AI and Negan
+### AI and Possum Bot
 
 - `AiMemory`
 - `AiCharacter`
-- `NeganSettings`
-- `NeganProfile`
-- `NeganGuildConfig`
-- `NeganGovernor`
-- `NeganUserProfile`
-- `NeganChannelProfile`
-- `NeganKnowledge`
+- `PossumSettings`
+- `PossumProfile`
+- `PossumGuildConfig`
+- `PossumGovernor`
+- `PossumUserProfile`
+- `PossumChannelProfile`
+- `PossumKnowledge`
 
 ### Security
 

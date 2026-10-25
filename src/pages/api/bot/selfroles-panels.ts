@@ -26,48 +26,46 @@ type Store = {
 
 function resolveStorePath(): string {
   const explicit = String(process.env.BOT_SELFROLES_FILE || "").trim();
-  const candidates = [
-    explicit,
-    path.resolve(process.cwd(), "../modules/data/selfroles.panels.json"),
-    path.resolve(process.cwd(), "../Negan Bot/modules/data/selfroles.panels.json"),
-    path.resolve(process.cwd(), "../Negan-Bot/modules/data/selfroles.panels.json"),
-    path.resolve(process.cwd(), "../negan-bot/modules/data/selfroles.panels.json"),
-  ].filter(Boolean);
+  const botRoot = String(process.env.POSSUM_BOT_ROOT || "").trim();
+  const candidate = explicit
+    ? path.resolve(explicit)
+    : botRoot
+      ? path.resolve(botRoot, "modules", "data", "selfroles.panels.json")
+      : "";
 
-  for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) return p;
-    } catch {}
+  if (!candidate) {
+    throw new Error("Configure POSSUM_BOT_ROOT or BOT_SELFROLES_FILE to load self-role panels");
   }
-  return candidates[1] || candidates[0] || path.resolve(process.cwd(), "selfroles.panels.json");
+  return candidate;
 }
 
-const STORE_PATH = resolveStorePath();
-
-function ensureStoreFile() {
-  const dir = path.dirname(STORE_PATH);
+function ensureStoreFile(storePath: string) {
+  const dir = path.dirname(storePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(STORE_PATH)) {
-    fs.writeFileSync(STORE_PATH, JSON.stringify({ guilds: {} }, null, 2), "utf8");
+  if (!fs.existsSync(storePath)) {
+    fs.writeFileSync(storePath, JSON.stringify({ guilds: {} }, null, 2), "utf8");
   }
 }
 
-function readStore(): Store {
-  ensureStoreFile();
-  try {
-    const raw = fs.readFileSync(STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw || "{}");
-    if (!parsed || typeof parsed !== "object") return { guilds: {} };
-    const guilds = parsed.guilds && typeof parsed.guilds === "object" ? parsed.guilds : {};
-    return { guilds };
-  } catch {
-    return { guilds: {} };
+function readStore(storePath: string): Store {
+  ensureStoreFile(storePath);
+  const raw = fs.readFileSync(storePath, "utf8");
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`Self-role panel store at ${storePath} must contain an object`);
   }
+  if (
+    parsed.guilds !== undefined &&
+    (!parsed.guilds || typeof parsed.guilds !== "object" || Array.isArray(parsed.guilds))
+  ) {
+    throw new Error(`Self-role panel store at ${storePath} has an invalid guild map`);
+  }
+  return { guilds: parsed.guilds || {} };
 }
 
-function writeStore(store: Store) {
-  ensureStoreFile();
-  fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+function writeStore(store: Store, storePath: string) {
+  ensureStoreFile(storePath);
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2), "utf8");
 }
 
 function cleanPanelId(input: unknown, idx: number): string {
@@ -114,8 +112,8 @@ function normalizePanels(rawPanels: any): Panel[] {
   });
 }
 
-function readGuildConfig(guildId: string): GuildConfig {
-  const store = readStore();
+function readGuildConfig(guildId: string, storePath: string): GuildConfig {
+  const store = readStore(storePath);
   const existing = store.guilds[guildId];
   if (!existing || typeof existing !== "object") {
     return { channelId: null, panels: [] };
@@ -133,9 +131,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ success: false, error: "guildId is required" });
     }
 
+    if (req.method !== "GET" && req.method !== "POST" && req.method !== "PUT") {
+      return res.status(405).json({ success: false, error: "Method not allowed" });
+    }
+
+    const storePath = resolveStorePath();
     if (req.method === "GET") {
-      const config = readGuildConfig(guildId);
-      return res.status(200).json({ success: true, guildId, config, storePath: STORE_PATH });
+      const config = readGuildConfig(guildId, storePath);
+      return res.status(200).json({ success: true, guildId, config, storePath });
     }
 
     if (req.method === "POST" || req.method === "PUT") {
@@ -143,15 +146,13 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       const channelId = String(channelRaw || "").trim() || null;
       const panels = normalizePanels(req.body?.panels || []);
 
-      const store = readStore();
+      const store = readStore(storePath);
       store.guilds = store.guilds || {};
       store.guilds[guildId] = { channelId, panels };
-      writeStore(store);
+      writeStore(store, storePath);
 
       return res.status(200).json({ success: true, guildId, config: store.guilds[guildId] });
     }
-
-    return res.status(405).json({ success: false, error: "Method not allowed" });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || "selfroles panel API failed" });
   }

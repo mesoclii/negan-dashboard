@@ -12,44 +12,40 @@ type PersonaStore = {
 
 function resolvePersonaFile(): string {
   const explicit = String(process.env.BOT_PERSONA_FILE || "").trim();
-  const candidates = [
-    explicit,
-    path.resolve(process.cwd(), "../modules/data/personas.json"),
-    path.resolve(process.cwd(), "../Negan Bot/modules/data/personas.json"),
-    path.resolve(process.cwd(), "../Negan-Bot/modules/data/personas.json"),
-    path.resolve(process.cwd(), "../negan-bot/modules/data/personas.json"),
-  ].filter(Boolean);
+  const botRoot = String(process.env.POSSUM_BOT_ROOT || "").trim();
+  const candidate = explicit
+    ? path.resolve(explicit)
+    : botRoot
+      ? path.resolve(botRoot, "modules", "data", "personas.json")
+      : "";
 
-  for (const candidate of candidates) {
-    try {
-      if (fs.existsSync(candidate)) return candidate;
-    } catch {}
+  if (!candidate) {
+    throw new Error("Configure POSSUM_BOT_ROOT or BOT_PERSONA_FILE to load bot personas");
   }
-
-  return candidates[1] || candidates[0] || path.resolve(process.cwd(), "personas.json");
+  if (!fs.existsSync(candidate)) {
+    throw new Error(`Persona store was not found at ${candidate}`);
+  }
+  return candidate;
 }
 
-const PERSONA_FILE = resolvePersonaFile();
-
 function readStore(): PersonaStore {
-  try {
-    const raw = JSON.parse(fs.readFileSync(PERSONA_FILE, "utf8"));
-    return {
-      settings: {
-        autoReplyEnabled: Boolean(raw?.settings?.autoReplyEnabled),
-        mentionOnly: raw?.settings?.mentionOnly !== false,
-      },
-      personas: raw?.personas && typeof raw.personas === "object" ? raw.personas : {},
-    };
-  } catch {
-    return {
-      settings: {
-        autoReplyEnabled: false,
-        mentionOnly: true,
-      },
-      personas: {},
-    };
+  const raw = JSON.parse(fs.readFileSync(resolvePersonaFile(), "utf8"));
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Persona store must contain an object");
   }
+  if (
+    raw.personas !== undefined &&
+    (!raw.personas || typeof raw.personas !== "object" || Array.isArray(raw.personas))
+  ) {
+    throw new Error("Persona store has an invalid personas map");
+  }
+  return {
+    settings: {
+      autoReplyEnabled: Boolean(raw?.settings?.autoReplyEnabled),
+      mentionOnly: raw?.settings?.mentionOnly !== false,
+    },
+    personas: raw?.personas && typeof raw.personas === "object" ? raw.personas : {},
+  };
 }
 
 function summarizePersonas(personas: Record<string, any>) {
