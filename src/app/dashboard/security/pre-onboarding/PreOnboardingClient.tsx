@@ -12,6 +12,12 @@ type PreOnboardingConfig = {
   autoBanOnRefusalRole: boolean;
   sendRemovalDm: boolean;
   enforcementAction: "kick" | "ban";
+  profileThreatGuardEnabled: boolean;
+  profileThreatScanOnUpdate: boolean;
+  profileThreatAction: "log" | "kick" | "ban";
+  profileThreatKeywords: string;
+  profileThreatDomains: string;
+  profileThreatExemptRoleIds: string[];
   refusalRoleId: string;
   enforcementChannelId: string;
   contactUser: string;
@@ -23,6 +29,12 @@ const DEFAULTS: PreOnboardingConfig = {
   autoBanOnRefusalRole: true,
   sendRemovalDm: true,
   enforcementAction: "ban",
+  profileThreatGuardEnabled: false,
+  profileThreatScanOnUpdate: true,
+  profileThreatAction: "kick",
+  profileThreatKeywords: "telegram\nmegalinks\nt.me",
+  profileThreatDomains: "t.me\ntelegram.me\nmega.nz",
+  profileThreatExemptRoleIds: [],
   refusalRoleId: "",
   enforcementChannelId: "",
   contactUser: "Support Team",
@@ -57,6 +69,13 @@ const styles = {
   },
 };
 
+function toggleRole(list: string[], id: string) {
+  const set = new Set(list || []);
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+  return Array.from(set);
+}
+
 export default function PreOnboardingClient() {
   const {
     guildId,
@@ -88,7 +107,7 @@ export default function PreOnboardingClient() {
       <div style={{ ...styles.card, borderColor: "#7a2200", background: "rgba(160,40,0,0.12)" }}>
         <strong>Step 0:</strong> this is the hard gate before verification even starts.
         <div style={{ marginTop: 8, color: "#ffd7a8", lineHeight: 1.6 }}>
-          Use this page for blacklist rejoin handling and refusal-role enforcement. You asked for <strong>kick or ban</strong> here, so that choice is now explicit.
+          Use this page for blacklist rejoin handling, refusal-role enforcement, and the new profile threat guard. You asked for <strong>kick or ban</strong> here, so that choice is now explicit.
         </div>
       </div>
       {message ? <div style={{ color: "#ffd27a", marginBottom: 8 }}>{message}</div> : null}
@@ -142,6 +161,58 @@ export default function PreOnboardingClient() {
         <textarea style={styles.area} value={cfg.banDmTemplate || ""} onChange={(e) => setCfg({ ...cfg, banDmTemplate: e.target.value })} />
         <div style={{ marginTop: 8, color: "#ffb8b8", fontSize: 12 }}>
           Tokens: <code>{'{{reason}}'}</code>, <code>{'{{type}}'}</code>, <code>{'{{contactUser}}'}</code>
+        </div>
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={{ marginTop: 0, color: "#ff4444" }}>Profile Threat Guard</h3>
+        <div style={{ color: "#ffd7a8", marginBottom: 10, lineHeight: 1.6 }}>
+          Scans visible identity surfaces when someone joins or changes profile identity: username, global name, server nickname, and visible custom status text/URL when Discord exposes it.
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+          <label><input type="checkbox" checked={!!cfg.profileThreatGuardEnabled} onChange={(e) => setCfg({ ...cfg, profileThreatGuardEnabled: e.target.checked })} /> Enable profile threat guard</label>
+          <label><input type="checkbox" checked={!!cfg.profileThreatScanOnUpdate} onChange={(e) => setCfg({ ...cfg, profileThreatScanOnUpdate: e.target.checked })} /> Re-scan on profile / nickname changes</label>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 10 }}>
+          <div>
+            <label>Threat action</label>
+            <select style={styles.input} value={cfg.profileThreatAction || "kick"} onChange={(e) => setCfg({ ...cfg, profileThreatAction: e.target.value as "log" | "kick" | "ban" })}>
+              <option value="log">Log only</option>
+              <option value="kick">Kick</option>
+              <option value="ban">Ban</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+          <div>
+            <label>Blocked keywords / phrases</label>
+            <textarea style={styles.area} value={cfg.profileThreatKeywords || ""} onChange={(e) => setCfg({ ...cfg, profileThreatKeywords: e.target.value })} />
+            <div style={{ marginTop: 8, color: "#ffb8b8", fontSize: 12 }}>
+              One per line or comma-separated. Example: <code>telegram</code>, <code>megalinks</code>, <code>t.me</code>
+            </div>
+          </div>
+          <div>
+            <label>Blocked domains</label>
+            <textarea style={styles.area} value={cfg.profileThreatDomains || ""} onChange={(e) => setCfg({ ...cfg, profileThreatDomains: e.target.value })} />
+            <div style={{ marginTop: 8, color: "#ffb8b8", fontSize: 12 }}>
+              One per line or comma-separated. Example: <code>t.me</code>, <code>telegram.me</code>, <code>mega.nz</code>
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <label>Exempt roles</label>
+          <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid #5a0000", borderRadius: 8, padding: 8 }}>
+            {(roles as GuildRole[]).map((role) => (
+              <label key={`pre_onboarding_exempt_${role.id}`} style={{ display: "block", marginBottom: 4 }}>
+                <input
+                  type="checkbox"
+                  checked={(cfg.profileThreatExemptRoleIds || []).includes(role.id)}
+                  onChange={() => setCfg({ ...cfg, profileThreatExemptRoleIds: toggleRole(cfg.profileThreatExemptRoleIds || [], role.id) })}
+                />{" "}
+                @{role.name}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

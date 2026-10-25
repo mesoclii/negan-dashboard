@@ -162,6 +162,7 @@ export default function TtsAccessPage() {
     saving,
     message,
     save,
+    runAction,
   } = useGuildEngineEditor<TtsConfig>("tts", DEFAULT_CONFIG);
 
   const cfg = useMemo(() => normalizeConfig(rawCfg), [rawCfg]);
@@ -224,7 +225,7 @@ export default function TtsAccessPage() {
         <div style={{ ...card, marginTop: 12 }}>Loading TTS...</div>
       ) : (
         <>
-          <EngineInsights summary={summary} details={details} />
+          <EngineInsights summary={summary} details={details} showDetails />
           <OperatorLogPanel guildId={guildId} engine="tts" title="TTS Operator Logs" />
 
           <div style={{ ...card, marginTop: 12 }}>
@@ -435,7 +436,7 @@ export default function TtsAccessPage() {
             <button onClick={() => save(normalizeConfig(cfg))} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", fontWeight: 900 }}>
               {saving ? "Saving..." : "Save TTS"}
             </button>
-            <button onClick={() => save({ enabled: false, commandEnabled: false })} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", borderColor: "#a00000", color: "#ff8a8a" }}>
+            <button onClick={() => void runAction("emergencyOff")} disabled={saving} style={{ ...input, width: "auto", cursor: "pointer", borderColor: "#a00000", color: "#ff8a8a" }}>
               Emergency Off
             </button>
           </div>

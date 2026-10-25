@@ -747,7 +747,7 @@ export default function BotPersonalizerClient() {
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
                     <label><input type="checkbox" checked={cfg.customBotIntentsConfirmed} onChange={(e) => updateCfg({ customBotIntentsConfirmed: e.target.checked })} /> Required intents are enabled: Presence, Server Members, Message Content</label>
-                    <label><input type="checkbox" checked={cfg.customBotOauthGrantDisabledConfirmed} onChange={(e) => updateCfg({ customBotOauthGrantDisabledConfirmed: e.target.checked })} /> "Requires OAuth2 Code Grant" is disabled in the Discord Developer Portal</label>
+                    <label><input type="checkbox" checked={cfg.customBotOauthGrantDisabledConfirmed} onChange={(e) => updateCfg({ customBotOauthGrantDisabledConfirmed: e.target.checked })} /> &quot;Requires OAuth2 Code Grant&quot; is disabled in the Discord Developer Portal</label>
                     <label><input type="checkbox" checked={cfg.customBotRedirectConfiguredConfirmed} onChange={(e) => updateCfg({ customBotRedirectConfiguredConfirmed: e.target.checked })} /> The correct redirect URI is added in OAuth2 settings</label>
                   </div>
 
@@ -1104,7 +1104,7 @@ export default function BotPersonalizerClient() {
                     <div>
                       <div style={{ fontSize: 20, fontWeight: 900 }}>{customBotPreviewName || "Custom Token Bot"}</div>
                       <div style={{ color: "#ffb5b5", fontSize: 12, marginTop: 6 }}>
-                        Uses the dedicated bot application's real avatar and app identity. Optional guild nickname/presence overrides live in the custom bot lane above.
+                        Uses the dedicated bot application&apos;s real avatar and app identity. Optional guild nickname/presence overrides live in the custom bot lane above.
                       </div>
                       <div style={{ color: "#ff9797", fontSize: 11, marginTop: 6 }}>
                         Runtime: {runtimeState || "No runtime data yet."}

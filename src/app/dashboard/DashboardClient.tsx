@@ -10,6 +10,7 @@ import { isPremiumEnforcementEnabled } from "@/lib/premiumMode";
 type ToggleController = {
   read: (guildId: string, userId?: string) => Promise<boolean>;
   write: (guildId: string, next: boolean, userId?: string) => Promise<void>;
+  readLocal?: (dashboardConfig: any, engineConfigs: Record<string, any>) => boolean;
 };
 
 type Card = {
@@ -111,11 +112,16 @@ async function fetchJsonOrThrow(url: string, init: RequestInit = {}, timeoutMs =
 
 const DASHBOARD_CONFIG_TTL_MS = 60_000;
 const ENGINE_CONFIG_TTL_MS = 30_000;
+const SUBSCRIPTION_STATUS_TTL_MS = 60_000;
 
 const dashboardConfigCache = new Map<string, { value: any; expiresAt: number }>();
 const engineConfigCache = new Map<string, { value: any; expiresAt: number }>();
+const allEngineConfigCache = new Map<string, { value: Record<string, any>; expiresAt: number }>();
+const subscriptionStatusCache = new Map<string, { value: { active: boolean; plan: string; developerBypass?: boolean }; expiresAt: number }>();
 const dashboardConfigInflight = new Map<string, Promise<any>>();
 const engineConfigInflight = new Map<string, Promise<any>>();
+const allEngineConfigInflight = new Map<string, Promise<Record<string, any>>>();
+const subscriptionStatusInflight = new Map<string, Promise<{ active: boolean; plan: string; developerBypass?: boolean }>>();
 
 async function getDashboardConfig(guildId: string, userId = "") {
   const actorUserId = String(userId || "").trim();
@@ -180,6 +186,32 @@ async function getEngineConfig(guildId: string, engine: string, userId = "") {
   return request;
 }
 
+async function getAllEngineConfigs(guildId: string, userId = "") {
+  const actorUserId = String(userId || "").trim();
+  const cacheKey = `${String(guildId || "").trim()}:${actorUserId}`;
+  const cached = allEngineConfigCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  if (allEngineConfigInflight.has(cacheKey)) {
+    return allEngineConfigInflight.get(cacheKey);
+  }
+  const request = (async () => {
+    const json = await fetchJsonOrThrow(
+      `/api/bot/engine-config?guildId=${encodeURIComponent(guildId)}${actorUserId ? `&userId=${encodeURIComponent(actorUserId)}` : ""}`
+    );
+    const value = (json?.config && typeof json.config === "object") ? json.config : {};
+    allEngineConfigCache.set(cacheKey, { value, expiresAt: Date.now() + ENGINE_CONFIG_TTL_MS });
+    allEngineConfigInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    allEngineConfigInflight.delete(cacheKey);
+    throw error;
+  });
+  allEngineConfigInflight.set(cacheKey, request);
+  return request;
+}
+
 async function saveEngineConfig(guildId: string, engine: string, patch: Record<string, unknown>, userId = "") {
   await fetchJsonOrThrow("/api/runtime/engine", {
     method: "POST",
@@ -192,6 +224,48 @@ async function saveEngineConfig(guildId: string, engine: string, patch: Record<s
       engineConfigCache.delete(cacheKey);
     }
   }
+  for (const cacheKey of allEngineConfigCache.keys()) {
+    if (cacheKey.startsWith(`${String(guildId || "").trim()}:`)) {
+      allEngineConfigCache.delete(cacheKey);
+    }
+  }
+}
+
+async function getSubscriptionStatus(guildId: string) {
+  const cacheKey = String(guildId || "").trim();
+  const cached = subscriptionStatusCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+  const inflight = subscriptionStatusInflight.get(cacheKey);
+  if (inflight) {
+    return inflight;
+  }
+
+  const request = (async () => {
+    const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).catch(() => null);
+    const json = await res?.json().catch(() => ({}));
+    const value =
+      !res || !res.ok || json?.success === false
+        ? { active: false, plan: "FREE", developerBypass: false }
+        : {
+            active: Boolean(json?.status?.active),
+            plan: String(json?.status?.plan || "FREE"),
+            developerBypass: Boolean(json?.status?.developerBypass),
+          };
+    subscriptionStatusCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + SUBSCRIPTION_STATUS_TTL_MS,
+    });
+    subscriptionStatusInflight.delete(cacheKey);
+    return value;
+  })().catch((error) => {
+    subscriptionStatusInflight.delete(cacheKey);
+    throw error;
+  });
+
+  subscriptionStatusInflight.set(cacheKey, request);
+  return request;
 }
 
 function featureController(key: string): ToggleController {
@@ -202,6 +276,9 @@ function featureController(key: string): ToggleController {
     },
     async write(guildId, next, userId) {
       await saveDashboardFeature(guildId, key, next, userId);
+    },
+    readLocal(dashboardConfig) {
+      return readBoolPath(dashboardConfig, ["features", key], false);
     },
   };
 }
@@ -225,6 +302,9 @@ function engineController(engine: string, fieldPath: string[] = ["enabled"]): To
         patch.enabled = next;
       }
       await saveEngineConfig(guildId, engine, patch, userId);
+    },
+    readLocal(_dashboardConfig, engineConfigs) {
+      return readBoolPath(engineConfigs?.[engine] || {}, fieldPath, false);
     },
   };
 }
@@ -327,6 +407,9 @@ const birthdayController: ToggleController = {
     await saveDashboardFeature(guildId, "birthdayEnabled", next, userId);
     await saveEngineConfig(guildId, "radio", { birthday: { enabled: next } }, userId);
   },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "birthdayEnabled"], false) && readBoolPath(engineConfigs?.radio || {}, ["birthday", "enabled"], false);
+  },
 };
 
 const rareSpawnController: ToggleController = {
@@ -342,6 +425,9 @@ const rareSpawnController: ToggleController = {
       saveDashboardFeature(guildId, "rareDropEnabled", next, userId),
       saveEngineConfig(guildId, "rareSpawn", { enabled: next }, userId),
     ]);
+  },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "rareDropEnabled"], false) && readBoolPath(engineConfigs?.rareSpawn || {}, ["enabled"], false);
   },
 };
 
@@ -359,6 +445,9 @@ const musicController: ToggleController = {
       saveEngineConfig(guildId, "music", { enabled: next }, userId),
     ]);
   },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "musicEnabled"], false) && readBoolPath(engineConfigs?.music || {}, ["enabled"], false);
+  },
 };
 
 const pokemonCatchingController: ToggleController = {
@@ -374,6 +463,9 @@ const pokemonCatchingController: ToggleController = {
       saveDashboardFeature(guildId, "pokemonEnabled", next, userId),
       saveEngineConfig(guildId, "pokemon", { enabled: next }, userId),
     ]);
+  },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfigs?.pokemon || {}, ["enabled"], false);
   },
 };
 
@@ -391,6 +483,9 @@ const pokemonBattleController: ToggleController = {
     }
     await saveEngineConfig(guildId, "pokemon", { battleEnabled: next }, userId);
   },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfigs?.pokemon || {}, ["battleEnabled"], false);
+  },
 };
 
 const pokemonTradeController: ToggleController = {
@@ -406,6 +501,9 @@ const pokemonTradeController: ToggleController = {
       await saveDashboardFeature(guildId, "pokemonEnabled", true, userId);
     }
     await saveEngineConfig(guildId, "pokemon", { tradingEnabled: next }, userId);
+  },
+  readLocal(dashboardConfig, engineConfigs) {
+    return readBoolPath(dashboardConfig, ["features", "pokemonEnabled"], false) && readBoolPath(engineConfigs?.pokemon || {}, ["tradingEnabled"], false);
   },
 };
 
@@ -522,24 +620,46 @@ export default function DashboardClient() {
   const loadStates = useCallback(async (targetGuildId: string) => {
     if (!targetGuildId) return;
     setLoadingStates(true);
-    const nextStates: Record<string, ToggleState> = {};
-    await Promise.all(
-      CARDS.map(async (card) => {
-        if (!card.toggle) return;
-        try {
-          const value = await card.toggle.read(targetGuildId, viewerUserId);
-          nextStates[card.href] = { value, saving: false };
-        } catch (err: any) {
+    try {
+      const [dashboardConfig, engineConfigs] = await Promise.all([
+        getDashboardConfig(targetGuildId, viewerUserId),
+        getAllEngineConfigs(targetGuildId, viewerUserId),
+      ]);
+
+      const nextStates: Record<string, ToggleState> = {};
+      for (const card of CARDS) {
+        if (!card.toggle) continue;
+        if (typeof card.toggle.readLocal === "function") {
           nextStates[card.href] = {
-            value: null,
+            value: card.toggle.readLocal(dashboardConfig, engineConfigs),
             saving: false,
-            error: err?.message || "Failed to load toggle.",
           };
+          continue;
         }
-      })
-    );
-    setStates(nextStates);
-    setLoadingStates(false);
+        nextStates[card.href] = { value: await card.toggle.read(targetGuildId, viewerUserId), saving: false };
+      }
+      setStates(nextStates);
+    } catch {
+      const nextStates: Record<string, ToggleState> = {};
+      await Promise.all(
+        CARDS.map(async (card) => {
+          if (!card.toggle) return;
+          try {
+            const value = await card.toggle.read(targetGuildId, viewerUserId);
+            nextStates[card.href] = { value, saving: false };
+          } catch (err: any) {
+            nextStates[card.href] = {
+              value: null,
+              saving: false,
+              error: err?.message || "Failed to load toggle.",
+            };
+          }
+        })
+      );
+      setStates(nextStates);
+    } finally {
+      setLoadingStates(false);
+    }
   }, [viewerUserId]);
 
   useEffect(() => {
@@ -556,17 +676,12 @@ export default function DashboardClient() {
       return;
     }
     (async () => {
-      const res = await fetch(`/api/subscriptions/status?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }).catch(() => null);
-      const json = await res?.json().catch(() => ({}));
-      if (!res || !res.ok || json?.success === false) {
-        setSubscription({ active: false, plan: "FREE", developerBypass: false });
-        return;
-      }
-      setSubscription({
-        active: Boolean(json?.status?.active),
-        plan: String(json?.status?.plan || "FREE"),
-        developerBypass: Boolean(json?.status?.developerBypass),
-      });
+      const next = await getSubscriptionStatus(guildId).catch(() => ({
+        active: false,
+        plan: "FREE",
+        developerBypass: false,
+      }));
+      setSubscription(next);
     })();
   }, [guildId, premiumEnforced]);
 
@@ -652,12 +767,13 @@ export default function DashboardClient() {
                 className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={buildDashboardHref(card.href)} className="min-w-0 flex-1">
+                  <Link href={card.href} prefetch={false} className="min-w-0 flex-1">
                     <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
                     <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
                   </Link>
                   <Link
-                    href={buildDashboardHref(card.href)}
+                    href={card.href}
+                    prefetch={false}
                     className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
                   >
                     {card.goLabel || "Go"}
@@ -691,7 +807,7 @@ export default function DashboardClient() {
                     className="rounded-xl border possum-divider bg-black/45 p-4 transition hover:bg-black/65 possum-border"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <Link href={buildDashboardHref(card.href)} className="min-w-0 flex-1">
+                      <Link href={card.href} prefetch={false} className="min-w-0 flex-1">
                         <h3 className="text-base font-extrabold uppercase tracking-[0.06em] possum-red">{card.title}</h3>
                         <p className="mt-1 text-sm text-red-200/75">{card.description}</p>
                       </Link>
@@ -703,7 +819,8 @@ export default function DashboardClient() {
                               {lockedPremium ? "Premium" : "Editor"}
                             </span>
                             <Link
-                              href={buildDashboardHref(card.href)}
+                              href={card.href}
+                              prefetch={false}
                               className="rounded-lg border border-red-600/60 bg-black/50 px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-red-200"
                             >
                               {card.goLabel || "Go"}

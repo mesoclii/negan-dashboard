@@ -240,10 +240,11 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
       if (!res.ok || json?.success === false) {
         throw new Error(json?.error || "Action failed");
       }
-      setConfig({ ...(defaultsRef.current as any), ...(json?.config || config) });
+      const result = json?.result ?? null;
+      setConfig({ ...(defaultsRef.current as any), ...(result?.config || json?.config || config) });
       setSummary(Array.isArray(json?.summary) ? json.summary : []);
       setDetails((json?.details && typeof json.details === "object") ? json.details : {});
-      const warnings = Array.isArray(json?.result?.warnings) ? json.result.warnings.filter(Boolean) : [];
+      const warnings = Array.isArray(result?.warnings) ? result.warnings.filter(Boolean) : [];
       const avatarLabel = json?.result?.avatar?.scope === "guild" ? "guild avatar" : "bot avatar";
       const appliedLabels = [
         json?.result?.username?.applied ? "bot username" : "",
@@ -253,14 +254,16 @@ export function useGuildEngineEditor<T>(engine: string, defaults: T) {
         json?.result?.banner?.applied ? "bot banner" : "",
         json?.result?.webhookIdentity?.applied ? "webhook identity" : "",
       ].filter(Boolean);
-      if (warnings.length) {
+      if (result?.message) {
+        setMessage(String(result.message));
+      } else if (warnings.length) {
         setMessage(warnings.join(" | "));
       } else if (appliedLabels.length) {
         setMessage(`${appliedLabels.join(", ")} applied.`);
       } else {
         setMessage("Action completed.");
       }
-      return json?.result ?? null;
+      return result;
     } catch (err: any) {
       setMessage(err?.message || "Action failed.");
       return null;

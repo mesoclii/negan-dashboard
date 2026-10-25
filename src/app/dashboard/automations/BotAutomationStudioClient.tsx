@@ -1779,7 +1779,7 @@ export default function BotAutomationStudioClient() {
                       </label>
                       {(() => {
                         const selected = nativeCommandEntries.find((entry) => entry.key === asString(action.config, "commandKey", ""));
-                        if (!selected) return <div style={hintInline}>Use the bot's command key and a JSON object for its options.</div>;
+                        if (!selected) return <div style={hintInline}>Use the bot&apos;s command key and a JSON object for its options.</div>;
                         return (
                           <div style={hintInline}>
                             {selected.title}

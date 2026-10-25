@@ -34,6 +34,7 @@ type OnboardingConfig = {
   idPanelDescription: string;
   idPanelContent: string;
   postVerifyTemplate: string;
+  postVerifyAutoDeleteMinutes: number;
   idTicketButtonLabel: string;
   idReadyButtonLabel: string;
   idDeclineButtonLabel: string;
@@ -74,6 +75,7 @@ const DEFAULTS: OnboardingConfig = {
   idPanelDescription: "<@{{userId}}> choose how you proceed.\n\nThose who refuse will be removed.",
   idPanelContent: "Survivor <@{{userId}}>",
   postVerifyTemplate: "<@{{userId}}> is now verified. Welcome to {{guildName}}.",
+  postVerifyAutoDeleteMinutes: 0,
   idTicketButtonLabel: "Open ID Verification Ticket",
   idReadyButtonLabel: "I'm Ready To Submit ID",
   idDeclineButtonLabel: "I'm Leaving The Safe Zone",
@@ -284,6 +286,17 @@ export default function OnboardingClient() {
           <div>
             <label>Post-verify message</label>
             <textarea style={styles.area} value={cfg.postVerifyTemplate || ""} onChange={(e) => setCfg({ ...cfg, postVerifyTemplate: e.target.value })} />
+          </div>
+          <div>
+            <label>Post-verify auto-delete minutes (0 = keep)</label>
+            <input
+              style={styles.input}
+              type="number"
+              min={0}
+              max={10080}
+              value={cfg.postVerifyAutoDeleteMinutes || 0}
+              onChange={(e) => setCfg({ ...cfg, postVerifyAutoDeleteMinutes: Number(e.target.value || 0) })}
+            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }}>
             <div>

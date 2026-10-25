@@ -1131,7 +1131,7 @@ export default function CustomCommandsPage() {
                       </label>
                       {(() => {
                         const selected = nativeCommandEntries.find((entry) => entry.key === a.nativeCommandKey);
-                        if (!selected) return <div style={hintStyle}>Use the bot's canonical command key and a JSON object for its options.</div>;
+                        if (!selected) return <div style={hintStyle}>Use the bot&apos;s canonical command key and a JSON object for its options.</div>;
                         return (
                           <div style={hintStyle}>
                             {selected.title}

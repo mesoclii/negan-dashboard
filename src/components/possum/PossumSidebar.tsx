@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { buildDashboardHref } from "@/lib/dashboardContext";
 import { useDashboardSessionState } from "@/components/possum/useDashboardSessionState";
@@ -15,6 +15,17 @@ function itemClass(active: boolean): string {
 function isItemActive(pathname: string | null, href: string) {
   const baseHref = href.split("?")[0].split("#")[0];
   return pathname === baseHref || pathname?.startsWith(`${baseHref}/`);
+}
+
+function shouldPrefetchNavRoutes() {
+  if (typeof window === "undefined") return false;
+  const nav = window.navigator as Navigator & {
+    deviceMemory?: number;
+    connection?: { saveData?: boolean } | undefined;
+  };
+  if (nav.connection?.saveData) return false;
+  if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 1) return false;
+  return true;
 }
 
 export default function PossumSidebar() {
@@ -39,6 +50,9 @@ export default function PossumSidebar() {
   }
 
   const prefetchHref = useCallback((href: string) => {
+    if (!shouldPrefetchNavRoutes()) {
+      return;
+    }
     const resolved = buildDashboardHref(href);
     if (!resolved || prefetchedHrefsRef.current.has(resolved)) {
       return;
@@ -46,32 +60,6 @@ export default function PossumSidebar() {
     prefetchedHrefsRef.current.add(resolved);
     router.prefetch(resolved);
   }, [router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const activeSection = sections.find((section) =>
-      section.items.some((item) => isItemActive(pathname, item.href))
-    );
-    const hrefs = [
-      "/dashboard",
-      ...topLinks.map((item) => item.href),
-      ...(activeSection ? activeSection.items.slice(0, 10).map((item) => item.href) : []),
-    ];
-    const uniqueHrefs = [...new Set(hrefs)];
-    const prefetchAll = () => {
-      uniqueHrefs.forEach(prefetchHref);
-    };
-    const withIdle = window as Window & {
-      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    if (typeof withIdle.requestIdleCallback === "function") {
-      const handle = withIdle.requestIdleCallback(prefetchAll, { timeout: 1200 });
-      return () => withIdle.cancelIdleCallback?.(handle);
-    }
-    const timeout = window.setTimeout(prefetchAll, 150);
-    return () => window.clearTimeout(timeout);
-  }, [pathname, prefetchHref, sections, topLinks]);
 
   return (
     <div className="rounded-xl border possum-divider bg-black/55 p-4 possum-border">

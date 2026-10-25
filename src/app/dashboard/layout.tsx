@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between px-5 py-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] possum-soft">Control Surface</p>
-                <Link href="/dashboard" className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft hover:text-red-200">
+                <Link href="/dashboard" prefetch={false} className="text-base font-extrabold uppercase tracking-[0.12em] possum-red possum-glow-soft hover:text-red-200">
                   Possum Dashboard
                 </Link>
               </div>
@@ -26,12 +26,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <div className="flex items-center gap-2">
                 <Link
                   href="/guilds"
+                  prefetch={false}
                   className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
                 >
                   Change Guild
                 </Link>
                 <Link
                   href="/"
+                  prefetch={false}
                   className="rounded-lg bg-black/40 px-3 py-2 text-sm font-black uppercase tracking-[0.08em] possum-red possum-btn"
                 >
                   Exit

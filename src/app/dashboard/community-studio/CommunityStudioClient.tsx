@@ -187,18 +187,16 @@ function createLookupEntry(): LookupEntry {
 function normalizeImages(raw: unknown): StudioImage[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-  return raw
-    .map((entry) => {
+  return raw.flatMap((entry): StudioImage[] => {
       const row = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
       const url = safePreviewUrl(row.url || row.imageUrl || "");
-      if (!url || seen.has(url)) return null;
+      if (!url || seen.has(url)) return [];
       seen.add(url);
-      return {
+      return [{
         url,
         label: String(row.label || row.name || "").trim().slice(0, 120),
-      };
-    })
-    .filter(Boolean) as StudioImage[];
+      }];
+    });
 }
 
 function normalizeOptions(raw: unknown): PollOption[] {
