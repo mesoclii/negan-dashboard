@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import type { DashboardAuditEvent } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { appendAudit } from "@/lib/setupStore";
 import { publishDashboardEvent } from "@/lib/dashboardRedis";
@@ -131,7 +132,7 @@ export async function listDashboardAuditEvents(options: { guildId?: string; limi
     .catch(() => []);
 
   if (dbRows.length > 0) {
-    return dbRows.map((row) => ({
+    return dbRows.map((row: DashboardAuditEvent) => ({
       id: row.id,
       guildId: row.guildId,
       actorUserId: row.actorUserId,

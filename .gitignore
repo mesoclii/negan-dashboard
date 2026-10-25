@@ -3,6 +3,8 @@ node_modules
 .next.previous
 .next.rollback.json
 .env
+.env.*
+!.env.example
 prisma/dashboard.db
 prisma/*.db-shm
 prisma/*.db-wal
@@ -10,3 +12,4 @@ prisma/*.db-wal
 *.tar.gz
 *.bak
 *.bak.*
+*.tsbuildinfo
