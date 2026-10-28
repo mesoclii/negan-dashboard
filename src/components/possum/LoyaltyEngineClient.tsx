@@ -113,7 +113,7 @@ export default function LoyaltyEngineClient() {
         intro="Loyalty is the retention layer for the progression family. It should reward tenure and steady participation without replacing XP, achievements, or prestige as the main advancement loop."
         related={[
           { label: "VIP", route: "/dashboard/vip", reason: "VIP lifecycle and loyalty benefits should stay aligned instead of creating conflicting long-term perks" },
-          { label: "Birthdays", route: "/dashboard/economy/radio-birthday", reason: "radio/birthday recognition is part of the same long-tail member appreciation surface" },
+          { label: "Radio", route: "/dashboard/economy/radio-birthday", reason: "birthday recognition is part of the same long-tail member appreciation surface" },
           { label: "Prestige", route: "/dashboard/prestige", reason: "prestige carry-forward value should not overpower loyalty retention rewards" },
         ]}
       />

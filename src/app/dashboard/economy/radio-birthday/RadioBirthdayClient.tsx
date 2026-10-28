@@ -15,14 +15,6 @@ type RadioBirthdayConfig = {
     timezone: string;
     allowSelfSet: boolean;
   };
-  radio: {
-    enabled: boolean;
-    announceChannelId: string;
-    djRoleIds: string[];
-    queueLimit: number;
-    allowLinks: boolean;
-    volumeDefault: number;
-  };
 };
 
 const DEFAULT_CFG: RadioBirthdayConfig = {
@@ -34,14 +26,6 @@ const DEFAULT_CFG: RadioBirthdayConfig = {
     broadcastChannelId: "",
     timezone: "America/Los_Angeles",
     allowSelfSet: true,
-  },
-  radio: {
-    enabled: false,
-    announceChannelId: "",
-    djRoleIds: [],
-    queueLimit: 50,
-    allowLinks: true,
-    volumeDefault: 60,
   },
 };
 
@@ -59,13 +43,6 @@ function mergeCfg(raw: any): RadioBirthdayConfig {
     ...DEFAULT_CFG,
     ...(raw || {}),
     birthday: { ...DEFAULT_CFG.birthday, ...(raw?.birthday || {}) },
-    radio: {
-      ...DEFAULT_CFG.radio,
-      ...(raw?.radio || {}),
-      djRoleIds: Array.isArray(raw?.radio?.djRoleIds)
-        ? raw.radio.djRoleIds.map((x: any) => String(x).trim()).filter(Boolean)
-        : DEFAULT_CFG.radio.djRoleIds,
-    },
   };
 }
 
@@ -94,6 +71,8 @@ export default function RadioBirthdayPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [summary, setSummary] = useState<Array<{ label: string; value: string }>>([]);
+  const [profileRows, setProfileRows] = useState<Array<{ title: string; value: string }>>([]);
 
   useEffect(() => setGuildId(getGuildId()), []);
 
@@ -114,14 +93,22 @@ export default function RadioBirthdayPage() {
 
         const cfgJson = await cfgRes.json().catch(() => ({}));
         const gdJson = await gdRes.json().catch(() => ({}));
+        if (!cfgRes.ok || cfgJson?.success === false || !cfgJson?.config || typeof cfgJson.config !== "object") {
+          throw new Error(cfgJson?.error || "Failed to load Radio settings.");
+        }
 
         setCfg(mergeCfg(cfgJson?.config));
+        setSummary(Array.isArray(cfgJson?.summary) ? cfgJson.summary : []);
+        setProfileRows(Array.isArray(cfgJson?.details?.profiles) ? cfgJson.details.profiles : []);
         setRoles(
           (Array.isArray(gdJson?.roles) ? gdJson.roles : [])
             .map((r: any) => ({ id: String(r.id), name: String(r.name), position: Number(r.position || 0) }))
             .sort((a: Role, b: Role) => b.position! - a.position!)
         );
         setChannels(Array.isArray(gdJson?.channels) ? gdJson.channels : []);
+        if (!gdRes.ok || gdJson?.success === false) {
+          setMsg(gdJson?.error || "Radio settings loaded, but Discord roles and channels could not be loaded.");
+        }
       } catch (e: any) {
         setMsg(e?.message || "Failed to load live radio/birthday runtime.");
       } finally {
@@ -140,6 +127,10 @@ export default function RadioBirthdayPage() {
     setSaving(true);
     setMsg("");
     try {
+      if (patch.birthday?.timezone !== undefined) {
+        const timezone = String(patch.birthday.timezone || "").trim();
+        new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+      }
       const res = await fetch("/api/runtime/engine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,9 +139,11 @@ export default function RadioBirthdayPage() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) throw new Error(json?.error || "Save failed");
       setCfg(mergeCfg(json?.config || cfg));
+      if (Array.isArray(json?.summary)) setSummary(json.summary);
+      if (Array.isArray(json?.details?.profiles)) setProfileRows(json.details.profiles);
       setMsg(okLabel);
     } catch (e: any) {
-      setMsg(e?.message || "Save failed.");
+      setMsg(e instanceof RangeError ? "Enter a valid IANA timezone, such as America/Los_Angeles." : e?.message || "Save failed.");
     } finally {
       setSaving(false);
     }
@@ -198,10 +191,30 @@ export default function RadioBirthdayPage() {
         <>
           <section style={card}>
             <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Birthday Controls
+              Radio Status
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
+              {summary.map((entry) => (
+                <div key={entry.label} style={{ ...card, marginBottom: 0 }}>
+                  <div style={{ color: "#ffadad", fontSize: 11, textTransform: "uppercase" }}>{entry.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{entry.value}</div>
+                </div>
+              ))}
+            </div>
+            <h4 style={{ color: "#ff9c9c", marginBottom: 8 }}>Upcoming birthdays</h4>
+            {profileRows.length ? profileRows.map((entry, index) => (
+              <div key={`${entry.title}-${index}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderTop: "1px solid rgba(255,0,0,.2)", padding: "8px 0", flexWrap: "wrap" }}>
+                <strong>{entry.title}</strong><span>{entry.value}</span>
+              </div>
+            )) : <div style={{ color: "#ffb3b3", fontSize: 13 }}>No birthday profiles are available.</div>}
+          </section>
+
+          <section style={card}>
+            <h3 style={{ marginTop: 0, color: "#ff6666", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              Radio Birthday Controls
             </h3>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(220px,1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))", gap: 10 }}>
               <label>
                 <input
                   type="checkbox"
@@ -225,7 +238,7 @@ export default function RadioBirthdayPage() {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10, marginTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,180px),1fr))", gap: 10, marginTop: 10 }}>
               <div>
                 <label style={{ display: "block", marginBottom: 5 }}>Birthday reward coins</label>
                 <input

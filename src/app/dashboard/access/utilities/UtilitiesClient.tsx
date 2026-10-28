@@ -217,7 +217,7 @@ export default function UtilitiesClient() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(180px,1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.economyEnabled)} onChange={(event) => void saveFeaturePatch({ economyEnabled: event.target.checked }, `Economy feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> Economy</label>
               <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.ttsEnabled)} onChange={(event) => void saveFeaturePatch({ ttsEnabled: event.target.checked }, `TTS feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> TTS</label>
-              <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.birthdayEnabled)} onChange={(event) => void saveFeaturePatch({ birthdayEnabled: event.target.checked }, `Birthday feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> Birthdays</label>
+              <label><input type="checkbox" checked={Boolean(dashboardConfig?.features?.birthdayEnabled)} onChange={(event) => void saveFeaturePatch({ birthdayEnabled: event.target.checked }, `Radio birthday feature ${event.target.checked ? "enabled" : "disabled"}.`)} /> Radio</label>
             </div>
           </div>
 
@@ -256,9 +256,9 @@ export default function UtilitiesClient() {
           <div style={box}>
             <h3 style={{ marginTop: 0, color: "#ff4444" }}>Tickets + Selfroles</h3>
             <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.tickets)} | {summaryText(runtime.selfroles)}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,320px),1fr))", gap: 14 }}>
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))", gap: 10 }}>
                   <label><input type="checkbox" checked={Boolean(tickets.active)} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, active: event.target.checked }))} /> Tickets Active</label>
                   <label><input type="checkbox" checked={Boolean(tickets.singleLogMode)} onChange={(event) => setEngineConfig("tickets", (current) => ({ ...current, singleLogMode: event.target.checked }))} /> Single Log Mode</label>
                   <div>
@@ -297,7 +297,7 @@ export default function UtilitiesClient() {
                 </div>
               </div>
               <div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))", gap: 10 }}>
                   <label><input type="checkbox" checked={Boolean(selfroles.active)} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, active: event.target.checked }))} /> Selfroles Active</label>
                   <label><input type="checkbox" checked={Boolean(selfroles.requireVerification)} onChange={(event) => setEngineConfig("selfroles", (current) => ({ ...current, requireVerification: event.target.checked }))} /> Require Verification</label>
                   <div>
@@ -408,7 +408,7 @@ export default function UtilitiesClient() {
           </div>
 
           <div style={box}>
-            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Radio Birthday + Loyalty</h3>
+            <h3 style={{ marginTop: 0, color: "#ff4444" }}>Radio + Loyalty</h3>
             <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 10 }}>{summaryText(runtime.radio)} | {summaryText(runtime.loyalty)}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
@@ -429,19 +429,7 @@ export default function UtilitiesClient() {
                       {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label>Radio announce channel</label>
-                    <select style={input} value={String(radio.radio?.announceChannelId || "")} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), announceChannelId: event.target.value } }))}>
-                      <option value="">Select channel</option>
-                      {textChannels.map((channel) => <option key={channel.id} value={channel.id}>#{channel.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Default volume</label>
-                    <input style={input} type="number" value={Number(radio.radio?.volumeDefault || 0)} onChange={(event) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), volumeDefault: Number(event.target.value || 0) } }))} />
-                  </div>
                 </div>
-                <RoleChips label="DJ roles" roles={roles} selected={Array.isArray(radio.radio?.djRoleIds) ? radio.radio.djRoleIds : []} onToggle={(roleId) => setEngineConfig("radio", (current) => ({ ...current, radio: { ...(current.radio || {}), djRoleIds: toggleId(Array.isArray(current.radio?.djRoleIds) ? current.radio.djRoleIds : [], roleId) } }))} />
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                   <button type="button" disabled={saving} style={action} onClick={() => void saveEngine("radio", "Saved live radio/birthday runtime.")}>Save Radio</button>
                   <Link href={`/dashboard/economy/radio-birthday?guildId=${encodeURIComponent(guildId)}`} style={{ ...action, textDecoration: "none" }}>Open Radio Birthday</Link>

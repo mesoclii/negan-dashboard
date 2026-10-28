@@ -540,7 +540,7 @@ const CARDS: Card[] = [
   { href: "/dashboard/economy/store", title: "Store", description: "Catalog, prices, stock, and role grants.", toggle: engineController("store", ["active"]) },
   { href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level formulas, reward ladders, and progression multipliers.", toggle: engineController("progression", ["active"]) },
   { href: "/dashboard/prestige", title: "Prestige", description: "Capstone reset loop, role rewards, and long-tail prestige elevation.", toggle: engineController("prestige") },
-  { href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday engine settings and reward flow.", toggle: birthdayController },
+  { href: "/dashboard/economy/radio-birthday", title: "Radio", description: "Radio birthday profiles, broadcasts, and reward settings.", toggle: birthdayController },
   { href: "/dashboard/profile", title: "Profile", description: "Profile display, rank surfaces, and stat aggregation controls.", toggle: engineController("profile") },
   { href: "/dashboard/halloffame", title: "Hall of Fame", description: "Recognition layer for top achievers and prestige-ready members.", toggle: engineController("hallOfFame") },
   { href: "/dashboard/achievements", title: "Achievements", description: "Milestone grant rules, badge sync, and achievement reward logic.", toggle: engineController("achievements", ["active"]) },

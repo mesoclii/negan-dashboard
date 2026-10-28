@@ -36,7 +36,7 @@ const LINKS: Array<{ engine: EngineKey; href: string; title: string; description
   { engine: "store", href: "/dashboard/economy/store", title: "Store", description: "Catalog, stock, pricing, and role/item grant behavior." },
   { engine: "progression", href: "/dashboard/economy/progression", title: "Progression", description: "XP intake, level rewards, multipliers, and anti-abuse." },
   { engine: "inviteTracker", href: "/dashboard/economy/leaderboard", title: "Invite Tracker", description: "Invite leaderboard routing and recruiter thresholds." },
-  { engine: "radio", href: "/dashboard/economy/radio-birthday", title: "Birthdays", description: "Birthday rewards, broadcast routing, and radio profile state." },
+  { engine: "radio", href: "/dashboard/economy/radio-birthday", title: "Radio", description: "Birthday rewards, broadcast routing, and Radio profiles." },
   { engine: "giveaways", href: "/dashboard/giveaways", title: "Giveaways", description: "Giveaway lifecycle, host rules, and prize controls." },
 ];
 
@@ -309,10 +309,10 @@ export default function EconomyClient() {
               </div>
 
               <div style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12 }}>
-                <div style={{ fontWeight: 900, marginBottom: 8 }}>Birthdays</div>
-                <label><input type="checkbox" checked={Boolean(engines.radio.config?.birthday?.enabled)} onChange={(event) => void saveEngine("radio", { birthday: { enabled: event.target.checked } }, `Birthday rewards ${event.target.checked ? "enabled" : "disabled"}.`)} /> Birthday rewards enabled</label>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Radio</div>
+                <label><input type="checkbox" checked={Boolean(engines.radio.config?.birthday?.enabled)} onChange={(event) => void saveEngine("radio", { birthday: { enabled: event.target.checked } }, `Radio birthday rewards ${event.target.checked ? "enabled" : "disabled"}.`)} /> Birthday rewards enabled</label>
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginTop: 8 }}>{(engines.radio.summary || []).map((row) => `${row.label}: ${row.value}`).join(" | ")}</div>
-                <div style={{ marginTop: 10 }}><Link href={`/dashboard/economy/radio-birthday?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Birthdays</Link></div>
+                <div style={{ marginTop: 10 }}><Link href={`/dashboard/economy/radio-birthday?guildId=${encodeURIComponent(guildId)}`} style={{ ...input, width: "auto", textDecoration: "none", fontWeight: 800 }}>Open Radio</Link></div>
               </div>
 
               <div style={{ border: "1px solid #4f0000", borderRadius: 10, padding: 12 }}>

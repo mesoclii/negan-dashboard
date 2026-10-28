@@ -550,7 +550,7 @@ export default function SystemHealthPage() {
         <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Link href={`/dashboard/ai/memory?guildId=${guildId}`}>AI Memory</Link>
           <Link href={`/dashboard/settings/event-routing?guildId=${guildId}`}>Event Routing</Link>
-          <Link href={`/dashboard/economy/radio-birthday?guildId=${guildId}`}>Radio + Birthday</Link>
+          <Link href={`/dashboard/economy/radio-birthday?guildId=${guildId}`}>Radio</Link>
           <Link href={`/dashboard/achievements?guildId=${guildId}`}>Achievements + Prestige</Link>
         </div>
       </div>

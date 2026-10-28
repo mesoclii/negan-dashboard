@@ -311,6 +311,8 @@ function isTextSelectable(channel: { type?: number | string }) {
 export default function MusicEnginePage() {
   const { guildId, guildName, config: cfg, setConfig: setCfg, channels, roles, summary, details, loading, saving, message, save, runAction } =
     useGuildEngineEditor<MusicCfg>("music", EMPTY);
+  const musicActive = summary.find((item) => item.label === "Active")?.value === "Enabled";
+  const featureGate = summary.find((item) => item.label === "Guild Feature Gate")?.value || "Unknown";
 
   const selectableChannels = useMemo(() => channels.filter((channel) => !isCategoryChannel(channel)), [channels]);
   const textChannels = useMemo(() => {
@@ -379,6 +381,9 @@ export default function MusicEnginePage() {
                   <input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg((prev) => ({ ...prev, enabled: e.target.checked }))} />
                   Enabled
                 </label>
+                <div style={{ color: featureGate === "Enabled" ? "#a8e6b0" : "#ffd27a", fontSize: 12, marginTop: 6 }}>
+                  Guild feature access: {featureGate}
+                </div>
               </div>
               {[
                 ["maxRoutesPerGuild", "Max Routes", 1, 20],
@@ -879,9 +884,13 @@ export default function MusicEnginePage() {
           <section style={{ ...box, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ color: "#ffb8b8", lineHeight: 1.6, maxWidth: 820 }}>
               Music stays free forever. This page writes directly into the bot engine config so route sessions, source capture, library aliases,
-              and DJ rules stay per guild instead of sharing one global player.
+              and DJ rules stay per guild instead of sharing one global player. Use the availability control to enable or disable both the engine
+              and the guild feature gate together.
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={() => void runAction(musicActive ? "disable" : "enable")} disabled={saving} style={button}>
+                {musicActive ? "Disable Music" : "Enable Music"}
+              </button>
               <button onClick={() => void runAction("stopAll")} disabled={saving} style={button}>Stop All Sessions</button>
               <button onClick={() => void save()} disabled={saving} style={button}>{saving ? "Saving..." : "Save Music"}</button>
             </div>

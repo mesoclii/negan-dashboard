@@ -10,6 +10,7 @@ type EnginePayload = {
   config?: Record<string, any>;
   summary?: Array<{ label: string; value: string }>;
   details?: Record<string, any>;
+  loadError?: string;
 };
 type GuildChannel = { id: string; name: string; type: number; parentId?: string | null; position?: number };
 type GuildRole = { id: string; name: string; position?: number };
@@ -101,6 +102,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
   const [identityForm, setIdentityForm] = useState({ userId: viewerUserId || "", providerKey: "apex", handle: "", platform: "", accountId: "", visibility: "server" });
   const [verificationForm, setVerificationForm] = useState({ userId: viewerUserId || "", providerKey: "apex", platform: "", proofText: "", proofToken: "" });
   const [selfPrivacy, setSelfPrivacy] = useState<any>(EMPTY_PRIVACY);
@@ -115,21 +117,32 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
     try {
       setLoading(true);
       setMessage("");
-      const [gameIdentity, privacyConsent, presenceFusion, playtime, squadFinder, gameProvider, showoff, guildData] = await Promise.all([
-        fetchRuntimeEngine(targetGuildId, "gameIdentity", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "privacyConsent", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "presenceFusion", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "playtime", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "squadFinder", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "gameProvider", viewerUserId),
-        fetchRuntimeEngine(targetGuildId, "showoff", viewerUserId),
-        fetchGuildData(targetGuildId, viewerUserId).catch(() => ({})),
-      ]);
-      const next = { gameIdentity: normalizePayload(gameIdentity), privacyConsent: normalizePayload(privacyConsent), presenceFusion: normalizePayload(presenceFusion), playtime: normalizePayload(playtime), squadFinder: normalizePayload(squadFinder), gameProvider: normalizePayload(gameProvider), showoff: normalizePayload(showoff) } as Record<EngineKey, EnginePayload>;
+      setLoadWarnings([]);
+      const engineKeys: EngineKey[] = ["gameIdentity", "privacyConsent", "presenceFusion", "playtime", "squadFinder", "gameProvider", "showoff"];
+      const results = await Promise.all(engineKeys.map(async (engine) => {
+        try {
+          return [engine, normalizePayload(await fetchRuntimeEngine(targetGuildId, engine, viewerUserId))] as const;
+        } catch (error: any) {
+          return [engine, { loadError: error?.message || "Engine settings could not be loaded." }] as const;
+        }
+      }));
+      let guildData: any = {};
+      let guildDataError = "";
+      try {
+        guildData = await fetchGuildData(targetGuildId, viewerUserId);
+      } catch (error: any) {
+        guildDataError = error?.message || "Discord roles and channels could not be loaded.";
+      }
+      const next = Object.fromEntries(results) as Record<EngineKey, EnginePayload>;
+      const warnings = results
+        .filter(([, payload]) => payload.loadError)
+        .map(([engine, payload]) => `${engine}: ${payload.loadError}`);
+      if (guildDataError) warnings.push(`Guild data: ${guildDataError}`);
       const safeGuildData = (guildData && typeof guildData === "object" ? guildData : {}) as { channels?: GuildChannel[]; roles?: GuildRole[] };
       setEngines(next);
       setChannels(Array.isArray(safeGuildData.channels) ? safeGuildData.channels : []);
       setRoles(Array.isArray(safeGuildData.roles) ? safeGuildData.roles : []);
+      setLoadWarnings(warnings);
       const memberState = next.privacyConsent.details?.memberSelfService || next.gameIdentity.details?.memberSelfService || null;
       if (memberState?.privacy) setSelfPrivacy({ ...EMPTY_PRIVACY, ...memberState.privacy, watchlistUserIds: Array.isArray(memberState.privacy.watchlistUserIds) ? memberState.privacy.watchlistUserIds : [] });
     } catch (err: any) {
@@ -150,9 +163,9 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
     setRefreshForm((prev) => ({ ...prev, userId: prev.userId || viewerUserId }));
   }, [viewerUserId]);
 
-  function updateConfig(engine: EngineKey, patch: Record<string, unknown>) { setEngines((prev) => ({ ...prev, [engine]: { ...prev[engine], config: { ...(prev[engine].config || {}), ...patch } } })); }
-  async function saveConfig(engine: EngineKey, patch: Record<string, unknown>, okLabel: string) { try { setSaving(true); setMessage(""); const json = await saveRuntimeEngine(guildId, engine, patch, viewerUserId); setEngines((prev) => ({ ...prev, [engine]: normalizePayload(json) })); setMessage(okLabel); } catch (err: any) { setMessage(err?.message || "Save failed."); } finally { setSaving(false); } }
-  async function runAction(engine: EngineKey, action: string, payload: Record<string, unknown>, okLabel: string) { try { setSaving(true); setMessage(""); await runRuntimeEngineAction(guildId, engine, action, payload, viewerUserId); await loadAll(guildId); setMessage(okLabel); } catch (err: any) { setMessage(err?.message || "Action failed."); } finally { setSaving(false); } }
+  function updateConfig(engine: EngineKey, patch: Record<string, unknown>) { if (engines[engine].loadError) { setMessage(`Reload ${engine} before editing its settings.`); return; } setEngines((prev) => ({ ...prev, [engine]: { ...prev[engine], config: { ...(prev[engine].config || {}), ...patch } } })); }
+  async function saveConfig(engine: EngineKey, patch: Record<string, unknown>, okLabel: string) { if (engines[engine].loadError) { setMessage(`Reload ${engine} before saving its settings.`); return; } try { setSaving(true); setMessage(""); const json = await saveRuntimeEngine(guildId, engine, patch, viewerUserId); setEngines((prev) => ({ ...prev, [engine]: normalizePayload(json) })); setMessage(okLabel); } catch (err: any) { setMessage(err?.message || "Save failed."); } finally { setSaving(false); } }
+  async function runAction(engine: EngineKey, action: string, payload: Record<string, unknown>, okLabel: string) { if (engines[engine].loadError) { setMessage(`Reload ${engine} before running actions.`); return; } try { setSaving(true); setMessage(""); await runRuntimeEngineAction(guildId, engine, action, payload, viewerUserId); await loadAll(guildId); setMessage(okLabel); } catch (err: any) { setMessage(err?.message || "Action failed."); } finally { setSaving(false); } }
   const identitySummary = useMemo(() => engines.gameIdentity.summary || [], [engines.gameIdentity]);
   const privacySummary = useMemo(() => engines.privacyConsent.summary || [], [engines.privacyConsent]);
   const presenceSummary = useMemo(() => engines.presenceFusion.summary || [], [engines.presenceFusion]);
@@ -217,7 +230,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
           <div style={{ color: "#ff9e9e", marginTop: 4 }}>Guild: {guildName || guildId}</div>
           <div style={{ color: "#ffb7b7", fontSize: 12, marginTop: 8 }}>This stack now covers provider sync, ownership verification, privacy + consent, rank automation, gamer cards, and squad finder.</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(130px,1fr))", gap: 8, minWidth: 520 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 8 }}>
           {runtimeCard("Linked", summaryValue(identitySummary, "Linked Accounts"))}
           {runtimeCard("Verified", summaryValue(identitySummary, "Verified"))}
           {runtimeCard("Privacy", summaryValue(privacySummary, "Profiles"))}
@@ -229,13 +242,20 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
         </div>
       </div>
       {message ? <div style={{ marginTop: 10, color: "#ffd27a" }}>{message}</div> : null}
+      {loadWarnings.length ? (
+        <div role="alert" style={{ ...card, borderColor: "rgba(255,210,122,.45)", color: "#ffd27a" }}>
+          Some Gaming Hub data could not be loaded. Failed engines are isolated and cannot be edited or saved until reloaded.
+          <ul style={{ marginBottom: 8 }}>{loadWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+          <button type="button" style={button} disabled={loading} onClick={() => void loadAll(guildId)}>Retry loading</button>
+        </div>
+      ) : null}
       {loading ? <div style={{ marginTop: 10, color: "#ffb7b7" }}>Loading game social engines...</div> : null}
       {!loading ? (
         <>
           <div style={card}>
             <h3 style={sectionTitle}>Member Self-Service</h3>
             <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Link your own accounts, request verification, control privacy + consent, and clear your gamer alerts without staff typing raw IDs for you.</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(260px,1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: 12 }}>
               <div style={card}>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>My Linked Identity</div>
                 <div style={{ display: "grid", gap: 8 }}>
@@ -356,7 +376,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
             </div>
             <div style={{ marginTop: 10 }}>
               <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>Linkable providers</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(180px,1fr))", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,180px),1fr))", gap: 8 }}>
                 {LINK_PROVIDERS.map((entry) => {
                   const current = Array.isArray(engines.gameIdentity.config?.allowedProviders) ? engines.gameIdentity.config?.allowedProviders : [];
                   return (
@@ -372,7 +392,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 })}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(220px,1fr))", gap: 10, marginTop: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,220px),1fr))", gap: 10, marginTop: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.privacyConsent, ["enabled"], true))} onChange={(event) => updateConfig("privacyConsent", { enabled: event.target.checked })} /> Privacy engine enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.privacyConsent, ["memberSelfServiceEnabled"], true))} onChange={(event) => updateConfig("privacyConsent", { memberSelfServiceEnabled: event.target.checked })} /> Member self-service</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.privacyConsent, ["requireVerifiedIdentityForProviderSync"], true))} onChange={(event) => updateConfig("privacyConsent", { requireVerifiedIdentityForProviderSync: event.target.checked })} /> Verified before sync</label>
@@ -381,7 +401,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               <button type="button" style={button} disabled={saving} onClick={() => void saveConfig("gameIdentity", engines.gameIdentity.config || {}, "Saved identity engine settings.")}>Save Identity Engine</button>
               <button type="button" style={button} disabled={saving} onClick={() => void saveConfig("privacyConsent", engines.privacyConsent.config || {}, "Saved privacy + consent defaults.")}>Save Privacy Engine</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,280px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Recent Linked Profiles</div><div style={{ display: "grid", gap: 8 }}>{linkedProfiles.length ? linkedProfiles.map((entry) => <div key={entry.id}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No linked identities yet.</div>}</div></div>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Pending Verification Queue</div><div style={{ display: "grid", gap: 8 }}>{pendingVerifications.length ? pendingVerifications.map((entry) => <div key={entry.id}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No pending verification queue.</div>}</div></div>
             </div>
@@ -389,7 +409,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
 
           <div style={card}>
             <h3 style={sectionTitle}>Presence Fusion</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,160px),1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.presenceFusion, ["enabled"], true))} onChange={(event) => updateConfig("presenceFusion", { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.presenceFusion, ["captureDiscordPresence"], true))} onChange={(event) => updateConfig("presenceFusion", { captureDiscordPresence: event.target.checked })} /> Capture presence</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.presenceFusion, ["requireGamingActivity"], true))} onChange={(event) => updateConfig("presenceFusion", { requireGamingActivity: event.target.checked })} /> Gaming only</label>
@@ -406,7 +426,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
           <div style={card}>
             <h3 style={sectionTitle}>Game Provider</h3>
             <div style={{ color: "#ffb7b7", fontSize: 12, marginBottom: 12 }}>Manual snapshots still work across the full game stack, while routed provider sync can now be configured for Steam, Epic, Xbox, Battle.net, PlayStation, Rockstar, Apex, Fortnite, CoD, WoW, Overwatch 2, Diablo IV, Destiny 2, Riot titles, Rocket League, GTA Online, Minecraft, and any future bridge you add.</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(160px,1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,160px),1fr))", gap: 10 }}>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["enabled"], true))} onChange={(event) => updateConfig("gameProvider", { enabled: event.target.checked })} /> Enabled</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["allowManualStats"], true))} onChange={(event) => updateConfig("gameProvider", { allowManualStats: event.target.checked })} /> Manual stats</label>
               <label><input type="checkbox" checked={Boolean(getValue(engines.gameProvider, ["allowManualMapRotation"], true))} onChange={(event) => updateConfig("gameProvider", { allowManualMapRotation: event.target.checked })} /> Manual maps</label>
@@ -437,7 +457,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameProvider", "resetProviderHealth", {}, "Reset provider adapter health.")}>Reset Adapter Health</button>
               <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameProvider", "pruneProviderData", {}, "Pruned stale provider data.")}>Prune Stale Data</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>Stats Snapshot / Import</div>
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>This saves or refreshes your own linked account by default. Staff can open the operator override below when they need to target someone else.</div>
@@ -493,7 +513,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 </details>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: 12, marginTop: 12 }}>
               {ROLE_SYNC_GAMES.map((entry) => {
                 const roleMap = getValue(engines.gameProvider, ["rankRoleSync", entry.key], {});
                 return (
@@ -539,14 +559,14 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
                 );
               })}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,280px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Launcher Readiness</div><div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>This is the live-readiness check for Steam, Epic, Xbox, Battle.net, PlayStation, and Rockstar. `endpoint ready` means the bot has a route to call. `missing bridge` means the dashboard is wired, but the bot still needs a real upstream endpoint or bridge URL in env.</div><div style={{ display: "grid", gap: 8 }}>{launcherReadiness.length ? launcherReadiness.map((entry) => <div key={entry.title} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No launcher readiness rows yet.</div>}</div></div>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Adapter Health</div><div style={{ display: "grid", gap: 8 }}>{providerHealth.length ? providerHealth.map((entry) => <div key={entry.key} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No adapter health data yet.</div>}</div></div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(1,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,280px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}><div style={{ fontWeight: 800, marginBottom: 8 }}>Provider Capabilities</div><div style={{ display: "grid", gap: 8 }}>{providerCapabilities.length ? providerCapabilities.map((entry) => <div key={entry.key} style={{ ...card, marginBottom: 0 }}><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>) : <div style={{ color: "#ffb3b3" }}>No provider capability rows found.</div>}</div></div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(280px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,280px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={{ display: "grid", gap: 8 }}>{statRows.length ? statRows.map((entry) => <div key={entry.id || entry.title} style={{ ...card, marginBottom: 0 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><div><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>{entry.id ? <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameProvider", "removeStats", { recordId: entry.id }, "Removed provider stats snapshot.")}>Remove</button> : null}</div></div>) : <div style={{ color: "#ffb3b3" }}>No game stats snapshots recorded.</div>}</div>
               <div style={{ display: "grid", gap: 8 }}>{mapRows.length ? mapRows.map((entry) => <div key={entry.id || entry.title} style={{ ...card, marginBottom: 0 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><div><div style={{ fontWeight: 700 }}>{entry.title}</div><div style={{ color: "#ffb3b3", fontSize: 12 }}>{entry.value}</div></div>{entry.id ? <button type="button" style={button} disabled={saving} onClick={() => void runAction("gameProvider", "removeMapRotation", { recordId: entry.id }, "Removed map rotation snapshot.")}>Remove</button> : null}</div></div>) : <div style={{ color: "#ffb3b3" }}>No map rotation snapshots recorded.</div>}</div>
             </div>
@@ -570,7 +590,7 @@ export default function GameSocialClient({ guildId, guildName }: Props) {
               <button type="button" style={button} disabled={saving} onClick={() => void saveConfig("playtime", engines.playtime.config || {}, "Saved playtime engine settings.")}>Save Playtime Engine</button>
             </div> : null}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: 12, marginTop: 12 }}>
               <div style={card}>
                 <div style={{ fontWeight: 800, marginBottom: 8 }}>Evidence Submission</div>
                 <div style={{ color: "#ffb3b3", fontSize: 12, marginBottom: 8 }}>

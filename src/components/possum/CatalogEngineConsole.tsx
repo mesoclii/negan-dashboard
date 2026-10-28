@@ -52,6 +52,7 @@ type LiveEngineSpec = {
   configKey?: string;
   displayName?: string;
   category?: string;
+  featureFlag?: string;
   premiumRequired?: boolean;
   privateOnly?: boolean;
   decisionLogic?: string;
@@ -856,10 +857,10 @@ export default function CatalogEngineConsole({
 
           <div style={{ ...card, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <button type="button" onClick={() => void handleRuntimeAction("enable")} disabled={saving} style={button}>
-              Enable Engine
+              {spec?.featureFlag ? "Enable Engine & Feature" : "Enable Engine"}
             </button>
             <button type="button" onClick={() => void handleRuntimeAction("disable")} disabled={saving} style={button}>
-              Disable Engine
+              {spec?.featureFlag ? "Disable Engine & Feature" : "Disable Engine"}
             </button>
             <button type="button" onClick={() => void reload()} disabled={saving || loading} style={button}>
               Reload Runtime
@@ -872,8 +873,8 @@ export default function CatalogEngineConsole({
             </button>
             <div style={{ color: "#ffbcbc", lineHeight: 1.7, flex: "1 1 320px" }}>
               {surfaceVariant === "security"
-                ? "These controls write to the live security runtime path. Save validates first; enable, disable, and reset go through the runtime action surface."
-                : "These controls write to the live engine runtime path. Save validates first; enable, disable, and reset go through the runtime action surface."}
+                ? "These controls write to the live security runtime path. Save validates first; enable and disable also synchronize the linked guild feature gate."
+                : "These controls write to the live engine runtime path. Save validates first; enable and disable also synchronize the linked guild feature gate when this engine has one."}
             </div>
           </div>
 

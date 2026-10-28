@@ -103,7 +103,7 @@ export function getDashboardNavSections(isMasterOwner = false): DashboardNavSect
         { href: "/dashboard/economy/store", label: "Store" },
         { href: "/dashboard/economy/progression", label: "Progression" },
         { href: "/dashboard/prestige", label: "Prestige" },
-        { href: "/dashboard/economy/radio-birthday", label: "Birthdays" },
+        { href: "/dashboard/economy/radio-birthday", label: "Radio" },
         { href: "/dashboard/economy/leaderboard", label: "Invite Tracker" },
         { href: "/dashboard/profile", label: "Profile" },
         { href: "/dashboard/halloffame", label: "Hall Of Fame" },

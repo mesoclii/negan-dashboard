@@ -401,19 +401,31 @@ export default function BotPersonalizerClient() {
   }
 
   async function saveAndDeployWebhookIdentity() {
+    const webhookPatch = sanitizeConfig({
+      ...cfg,
+      useWebhookPersona: true,
+      guildMessageAuthority: "webhook",
+    });
     const result = await runAction("applyProfile", {
       scope: "webhook",
-      patch: buildWebhookPatch(cfg),
+      patch: buildWebhookPatch(webhookPatch),
     });
     if (!result) return;
+    updateCfg({ useWebhookPersona: true, guildMessageAuthority: "webhook" });
     setAvatarPreviewFailedFor("");
   }
 
   async function saveAndDeployCustomBot() {
-    const actionName = cfg.customBotEnabled ? "refreshCustomBot" : "stopCustomBot";
-    await runAction(actionName, {
-      patch: buildCustomBotPatch(cfg),
+    const customPatch = sanitizeConfig({
+      ...cfg,
+      customBotEnabled: true,
+      dmAuthority: "custom",
     });
+    const result = await runAction("refreshCustomBot", {
+      patch: buildCustomBotPatch(customPatch),
+    });
+    if (!result) return;
+    updateCfg({ customBotEnabled: true, dmAuthority: "custom" });
   }
 
   if (!guildId) {

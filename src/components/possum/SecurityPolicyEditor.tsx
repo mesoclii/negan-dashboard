@@ -19,7 +19,7 @@ const LABELS: Record<string, string> = {
   pokemonEnabled: "Pokemon Engine (Private Only)",
   economyEnabled: "Economy Engine",
   aiEnabled: "AI Engine",
-  birthdayEnabled: "Birthday Engine",
+  birthdayEnabled: "Radio Birthday Engine",
 };
 
 export default function SecurityPolicyEditor() {
