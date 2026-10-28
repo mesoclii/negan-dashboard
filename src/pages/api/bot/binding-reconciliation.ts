@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const upstream = await fetch(`${BOT_API}/binding-reconciliation`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({
         guildId,
         action: "apply",

@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const fetchUpstream = async () => {
       const upstream = await fetchBotApi(
         `${BOT_API}/api/native-commands/${encodeURIComponent(guildId)}`,
-        { headers: buildBotApiHeaders(req), cache: "no-store" }
+        { headers: await buildBotApiHeaders(req), cache: "no-store" }
       );
 
       const data = await readJsonSafe(upstream);

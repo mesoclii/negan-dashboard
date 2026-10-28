@@ -1,15 +1,18 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { FALLBACK_GUILD_NAMES } from "@/lib/dashboardOwner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const params = new URLSearchParams();
-    const userId = String(req.query.userId || req.query.uid || "").trim();
+    const userId = await readActorUserId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
+    }
     if (userId) params.set("userId", userId);
 
     const upstream = await fetch(`${BOT_API}/guilds${params.toString() ? `?${params.toString()}` : ""}`, {
-      headers: buildBotApiHeaders(req),
+      headers: await buildBotApiHeaders(req),
       cache: "no-store",
     });
 

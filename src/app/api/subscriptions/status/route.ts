@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { getGuildSubscriptionStatus, setGuildSubscriptionStatus } from "@/lib/subscription";
+import { buildServerBotApiHeaders, fetchServerBotApi, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
 import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
-import { MASTER_OWNER_USER_ID, isDashboardControlOwner } from "@/lib/dashboardOwner";
+import { isDashboardControlOwner } from "@/lib/dashboardOwner";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,10 @@ export async function GET(request: NextRequest) {
   }
 
   const session = await readDashboardSessionValue(request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
-  const actorUserId = String(session?.user?.id || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
+  const actorUserId = String(session?.user?.id || "").trim();
+  if (!actorUserId) {
+    return NextResponse.json({ success: false, error: "A valid dashboard session is required." }, { status: 401 });
+  }
   const isMasterOwner = isDashboardControlOwner(actorUserId);
 
   try {
@@ -86,6 +90,46 @@ export async function POST(request: NextRequest) {
       premiumExpiresAt,
       source: scope === "global" ? (trialDays > 0 ? "global_trial" : "global_override") : (trialDays > 0 ? "owner_trial" : "owner_override"),
     }, actorUserId, { scope });
+
+    if (scope === "guild") {
+      try {
+        const upstream = await fetchServerBotApi(`${SERVER_BOT_API}/api/premium/override`, {
+          method: "POST",
+          headers: {
+            ...buildServerBotApiHeaders(actorUserId, { allowFallback: false }),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            guildId,
+            premium: status.active,
+            premiumTier: status.plan,
+            premiumExpiresAt: status.premiumExpiresAt,
+          }),
+        });
+        const botResult = await readServerBotApiJson(upstream);
+        if (!upstream.ok || botResult?.success === false) {
+          throw new Error(botResult?.error || `Bot entitlement sync failed (${upstream.status}).`);
+        }
+      } catch (error: any) {
+        void auditDashboardEvent({
+          guildId,
+          actorUserId,
+          actorTag: session?.user?.globalName || session?.user?.username || actorUserId,
+          area: "subscriptions",
+          action: "bot_entitlement_sync_failed",
+          severity: "error",
+          metadata: { error: error?.message || "Bot entitlement sync failed." },
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            status,
+            error: `Dashboard plan was saved, but bot limits could not be synchronized. Retry this change. ${error?.message || ""}`.trim(),
+          },
+          { status: 502 }
+        );
+      }
+    }
 
     void auditDashboardEvent({
       guildId,

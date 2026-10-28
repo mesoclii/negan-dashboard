@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const upstream = await fetch(`${BOT_API}/api/automation/${encodeURIComponent(id)}/logs`, {
-      headers: buildBotApiHeaders(req),
+      headers: await buildBotApiHeaders(req),
       cache: "no-store",
     });
     const data = await readJsonSafe(upstream);

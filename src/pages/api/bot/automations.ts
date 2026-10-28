@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(
         `${BOT_API}/api/automations/${encodeURIComponent(guildId)}`,
-        { headers: buildBotApiHeaders(req), cache: "no-store" }
+        { headers: await buildBotApiHeaders(req), cache: "no-store" }
       );
       const data = await readJsonSafe(upstream);
       return res.status(upstream.status).json(data);
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST") {
       const upstream = await fetch(`${BOT_API}/api/automation`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(req.body || {}),
       });
       const data = await readJsonSafe(upstream);

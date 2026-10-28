@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === "GET") {
       const upstream = await fetch(`${BOT_API}/dashboard-access-config?guildId=${encodeURIComponent(guildId)}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
       const data = await readJsonSafe(upstream);
@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const patch = req.body?.patch || req.body?.config || {};
       const upstream = await fetch(`${BOT_API}/dashboard-access-config`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({ guildId, patch }),
       });
       const data = await readJsonSafe(upstream);

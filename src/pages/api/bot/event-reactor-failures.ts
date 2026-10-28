@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (limit) query.set("limit", limit);
 
       const upstream = await fetch(`${BOT_API}/event-reactor-failures?${query.toString()}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
       const data = await readJsonSafe(upstream);
@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST") {
       const upstream = await fetch(`${BOT_API}/event-reactor-failures`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({
           guildId,
           action: req.body?.action || "",

@@ -32,6 +32,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    const actorUserId = await readActorUserId(req);
+    if (!actorUserId) {
+      return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
+    }
+
     const guildId =
       req.method === "GET"
         ? String(req.query.guildId || "").trim()
@@ -53,13 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json(stockLockError(guildId));
     }
 
-    if (req.method !== "GET") {
-      const allowed = await requirePremiumAccess(req, res, guildId, normalizedEngine);
-      if (allowed !== true) return allowed;
-    }
+    const allowed = await requirePremiumAccess(req, res, guildId, normalizedEngine);
+    if (allowed !== true) return allowed;
 
     if (req.method === "GET") {
-      const actorUserId = String(req.query.userId || readActorUserId(req) || "").trim();
       const routePath = String(req.query.routePath || req.query.route || "").trim();
       const cacheKey = `runtime-engine:${guildId}:${normalizedEngine}:${actorUserId || "anon"}:${routePath || "/"}`;
       const cached = readServerCache<CachedRuntimeEngine>(cacheKey);
@@ -73,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const upstream = await fetchBotApi(
           `${BOT_API}/engine-runtime?${query.toString()}`,
           {
-            headers: buildBotApiHeaders(req),
+            headers: await buildBotApiHeaders(req),
             cache: "no-store",
           }
         );
@@ -81,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (upstream.ok && json?.success !== false) {
           writeServerCache(cacheKey, { status: upstream.status, body: json }, RUNTIME_ENGINE_PROXY_TTL_MS);
         }
-        if (!upstream.ok && cached?.body) {
+        if (upstream.status >= 500 && cached?.body) {
           return res.status(cached.status || 200).json(cached.body);
         }
         return res.status(upstream.status).json(json);
@@ -96,11 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST" || req.method === "PUT") {
       const upstream = await fetchBotApi(`${BOT_API}/engine-runtime`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify({
           guildId,
           engine: normalizedEngine,
-          userId: readActorUserId(req),
+          userId: actorUserId,
           routePath: String(req.body?.routePath || req.body?.route || "").trim(),
           patch: req.body?.patch || req.body?.config || {},
         }),
@@ -109,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       deleteServerCachePrefix(`runtime-engine:${guildId}:${normalizedEngine}:`);
       void auditDashboardEvent({
         guildId,
-        actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,
+        actorUserId,
         area: "runtime_engine",
         action: `${normalizedEngine}:save`,
         severity: upstream.ok ? "info" : "error",

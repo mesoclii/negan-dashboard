@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const upstream = await fetch(`${BOT_API}/engine-failures?guildId=${encodeURIComponent(guildId)}`, {
-      headers: buildBotApiHeaders(req),
+      headers: await buildBotApiHeaders(req),
       cache: "no-store",
     });
     const data = await readJsonSafe(upstream);

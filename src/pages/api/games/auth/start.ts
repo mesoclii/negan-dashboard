@@ -1,18 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { SERVER_BOT_API, buildServerBotApiHeaders, fetchServerBotApi, readServerBotApiJson } from "@/lib/botApiServer";
+import { readActorUserId } from "@/lib/botApi";
 
 function readFirst(value: string | string[] | undefined): string {
   return String(Array.isArray(value) ? value[0] : value || "").trim();
-}
-
-function readReferrerParam(req: NextApiRequest, key: string): string {
-  const referrer = readFirst(req.headers.referer as string | string[] | undefined);
-  if (!referrer) return "";
-  try {
-    return String(new URL(referrer).searchParams.get(key) || "").trim();
-  } catch {
-    return "";
-  }
 }
 
 function getRequestOrigin(req: NextApiRequest): string {
@@ -21,17 +12,6 @@ function getRequestOrigin(req: NextApiRequest): string {
     readFirst(req.headers["x-forwarded-host"] as string | string[] | undefined) ||
     readFirst(req.headers.host as string | string[] | undefined);
   return host ? `${protocol}://${host}` : "";
-}
-
-function readActorUserId(req: NextApiRequest): string {
-  return (
-    readFirst(req.headers["x-dashboard-user-id"] as string | string[] | undefined) ||
-    readFirst(req.headers["x-user-id"] as string | string[] | undefined) ||
-    readFirst(req.query.userId as string | string[] | undefined) ||
-    readFirst(req.query.uid as string | string[] | undefined) ||
-    readReferrerParam(req, "userId") ||
-    readReferrerParam(req, "uid")
-  );
 }
 
 function buildFallbackReturnPath(guildId: string, userId: string) {
@@ -58,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const guildId = String(req.query.guildId || "").trim();
   const providerKey = String(req.query.provider || req.query.providerKey || "").trim();
   const platform = String(req.query.platform || "").trim();
-  const userId = readActorUserId(req);
+  const userId = await readActorUserId(req);
   const origin = getRequestOrigin(req);
   const fallbackReturnPath = buildFallbackReturnPath(guildId, userId);
   const returnPath = String(req.query.returnPath || req.query.returnTo || fallbackReturnPath).trim() || fallbackReturnPath;

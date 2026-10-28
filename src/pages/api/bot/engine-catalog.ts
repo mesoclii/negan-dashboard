@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { readOrCreateServerCache } from "@/lib/serverCache";
 
@@ -19,6 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ success: false, error: "Method not allowed" });
     }
 
+    if (!(await readActorUserId(req))) {
+      return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
+    }
+
     const params = new URLSearchParams();
     const guildId = String(req.query.guildId || "").trim();
     const engine = String(req.query.engine || "").trim();
@@ -32,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ENGINE_CATALOG_PROXY_TTL_MS,
       async () => {
         const upstream = await fetchBotApi(`${BOT_API}/engine-catalog${params.toString() ? `?${params.toString()}` : ""}`, {
-          headers: buildBotApiHeaders(req),
+          headers: await buildBotApiHeaders(req),
           cache: "no-store",
         });
 

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { normalizeEngineKey } from "@/lib/engineKeys";
@@ -26,6 +26,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ success: false, error: "Method not allowed" });
     }
 
+    const actorUserId = await readActorUserId(req);
+    if (!actorUserId) {
+      return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
+    }
+
     const guildId = String(req.body?.guildId || "").trim();
     const engine = String(req.body?.engine || "").trim();
     const normalizedEngine = normalizeEngineKey(engine);
@@ -48,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const upstream = await fetch(`${BOT_API}/engine-runtime/validate`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({ guildId, engine: normalizedEngine, patch }),
     });
     const json = await readJsonSafe(upstream);

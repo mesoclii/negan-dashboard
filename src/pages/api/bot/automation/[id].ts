@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (req.method === "GET") {
       const upstream = await fetch(`${BOT_API}/api/automation/${encodeURIComponent(id)}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
       const data = await readJsonSafe(upstream);
@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "PUT") {
       const upstream = await fetch(`${BOT_API}/api/automation/${encodeURIComponent(id)}`, {
         method: "PUT",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(req.body || {}),
       });
       const data = await readJsonSafe(upstream);
@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "DELETE") {
       const upstream = await fetch(`${BOT_API}/api/automation/${encodeURIComponent(id)}`, {
         method: "DELETE",
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
       });
       const data = await readJsonSafe(upstream);
       return res.status(upstream.status).json(data);

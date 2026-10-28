@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ENGINE_HEALTH_PROXY_TTL_MS,
       async () => {
         const upstream = await fetchBotApi(`${BOT_API}/engine-health?${query.toString()}`, {
-          headers: buildBotApiHeaders(req),
+          headers: await buildBotApiHeaders(req),
           cache: "no-store",
         });
         const data = await readJsonSafe(upstream);

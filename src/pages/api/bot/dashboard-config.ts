@@ -137,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         async () => {
           const upstream = await fetchBotApi(
             `${BOT_API}/dashboard-config?guildId=${encodeURIComponent(guildId)}`,
-            { headers: buildBotApiHeaders(req), cache: "no-store" }
+            { headers: await buildBotApiHeaders(req), cache: "no-store" }
           );
           const data = await readJsonSafe(upstream);
           if (isRecord(data) && isRecord(data.config)) {
@@ -158,7 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const normalized = normalizeWriteBody(req, guildId);
       const upstream = await fetchBotApi(`${BOT_API}/dashboard-config`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(normalized.body),
       });
       const data = await readJsonSafe(upstream);

@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type GuildRole = { id: string; name: string; position?: number };
 type GuildChannel = { id: string; name: string; type?: number | string };
@@ -326,6 +326,9 @@ export default function CustomCommandsPage() {
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [channels, setChannels] = useState<GuildChannel[]>([]);
   const [nativeCommandEntries, setNativeCommandEntries] = useState<NativeCommandEntry[]>([]);
+  const [guildDataLoading, setGuildDataLoading] = useState(false);
+  const [nativeCommandsLoading, setNativeCommandsLoading] = useState(false);
+  const nativeCommandsRequested = useRef(false);
   const [logChannelId, setLogChannelId] = useState("");
   const [commands, setCommands] = useState<CustomCommand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -356,10 +359,13 @@ export default function CustomCommandsPage() {
   );
 
   async function loadGuildData(targetGuildId: string) {
+    setGuildDataLoading(true);
     const r = await fetch(`/api/bot/guild-data?guildId=${encodeURIComponent(targetGuildId)}`);
-    const j = await r.json();
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load guild roles and channels");
     setRoles(Array.isArray(j?.roles) ? j.roles : []);
     setChannels(Array.isArray(j?.channels) ? j.channels : []);
+    setGuildDataLoading(false);
   }
 
   async function loadCommands(targetGuildId: string) {
@@ -377,16 +383,21 @@ export default function CustomCommandsPage() {
   }
 
   async function loadNativeCommands(targetGuildId: string) {
-    const r = await fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}&bust=${Date.now()}`, { cache: "no-store" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load bot slash commands");
+    setNativeCommandsLoading(true);
+    try {
+      const r = await fetch(`/api/bot/native-commands?guildId=${encodeURIComponent(targetGuildId)}`);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j?.success === false) throw new Error(j?.error || "Failed to load bot slash commands");
 
-    const entries = Array.isArray(j?.registry?.entries) ? j.registry.entries : [];
-    const aggregateRoots = new Set(["control", "ops", "games", "community", "progress"]);
-    const filtered = entries
-      .filter((entry: NativeCommandEntry) => entry?.executable && !aggregateRoots.has(String(entry?.commandName || "").toLowerCase()))
-      .sort((left: NativeCommandEntry, right: NativeCommandEntry) => String(left.title || left.key).localeCompare(String(right.title || right.key)));
-    setNativeCommandEntries(filtered);
+      const entries = Array.isArray(j?.registry?.entries) ? j.registry.entries : [];
+      const aggregateRoots = new Set(["control", "ops", "games", "community", "progress"]);
+      const filtered = entries
+        .filter((entry: NativeCommandEntry) => entry?.executable && !aggregateRoots.has(String(entry?.commandName || "").toLowerCase()))
+        .sort((left: NativeCommandEntry, right: NativeCommandEntry) => String(left.title || left.key).localeCompare(String(right.title || right.key)));
+      setNativeCommandEntries(filtered);
+    } finally {
+      setNativeCommandsLoading(false);
+    }
   }
 
   const loadAll = useCallback(async (targetGuildId: string) => {
@@ -394,16 +405,18 @@ export default function CustomCommandsPage() {
     setMsg("");
     try {
       await Promise.all([
-        loadGuildData(targetGuildId),
         loadCommands(targetGuildId),
         loadStudioConfig(targetGuildId),
-        loadNativeCommands(targetGuildId),
       ]);
     } catch (e: any) {
       setMsg(e?.message || "Load failed");
     } finally {
       setLoading(false);
     }
+    void loadGuildData(targetGuildId).catch((e: any) => {
+      setGuildDataLoading(false);
+      setMsg(e?.message || "Failed to load guild roles and channels");
+    });
   }, []);
 
   async function saveStudioSettings() {
@@ -437,6 +450,15 @@ export default function CustomCommandsPage() {
     if (gid) void loadAll(gid);
     else setLoading(false);
   }, [loadAll]);
+
+  const needsNativeCommands = draft.actions.some((action) => action.type === "RUN_NATIVE_COMMAND");
+  useEffect(() => {
+    if (!guildId || !needsNativeCommands || nativeCommandsRequested.current) return;
+    nativeCommandsRequested.current = true;
+    void loadNativeCommands(guildId).catch((e: any) => {
+      setMsg(e?.message || "Failed to load bot slash commands");
+    });
+  }, [guildId, needsNativeCommands]);
 
   useEffect(() => {
     if (selectedId === "new") {
@@ -689,6 +711,7 @@ export default function CustomCommandsPage() {
       <p style={{ marginTop: 0 }}>Guild: {typeof window !== 'undefined' ? (localStorage.getItem('activeGuildName') || guildId) : guildId}</p>
       {msg ? <p style={{ color: "#ffb3b3" }}>{msg}</p> : null}
       {loading ? <p>Loading...</p> : null}
+      {!loading && guildDataLoading ? <p style={hintStyle}>Loading role and channel options...</p> : null}
 
       {!loading ? (
         <div style={{ display: "grid", gap: 14 }}>
@@ -1131,7 +1154,15 @@ export default function CustomCommandsPage() {
                       </label>
                       {(() => {
                         const selected = nativeCommandEntries.find((entry) => entry.key === a.nativeCommandKey);
-                        if (!selected) return <div style={hintStyle}>Use the bot&apos;s canonical command key and a JSON object for its options.</div>;
+                        if (!selected) {
+                          return (
+                            <div style={hintStyle}>
+                              {nativeCommandsLoading
+                                ? "Loading available bot commands..."
+                                : "Use the bot's canonical command key and a JSON object for its options."}
+                            </div>
+                          );
+                        }
                         return (
                           <div style={hintStyle}>
                             {selected.title}

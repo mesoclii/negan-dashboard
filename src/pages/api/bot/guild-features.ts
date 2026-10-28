@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(
         `${BOT_API}/guild-features?guildId=${encodeURIComponent(guildId)}`,
-        { headers: buildBotApiHeaders(req), cache: "no-store" }
+        { headers: await buildBotApiHeaders(req), cache: "no-store" }
       );
 
       const data = await readJsonSafe(upstream);
@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const upstream = await fetch(`${BOT_API}/guild-features`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(payload),
       });
 

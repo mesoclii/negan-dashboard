@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildServerBotApiHeaders, readServerBotApiJson, SERVER_BOT_API } from "@/lib/botApiServer";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { readGuildDiscoveryCache, writeGuildDiscoveryCache } from "@/lib/guildDiscoveryCache";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
@@ -16,7 +15,10 @@ export async function GET(request: NextRequest) {
   }
 
   const session = await readDashboardSessionValue(request.cookies.get(DASHBOARD_SESSION_COOKIE)?.value);
-  const actorUserId = String(session?.user?.id || MASTER_OWNER_USER_ID).trim() || MASTER_OWNER_USER_ID;
+  const actorUserId = String(session?.user?.id || "").trim();
+  if (!actorUserId) {
+    return NextResponse.json({ success: false, error: "A valid dashboard session is required." }, { status: 401 });
+  }
 
   try {
     const cached = await readGuildDiscoveryCache<{

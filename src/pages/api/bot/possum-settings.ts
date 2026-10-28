@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const upstream = await fetch(`${BOT_API}/possum-settings?guildId=${encodeURIComponent(guildId)}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
 
@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const body = req.body && typeof req.body === "object" ? { ...req.body, guildId } : { guildId };
       const upstream = await fetch(`${BOT_API}/possum-settings`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(body),
       });
 

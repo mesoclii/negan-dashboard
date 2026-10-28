@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const upstream = await fetch(`${BOT_API}/economy/grant-coins`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({
         guildId,
         targetUserId,

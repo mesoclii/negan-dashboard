@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const guildId = String(req.query.guildId || "").trim();
     const query = guildId ? `?guildId=${encodeURIComponent(guildId)}` : "";
     const upstream = await fetch(`${BOT_API}/openai-runtime${query}`, {
-      headers: buildBotApiHeaders(req),
+      headers: await buildBotApiHeaders(req),
       cache: "no-store",
     });
     const data = await readJsonSafe(upstream);

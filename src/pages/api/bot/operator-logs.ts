@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (level) query.set("level", level);
       if (limit) query.set("limit", limit);
       const upstream = await fetchBotApi(`${BOT_API}/operator-logs?${query.toString()}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
       const data = await readJsonSafe(upstream);
@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const upstream = await fetchBotApi(`${BOT_API}/operator-logs`, {
         method: "POST",
         headers: {
-          ...buildBotApiHeaders(req),
+          ...(await buildBotApiHeaders(req)),
           "content-type": "application/json",
         },
         body: JSON.stringify(req.body || {}),

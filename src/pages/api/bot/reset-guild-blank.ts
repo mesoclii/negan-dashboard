@@ -93,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const up = await fetch(`${BOT_API}/dashboard-config`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({ guildId, patch: BLANK }),
     });
     const data = await readJsonSafe(up);

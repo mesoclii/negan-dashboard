@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (engine) query.set("engine", engine);
 
       const upstream = await fetchBotApi(`${BOT_API}/engine-backup?${query.toString()}`, {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       });
       const data = await readJsonSafe(upstream);
@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST") {
       const upstream = await fetchBotApi(`${BOT_API}/engine-backup`, {
         method: "POST",
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(req.body || {}),
         cache: "no-store",
       });

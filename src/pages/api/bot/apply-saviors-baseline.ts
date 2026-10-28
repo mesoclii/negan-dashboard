@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const srcRes = await fetch(`${BOT_API}/dashboard-config?guildId=${encodeURIComponent(sourceGuildId)}`, {
-      headers: buildBotApiHeaders(req),
+      headers: await buildBotApiHeaders(req),
       cache: "no-store",
     });
     const src = await readJsonSafe(srcRes);
@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const saveRes = await fetch(`${BOT_API}/dashboard-config`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({ guildId, patch: src.config }),
     });
     const out = await readJsonSafe(saveRes);

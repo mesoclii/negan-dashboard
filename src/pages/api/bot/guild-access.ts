@@ -10,11 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const guildId = String(req.query.guildId || "").trim();
-  const userId = String(req.query.userId || readActorUserId(req) || "").trim();
+  const userId = await readActorUserId(req);
   const routePath = String(req.query.routePath || req.query.route || "").trim();
 
   if (!guildId || !userId) {
-    return res.status(400).json({ success: false, error: "guildId and userId are required" });
+    return res.status(401).json({ success: false, error: "A valid dashboard session and guildId are required" });
   }
 
   try {
@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetchBotApi(
       `${BOT_API}/guild-access?${query.toString()}`,
       {
-        headers: buildBotApiHeaders(req),
+        headers: await buildBotApiHeaders(req),
         cache: "no-store",
       }
     );

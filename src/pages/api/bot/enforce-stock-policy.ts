@@ -35,7 +35,7 @@ async function enforceGuildPolicy(req: NextApiRequest, guildId: string) {
 
   const upstream = await fetch(`${BOT_API}/guild-baseline`, {
     method: "POST",
-    headers: buildBotApiHeaders(req, { json: true }),
+    headers: await buildBotApiHeaders(req, { json: true }),
     body: JSON.stringify({ guildId, mode }),
   });
   const data = await readJsonSafe(upstream);

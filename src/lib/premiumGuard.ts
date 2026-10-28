@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { MASTER_OWNER_USER_ID, isDashboardControlOwner, isDashboardControlGuild } from "@/lib/dashboardOwner";
+import { isDashboardControlOwner, isDashboardControlGuild } from "@/lib/dashboardOwner";
+import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
 import { featureRequiresPremium, getGuildSubscriptionStatus, isDeveloperPremiumBypass } from "@/lib/subscription";
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -11,18 +12,15 @@ const FEATURE_LABELS: Record<string, string> = {
   "automation-suite": "Automation + Custom Commands Suite",
 };
 
-function readActorUserId(req: NextApiRequest) {
-  return (
-    String(req.headers["x-dashboard-user-id"] || "").trim() ||
-    String(req.body?.userId || "").trim() ||
-    String(req.query.userId || "").trim() ||
-    MASTER_OWNER_USER_ID
-  );
+async function readActorUserId(req: NextApiRequest) {
+  const session = await readDashboardSessionValue(req.cookies[DASHBOARD_SESSION_COOKIE]);
+  return String(session?.user?.id || "").trim();
 }
 
 export function mapPremiumFeatureKey(rawFeature: string) {
   const feature = String(rawFeature || "").trim().toLowerCase();
   if (!feature) return "";
+  if (feature.startsWith("security.")) return "advanced-security";
   if (["tts"].includes(feature)) return "tts";
   if (["heist"].includes(feature)) return "heist";
   if (["persona", "ai-persona-runtime"].includes(feature)) return "persona";
@@ -30,6 +28,18 @@ export function mapPremiumFeatureKey(rawFeature: string) {
   if (["advanced-security"].includes(feature)) return "advanced-security";
   if (["automation-suite"].includes(feature)) return "automation-suite";
   return feature;
+}
+
+function requiredPlanRank(featureKey: string) {
+  return ["advanced-security", "automation-suite"].includes(featureKey) ? 2 : 1;
+}
+
+function planRank(plan: unknown) {
+  const normalized = String(plan || "").trim().toLowerCase();
+  if (normalized === "pro") return 1;
+  if (normalized === "business" || normalized === "elite") return 2;
+  if (normalized === "enterprise") return 3;
+  return 0;
 }
 
 export async function requirePremiumAccess(
@@ -43,20 +53,39 @@ export async function requirePremiumAccess(
     return true;
   }
 
-  const actorUserId = readActorUserId(req);
+  const actorUserId = await readActorUserId(req);
+  if (!actorUserId) {
+    res.status(401).json({
+      success: false,
+      error: "A valid dashboard session is required.",
+    });
+    return false;
+  }
+
+  if (featureKey === "openai-platform") {
+    if (isDashboardControlOwner(actorUserId)) return true;
+    return res.status(403).json({
+      success: false,
+      premiumRequired: true,
+      featureKey,
+      error: "The OpenAI Persona Platform is reserved for bot creators.",
+    });
+  }
+
   if (isDeveloperPremiumBypass(actorUserId) || isDashboardControlOwner(actorUserId) || isDashboardControlGuild(guildId)) {
     return true;
   }
 
   const subscription = await getGuildSubscriptionStatus(guildId, actorUserId).catch(() => null);
-  if (subscription?.active) {
+  if (subscription?.active && planRank(subscription.plan) >= requiredPlanRank(featureKey)) {
     return true;
   }
 
+  const minimumPlan = requiredPlanRank(featureKey) >= 2 ? "Business" : "Pro";
   return res.status(402).json({
     success: false,
     premiumRequired: true,
     featureKey,
-    error: `${FEATURE_LABELS[featureKey] || "This feature"} requires a premium subscription for this guild.`,
+    error: `${FEATURE_LABELS[featureKey] || "This feature"} requires an active ${minimumPlan} plan for this guild.`,
   });
 }

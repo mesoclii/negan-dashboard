@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { auditDashboardEvent } from "@/lib/dashboardAudit";
 import { isWriteBlockedForGuild, stockLockError } from "@/lib/guildPolicy";
-import { BOT_API, buildBotApiHeaders, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
 import { normalizeEngineKey } from "@/lib/engineKeys";
@@ -26,6 +26,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method !== "POST") {
       return res.status(405).json({ success: false, error: "Method not allowed" });
+    }
+
+    const actorUserId = await readActorUserId(req);
+    if (!actorUserId) {
+      return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
     }
 
     const guildId = String(req.body?.guildId || "").trim();
@@ -53,12 +58,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const upstream = await fetch(`${BOT_API}/engine-runtime/action`, {
       method: "POST",
-      headers: buildBotApiHeaders(req, { json: true }),
+      headers: await buildBotApiHeaders(req, { json: true }),
       body: JSON.stringify({
         guildId,
         engine: normalizedEngine,
         action,
-        userId: String(req.body?.userId || "").trim(),
+        userId: actorUserId,
         routePath: String(req.body?.routePath || req.body?.route || "").trim(),
         payload,
       }),
@@ -66,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const json = await readJsonSafe(upstream);
     void auditDashboardEvent({
       guildId,
-      actorUserId: String(req.headers["x-dashboard-user-id"] || req.body?.userId || "").trim() || null,
+      actorUserId,
       area: "runtime_engine_action",
       action: `${normalizedEngine}:${action}`,
       severity: upstream.ok ? "info" : "error",

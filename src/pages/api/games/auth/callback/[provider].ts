@@ -5,19 +5,10 @@ import {
   fetchServerBotApi,
   readServerBotApiJson,
 } from "@/lib/botApiServer";
+import { readActorUserId } from "@/lib/botApi";
 
 function readFirst(value: string | string[] | undefined): string {
   return String(Array.isArray(value) ? value[0] : value || "").trim();
-}
-
-function readReferrerParam(req: NextApiRequest, key: string): string {
-  const referrer = readFirst(req.headers.referer as string | string[] | undefined);
-  if (!referrer) return "";
-  try {
-    return String(new URL(referrer).searchParams.get(key) || "").trim();
-  } catch {
-    return "";
-  }
 }
 
 function getRequestOrigin(req: NextApiRequest): string {
@@ -28,20 +19,8 @@ function getRequestOrigin(req: NextApiRequest): string {
   return host ? `${protocol}://${host}` : "";
 }
 
-function readActorUserId(req: NextApiRequest): string {
-  return (
-    readFirst(req.headers["x-dashboard-user-id"] as string | string[] | undefined) ||
-    readFirst(req.headers["x-user-id"] as string | string[] | undefined) ||
-    readFirst(req.query.userId as string | string[] | undefined) ||
-    readFirst(req.query.uid as string | string[] | undefined) ||
-    readReferrerParam(req, "userId") ||
-    readReferrerParam(req, "uid")
-  );
-}
-
-function fallbackPath(req: NextApiRequest) {
+function fallbackPath(req: NextApiRequest, userId: string) {
   const guildId = readFirst(req.query.guildId as string | string[] | undefined);
-  const userId = readActorUserId(req);
   const params = new URLSearchParams();
   if (guildId) params.set("guildId", guildId);
   if (userId) params.set("userId", userId);
@@ -64,11 +43,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const providerKey = readFirst((req.query.provider as string | string[] | undefined) || (req.query.providerKey as string | string[] | undefined));
   const origin = getRequestOrigin(req);
-  const fallback = fallbackPath(req);
-  const actorUserId = readActorUserId(req);
+  const actorUserId = await readActorUserId(req);
+  const fallback = fallbackPath(req, actorUserId);
 
-  if (!providerKey || !origin) {
-    return res.redirect(302, appendError(fallback, providerKey || "unknown", "Missing provider or dashboard origin."));
+  if (!providerKey || !origin || !actorUserId) {
+    return res.redirect(302, appendError(fallback, providerKey || "unknown", "A valid dashboard session, provider, and origin are required."));
   }
 
   try {

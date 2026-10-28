@@ -74,11 +74,16 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
           throw new Error(json?.error || "Failed to load subscription status.");
         }
         const developerBypass = Boolean(json?.status?.developerBypass);
-        setAllowed(Boolean(json?.status?.active || developerBypass || DEV_MODE));
+        const plan = String(json?.status?.plan || "FREE").toLowerCase();
+        const planRank = plan === "enterprise" ? 3 : plan === "business" || plan === "elite" ? 2 : plan === "pro" ? 1 : 0;
+        const minimumRank = ["advanced-security", "automation-suite"].includes(featureKey) ? 2 : 1;
+        const creatorAccess = Boolean(json?.canManagePremium);
+        const planAllowed = Boolean(json?.status?.active) && planRank >= minimumRank;
+        setAllowed(featureKey === "openai-platform" ? creatorAccess : planAllowed || developerBypass || DEV_MODE);
         setPlan(
           developerBypass || DEV_MODE
             ? "DEVELOPER ACCESS"
-            : String(json?.status?.plan || "FREE")
+            : plan.toUpperCase()
         );
       } catch (err: any) {
         setAllowed(false);
@@ -87,7 +92,7 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
         setLoading(false);
       }
     })();
-  }, [premiumEnforced]);
+  }, [featureKey, premiumEnforced]);
 
   if (loading) {
     return <div style={panel}>Checking premium access...</div>;
@@ -106,8 +111,9 @@ export default function PremiumGate({ featureKey, featureLabel, children }: Prem
         {featureLabel}
       </h1>
       <p style={{ color: "#ffb5b5", lineHeight: 1.6 }}>
-        {featureLabel} is a premium SaaS feature for public guilds. Saviors keeps its baseline behavior, but other guilds need
-        an active premium plan before this page can be configured live.
+        {featureKey === "openai-platform"
+          ? "This creator-only page is available only to bot owners."
+          : `${featureLabel} requires an active ${["advanced-security", "automation-suite"].includes(featureKey) ? "Business or Enterprise" : "Pro, Business, or Enterprise"} plan before it can be configured live.`}
       </p>
       <div style={{ color: "#ffd7a6", fontSize: 13, marginBottom: 12 }}>
         Guild: {guildId || "Not selected"} | Current Plan: {plan}

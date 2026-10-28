@@ -1,5 +1,5 @@
 import type { NextApiRequest } from "next";
-import { MASTER_OWNER_USER_ID } from "@/lib/dashboardOwner";
+import { DASHBOARD_SESSION_COOKIE, readDashboardSessionValue } from "@/lib/session";
 
 export const BOT_API = process.env.BOT_API_URL || "http://127.0.0.1:3001";
 const BOT_API_TIMEOUT_MS = Math.max(5_000, Number(process.env.BOT_API_TIMEOUT_MS || 45_000));
@@ -10,50 +10,24 @@ function readFirst(value: string | string[] | undefined): string {
   return String(Array.isArray(value) ? value[0] : value || "").trim();
 }
 
-function readBodyString(req: NextApiRequest, key: string): string {
-  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
-    return "";
-  }
-  const value = (req.body as Record<string, unknown>)[key];
-  return typeof value === "string" ? value.trim() : "";
+export async function readActorUserId(req: NextApiRequest): Promise<string> {
+  const session = await readDashboardSessionValue(req.cookies[DASHBOARD_SESSION_COOKIE]);
+  return String(session?.user?.id || "").trim();
 }
 
-function readFromReferrer(req: NextApiRequest, key: string): string {
-  const referrer = readFirst(req.headers.referer as string | string[] | undefined);
-  if (!referrer) return "";
-
-  try {
-    return String(new URL(referrer).searchParams.get(key) || "").trim();
-  } catch {
-    return "";
-  }
-}
-
-export function readActorUserId(req: NextApiRequest): string {
-  return (
-    readFirst(req.headers["x-dashboard-user-id"] as string | string[] | undefined) ||
-    readFirst(req.headers["x-user-id"] as string | string[] | undefined) ||
-    readFirst(req.query.userId as string | string[] | undefined) ||
-    readFirst(req.query.uid as string | string[] | undefined) ||
-    readBodyString(req, "userId") ||
-    readBodyString(req, "uid") ||
-    readFromReferrer(req, "userId") ||
-    readFromReferrer(req, "uid") ||
-    MASTER_OWNER_USER_ID
-  );
-}
-
-export function buildBotApiHeaders(
+export async function buildBotApiHeaders(
   req: NextApiRequest,
   options: { json?: boolean } = {}
-): Record<string, string> {
+): Promise<Record<string, string>> {
   const headers: Record<string, string> = {};
+  const userId = await readActorUserId(req);
+  if (!userId) {
+    throw new Error("A valid dashboard session is required.");
+  }
+
   if (options.json) headers["Content-Type"] = "application/json";
   if (DASHBOARD_TOKEN) headers["x-dashboard-token"] = DASHBOARD_TOKEN;
-
-  const userId = readActorUserId(req);
-  if (userId) headers["x-dashboard-user-id"] = userId;
-
+  headers["x-dashboard-user-id"] = userId;
   return headers;
 }
 

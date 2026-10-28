@@ -5,9 +5,9 @@ import {
   isWriteBlockedForGuild,
   stockLockError,
 } from "@/lib/guildPolicy";
-import { BOT_API, buildBotApiHeaders, fetchBotApi, readJsonSafe } from "@/lib/botApi";
+import { BOT_API, buildBotApiHeaders, fetchBotApi, readActorUserId, readJsonSafe } from "@/lib/botApi";
 import { enforceDashboardRateLimit, isRateLimitError } from "@/lib/rateLimiter";
-import { requirePremiumAccess, mapPremiumFeatureKey } from "@/lib/premiumGuard";
+import { requirePremiumAccess } from "@/lib/premiumGuard";
 import { deleteServerCachePrefix, readServerCache, writeServerCache } from "@/lib/serverCache";
 
 const ENGINE_CONFIG_PROXY_TTL_MS = Math.max(1_000, Number(process.env.ENGINE_CONFIG_PROXY_TTL_MS || 10_000));
@@ -46,10 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const guildId = readGuildIdFromRequest(req);
 
     if (req.method === "GET") {
+      const actorUserId = await readActorUserId(req);
+      if (!actorUserId) {
+        return res.status(401).json({ success: false, error: "A valid dashboard session is required." });
+      }
+
       const engine = String(req.query.engine || "").trim();
 
       if (!guildId) {
         return res.status(400).json({ success: false, error: "guildId is required" });
+      }
+      if (engine) {
+        const allowed = await requirePremiumAccess(req, res, guildId, engine);
+        if (allowed !== true) return allowed;
       }
 
       const query = new URLSearchParams({ guildId });
@@ -59,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       try {
         const upstream = await fetchBotApi(`${BOT_API}/engine-config?${query.toString()}`, {
-          headers: buildBotApiHeaders(req),
+          headers: await buildBotApiHeaders(req),
           cache: "no-store",
         });
 
@@ -67,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (upstream.ok && data?.success !== false) {
           writeServerCache(cacheKey, { status: upstream.status, body: data }, ENGINE_CONFIG_PROXY_TTL_MS);
         }
-        if (!upstream.ok && cached?.body) {
+        if (upstream.status >= 500 && cached?.body) {
           return res.status(cached.status || 200).json(cached.body);
         }
         return res.status(upstream.status).json(data);
@@ -90,15 +99,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const body = normalizeWriteBody(req, guildId);
       if (typeof body.engine === "string" && body.engine.trim()) {
-        const featureKey = mapPremiumFeatureKey(body.engine);
-        if (["tts", "heist", "persona", "openai-platform"].includes(featureKey)) {
-          const allowed = await requirePremiumAccess(req, res, guildId, featureKey);
-          if (!allowed) return;
-        }
+        const allowed = await requirePremiumAccess(req, res, guildId, body.engine);
+        if (allowed !== true) return allowed;
       }
       const upstream = await fetchBotApi(`${BOT_API}/engine-config`, {
         method: req.method,
-        headers: buildBotApiHeaders(req, { json: true }),
+        headers: await buildBotApiHeaders(req, { json: true }),
         body: JSON.stringify(body),
       });
 
